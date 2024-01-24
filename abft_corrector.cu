@@ -39,8 +39,8 @@ colchk_detect_correct_kernel(at::Half * dA, int64_t ldda, double E, int64_t stri
 
 __global__ void
 rowchk_detect_correct_kernel(at::Half * dA, int64_t ldda, double E, int64_t stridea,
-						     at::Half ** dA_rowchk, 	int64_t ldda_rowchk,
-						     at::Half ** dA_rowchk_r, int64_t ldda_rowchk_r){
+						     at::Half * dA_rowchk, 	int64_t ldda_rowchk,
+						     at::Half * dA_rowchk_r, int64_t ldda_rowchk_r){
     //determin the block to process
     dA = dA + blockIdx.x * stridea;
     dA_rowchk = dA_rowchk + blockIdx.x * 2;
