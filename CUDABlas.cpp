@@ -7,6 +7,8 @@
 #include <string>
 #include <cuda_runtime.h>
 #include <iostream>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include <ATen/ATen.h>
 #include <ATen/cuda/CUDABlas.h>
@@ -367,42 +369,48 @@ void bgemm<at::BFloat16>(CUDABLAS_BGEMM_ARGTYPES(at::BFloat16)) {
                                   CUBLAS_GEMM_DEFAULT_TENSOR_OP));
 }
 
-void mallocTensor(at::Half *tensor, int64_t num_batches, int64_t k){
-  int64_t size = (2*num_batches)* k;
-  cudaMalloc((void **)&tensor, size * sizeof(at::Half));
-  for(int i=0; i<size; i++){
-    tensor[i] = at::Half(0);
-  }
-}
+// void mallocTensor(at::Half *tensor, int64_t num_batches, int64_t k){
+//   int64_t size = (2*num_batches)* k;
+//   cudaError_t cudaStatus = cudaMalloc((void **)&tensor, size * sizeof(at::Half));
+//   if (cudaStatus != cudaSuccess) {
+//         fprintf(stderr, "cudaMalloc failed: %s\n", cudaGetErrorString(cudaStatus));
+//   }
+//   for(int i=0; i<size; i++){
+//     tensor[i] = at::Half(0);
+//   }
+// }
 
-void mallocChkV(at::Half *tensor, int64_t row, int64_t col){
-  size_t size = row * col * sizeof(at::Half);
-  cudaMalloc((void **)&tensor, size);
+//void mallocChkV(at::Half *tensor, int64_t row, int64_t col){
   //std::vector<at::Half> h_tensor(row * col);
-  for(int i=0; i<row; i++){
-    if(i==0){
-      for(int j=0; j<col; j++){
-        int idx = row*i + j;
-        tensor[idx] = at::Half(1);
-      }
-    }
-    else{
-      for(int j=0; j<col; j++){
-        int idx = row*i + j;
-        tensor[idx] = at::Half(j);
-      }
-    }
-  }
-}
+  // for(int i=0; i<row; i++){
+  //   if(i==0){
+  //     for(int j=0; j<col; j++){
+  //       int idx = row*i + j;
+  //       tensor[idx] = at::Half(1);
+  //     }
+  //   }
+  //   else{
+  //     for(int j=0; j<col; j++){
+  //       int idx = row*i + j;
+  //       tensor[idx] = at::Half(j);
+  //     }
+  //   }
+  // }
+//}
 
-void outputMatrix(at::Half *A, int64_t num_batches, int64_t size){
-  for(int n=0; n<num_batches; n++){
-    for(int i=0; i<size; i++){
-      int idx = n*num_batches + i;
-      std::cout << A[idx] << ", ";
+void outputMatrix(at::Half *A, int64_t num_batches, int64_t len){
+  size_t size = num_batches * (2*len) * sizeof(at::Half);
+  at::Half *tensor;
+  tensor = (at::Half *)malloc(size);
+  cudaMemcpy(tensor, A, size, cudaMemcpyDeviceToHost);
+  for(int n = 0; n < num_batches; n++){
+    for(int i = 0; i < (2*len); i++){
+      int idx = n * (2*len) + i;
+      std::cout << tensor[idx] << ", ";
     }
     std::cout << std::endl;
   }
+  free(tensor);
 }
 
 template <>
@@ -430,25 +438,46 @@ void mybgemm<at::Half>(CUDABLAS_MYBGEMM_ARGTYPES(at::Half)) {
   at::Half *dC_colchk, *dC_rowchk, *dC_colchk_r, *dC_rowchk_r;
   at::Half *chk_v;
 
-  mallocTensor(dA_colchk, num_batches, k);
-  mallocTensor(dA_colchk_r, num_batches, k);
-  
+  size_t size = (2*num_batches) * k * sizeof(at::Half);
+
+  cudaMalloc((void**)&dA_colchk, size);
+  cudaMalloc((void**)&dA_colchk_r, size);
   std::cout << "  finish dA." << std::endl;
   
-  mallocTensor(dB_rowchk, num_batches, k);
-  mallocTensor(dB_rowchk_r, num_batches, k);
-
+  cudaMalloc((void**)&dB_rowchk, size);
+  cudaMalloc((void**)&dB_rowchk_r, size);
   std::cout << "  finish dB." << std::endl;
 
-  mallocTensor(dC_colchk, num_batches, k);
-  mallocTensor(dC_colchk_r, num_batches, k);
-  mallocTensor(dC_rowchk, num_batches, k);
-  mallocTensor(dC_rowchk_r, num_batches, k);
-
+  cudaMalloc((void**)&dC_colchk, size);
+  cudaMalloc((void**)&dC_colchk_r, size);
+  cudaMalloc((void**)&dC_rowchk, size);
+  cudaMalloc((void**)&dC_rowchk_r, size);
   std::cout << "  finish dC." << std::endl;
 
-  mallocChkV(chk_v, 2, k);
-
+  int64_t len = (m > n)? m : n;
+  size = 2 * len * sizeof(at::Half);
+  cudaMalloc((void**)&chk_v, size);
+  std::cout << "  assign values to chk_v." << std::endl;
+  at::Half *h_matrix;
+  h_matrix = (at::Half *)malloc(size);
+  int idx = 0;
+  for (int i = 0; i < 2; ++i) {
+    if(i == 0){
+      for(int z = 0; z < len; ++z){
+        idx = i*len + z;
+        h_matrix[idx] = at::Half(1);
+      }
+    }
+    else{
+      for(int j = 0; j < len; ++j) {
+        // Initialize with your values or read from user input or a file
+        idx = i*len + j;
+        h_matrix[idx] = at::Half(j);
+      }
+    }
+  }
+  cudaMemcpy(chk_v, h_matrix, size, cudaMemcpyHostToDevice);
+  outputMatrix(chk_v, 1, len);
   std::cout << "  finish chk_v." << std::endl;
 
   bool COL_FT = true;
@@ -497,10 +526,37 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
   cudaStreamCreate(&stream1);
   cublasSetStream(handle, stream1);
 
-  cublasOperation_t transA = _cublasOpFromChar(transa);
-  cublasOperation_t transB = _cublasOpFromChar(transb);
-  float falpha = alpha;
-  float fbeta = beta;
+  cublasOperation_t transA = CUBLAS_OP_N;
+  cublasOperation_t transB = CUBLAS_OP_N;
+
+  float falpha = at::Half(1);
+  float fbeta = at::Half(0);
+  // get the col_chk and row_chk of A and B
+  std::cout << "  Get dA_colchk: " << std::endl;
+  cublasGemmStridedBatchedEx(
+    handle, transA, transB, 2, k, m,
+    (void*)(&falpha), chk_v, CUDA_R_16F, ld_chk_v, 0,
+    dA, CUDA_R_16F, ldda, stridea, (void*)(&fbeta),
+    dA_colchk, CUDA_R_16F, ldda_colchk, (2*k),
+    num_batches, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+  std::cout << "Output dA_colchk: " << std::endl;
+  outputMatrix(dA_colchk, num_batches, k);
+  
+  std::cout << "  Get dB_rowchk: " << std::endl;
+  transB = CUBLAS_OP_T;
+  cublasGemmStridedBatchedEx(
+    handle, transA, transB, k, 2, n,
+    (void*)(&falpha), dB, CUDA_R_16F, lddb, strideb,
+    chk_v, CUDA_R_16F, ld_chk_v, 0, (void*)(&beta),
+    dB_rowchk, CUDA_R_16F, lddb_rowchk, (2*k),
+    num_batches, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+  std::cout << "Output dB_colchk: " << std::endl;
+  outputMatrix(dB_rowchk, num_batches, n);
+
+  falpha = alpha;
+  fbeta = beta;
+  transA = _cublasOpFromChar(transa);
+  transB = _cublasOpFromChar(transb);
 
   // number of row and col of B stored in memory(no trans operation)
   //int64_t mem_row = 0;
@@ -566,7 +622,7 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
 
   // --begin-- //
   // calculate check-sum
-  std::cout << "  begin." << std::endl;
+  std::cout << "  Begin." << std::endl;
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
@@ -593,7 +649,7 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
   if(COL_FT){
     std::cout << "  COL_FT" << std::endl;
     if (transA == CUBLAS_OP_N) {
-      std::cout << "dA_colchk * dB = dC_colchk" << std::endl;
+      std::cout << "  dA_colchk * dB = dC_colchk" << std::endl;
       cublasGemmStridedBatchedEx(
           //handle, transA, transB, (m/nb)*2, n, k,
           handle, transA, transB, 2, n, k,
@@ -602,7 +658,8 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
           dC_colchk, CUDA_R_16F, lddc_colchk, k*2,
           num_batches, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
     }
-    outputMatrix(dcolchk, num_batches, n);
+    std::cout << "Output dC_colchk: " << std::endl;
+    outputMatrix(dC_colchk, num_batches, n);
   }
   if (DEBUG_GEMM) {
       cudaEventRecord(stop, stream1);
@@ -615,7 +672,7 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
   if (ROW_FT) {
       std::cout << "  ROW_FT" << std::endl;
       if (transB == CUBLAS_OP_N) {
-        std::cout << "dA * dB_rowchk = dC_rowlchk" << std::endl;
+        std::cout << "  dA * dB_rowchk = dC_rowlchk" << std::endl;
         //we can further work on this to support trans A.
         cublasGemmStridedBatchedEx(
           //handle, transA, transB, m, (n/nb)*2, k,
@@ -625,7 +682,8 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
           dC_rowchk, CUDA_R_16F, lddc_rowchk, n*2,
           num_batches, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
       }
-      outputMatrix(dC_rowchk,num_batches,m);
+      std::cout << "Output dC_rowchk: " << std::endl;
+      outputMatrix(dC_rowchk,num_batches, m);
   }
 
   if (DEBUG_GEMM) {
