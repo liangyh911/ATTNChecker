@@ -173,7 +173,7 @@ void mybgemm<at::Half>(CUDABLAS_MYBGEMM_ARGTYPES(at::Half));
     Dtype *dB_rowchk_r, int64_t lddb_rowchk_r,                                               \
     Dtype *dC_colchk, int64_t lddc_colchk, Dtype *dC_rowchk, int64_t lddc_rowchk,           \
     Dtype *dC_colchk_r, int64_t lddc_colchk_r, Dtype *dC_rowchk_r, int64_t lddc_rowchk_r,   \
-    Dtype *chk_v, int64_t ld_chk_v,                                                        \
+    Dtype *chk_v_a, Dtype *chk_v_b, int64_t ld_chk_v,                                                        \
     int64_t num_batches,                                                                    \
     bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER
 template <typename Dtype>
