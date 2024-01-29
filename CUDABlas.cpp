@@ -396,7 +396,7 @@ void outputMatrix(at::Half *A, int64_t ld, int64_t stride, int64_t num_batches, 
     std::cout << "[ " << std::endl;
     for(int m = 0; m < row; m++){
       for(int n = 0; n < col; n++){
-        std::cout << tensor[i*stride + m*row + n] << ", ";
+        std::cout << tensor[i*stride + n*ld + m] << ", ";
       }
       std::cout << std::endl;
     }
@@ -413,12 +413,14 @@ void mybgemm<at::Half>(CUDABLAS_MYBGEMM_ARGTYPES(at::Half)) {
   at::Half *dB_ = const_cast<at::Half*>(dB);
 
   std::cout << "_A:" << std::endl;
-  outputMatrix(dA_, ldda, stridea, num_batches, m, k);
-  std::cout << "stridea: " << stridea  << "; lda" << ldda << std::endl;
+  outputMatrix(dA_, ldda, stridea, num_batches, k, n);
+  std::cout << "stridea: " << stridea  << "; lda: " << ldda << std::endl;
   
   std::cout << "_B: " << std::endl;
-  outputMatrix(dB_, lddb, strideb, num_batches, k, n);
-  std::cout << "strideb: " << strideb << "; ldb" << lddb << std::endl;
+  outputMatrix(dB_, lddb, strideb, num_batches, m, k);
+  std::cout << "strideb: " << strideb << "; ldb: " << lddb << std::endl;;
+
+  std::cout << "m: " << m << "; n: " << n << "; k: " << k << std::endl;
 
   std::cout << "leading dimension." << std::endl;
 
@@ -428,8 +430,8 @@ void mybgemm<at::Half>(CUDABLAS_MYBGEMM_ARGTYPES(at::Half)) {
   int64_t lddb_rowchk_r = at::Half(k);
   int64_t lddc_colchk = at::Half(2);
   int64_t lddc_colchk_r = at::Half(2);
-  int64_t lddc_rowchk = at::Half(k);
-  int64_t lddc_rowchk_r = at::Half(k);
+  int64_t lddc_rowchk = at::Half(m);
+  int64_t lddc_rowchk_r = at::Half(m);
   int64_t ld_chk_v = at::Half(2);
 
   std::cout << "alloc chk vectors" << std::endl;
@@ -442,24 +444,32 @@ void mybgemm<at::Half>(CUDABLAS_MYBGEMM_ARGTYPES(at::Half)) {
   size_t size = (2*num_batches) * k * sizeof(at::Half);
 
   cudaMalloc((void**)&dA_colchk, size);
+  cudaMemset(dA_colchk, at::Half(114), size);
   cudaMalloc((void**)&dA_colchk_r, size);
+  cudaMemset(dA_colchk_r, at::Half(114), size);
   std::cout << "  finish dA." << std::endl;
   
   cudaMalloc((void**)&dB_rowchk, size);
+  cudaMemset(dB_rowchk, at::Half(114), size);
   cudaMalloc((void**)&dB_rowchk_r, size);
+  cudaMemset(dB_rowchk_r, at::Half(114), size);
   std::cout << "  finish dB." << std::endl;
 
   cudaMalloc((void**)&dC_colchk, size);
+  cudaMemset(dC_colchk, at::Half(114), size);
   cudaMalloc((void**)&dC_colchk_r, size);
+  cudaMemset(dC_colchk_r, at::Half(114), size);
   cudaMalloc((void**)&dC_rowchk, size);
+  cudaMemset(dC_rowchk, at::Half(114), size);
   cudaMalloc((void**)&dC_rowchk_r, size);
+  cudaMemset(dC_rowchk_r, at::Half(114), size);
   std::cout << "  finish dC." << std::endl;
 
   //int64_t len = (m > n)? m : n;
   int64_t len = m;
   size = 2 * len * sizeof(at::Half);
   cudaMalloc((void**)&chk_v_a, size);
-  std::cout << "  assign values to chk_v." << std::endl;
+  std::cout << "  assign values to chk_v_a." << std::endl;
   at::Half *h_matrix;
   h_matrix = (at::Half *)malloc(size);
   int idx = 0;
@@ -475,7 +485,7 @@ void mybgemm<at::Half>(CUDABLAS_MYBGEMM_ARGTYPES(at::Half)) {
   len = n;
   size = 2 * len * sizeof(at::Half);
   cudaMalloc((void**)&chk_v_b, size);
-  std::cout << "  assign values to chk_v." << std::endl;
+  std::cout << "  assign values to chk_v_b." << std::endl;
   h_matrix = (at::Half *)malloc(size);
   idx = 0;
   for(int i = 0; i < len; i++){
@@ -543,6 +553,8 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
   float falpha = alpha;
   float fbeta = beta;
   std::cout << "alpha: " << falpha << "; beta: " << fbeta << std::endl;
+  std::cout << "transa: " << transa << "; transb: " << transb << std::endl;
+
   // get the col_chk and row_chk of A and B
   std::cout << "  Get dA_colchk: " << std::endl;
   cublasGemmStridedBatchedEx(
@@ -551,7 +563,7 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
     dA, CUDA_R_16F, ldda, stridea, (void*)(&fbeta),
     dA_colchk, CUDA_R_16F, ldda_colchk, (2*k),
     num_batches, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-  std::cout << "Output dA_colchk: " << std::endl;
+  std::cout << "  Output dA_colchk: " << std::endl;
   outputMatrixChk(dA_colchk, ldda_colchk, (2*k), num_batches, 2, k);
   
   std::cout << "  Get dB_rowchk: " << std::endl;
@@ -562,7 +574,7 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
     chk_v_b, CUDA_R_16F, ld_chk_v, 0, (void*)(&beta),
     dB_rowchk, CUDA_R_16F, lddb_rowchk, (2*k),
     num_batches, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-  std::cout << "Output dB_rowchk: " << std::endl;
+  std::cout << " Output dB_rowchk: " << std::endl;
   outputMatrixChk(dB_rowchk, lddb_rowchk, (2*k), num_batches, k, 2);
 
   // falpha = alpha;
@@ -692,7 +704,7 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
           //handle, transA, transB, m, (n/nb)*2, k,
           handle, transA, transB, m, 2, k,
           (void*)(&falpha), dA, CUDA_R_16F, ldda, stridea,
-          dB_rowchk, CUDA_R_16F, lddb_rowchk, n*2, (void*)(&fbeta),
+          dB_rowchk, CUDA_R_16F, lddb_rowchk, k*2, (void*)(&fbeta),
           dC_rowchk, CUDA_R_16F, lddc_rowchk, m*2,
           num_batches, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
       }
