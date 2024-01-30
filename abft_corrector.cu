@@ -1,17 +1,23 @@
+#include <stdio.h>
 #include <cstdint>
 #include <ATen/ATen.h>
 #include <cuda_runtime.h>
 
 __global__ void
 colchk_detect_correct_kernel(at::Half * dA, int64_t ldda, double E, int64_t stridea,
-						     at::Half * dA_colchk, 	int64_t ldda_colchk,
-						     at::Half * dA_colchk_r, int64_t ldda_colchk_r){
-    //determin the block to process
+						     at::Half * dA_colchk, 	int64_t ldda_colchk,	int64_t stride_colchk,
+						     at::Half * dA_colchk_r, int64_t ldda_colchk_r,	int64_t stride_colchk_r){
+    printf("col_chk kernel func. \n");
+	//determin the block to process
+	printf("determin the block to process. \n");
     dA = dA + blockIdx.x * stridea;
-    dA_colchk   = dA_colchk   + blockIdx.x * 2;
-    dA_colchk_r = dA_colchk_r + blockIdx.x * 2;
+    //dA_colchk   = dA_colchk + blockIdx.x * 2;
+	dA_colchk = dA_colchk + blockIdx.x * stride_colchk;
+    //dA_colchk_r = dA_colchk_r + blockIdx.x * 2;
+	dA_colchk_r = dA_colchk_r + blockIdx.x * stride_colchk_r;
     
     //determine the specific colum to process
+	printf("determin the specific colum to process. \n");
     dA = dA + threadIdx.x * ldda;
     dA_colchk   = dA_colchk   + threadIdx.x * ldda_colchk;
     dA_colchk_r = dA_colchk_r + threadIdx.x * ldda_colchk_r;
@@ -20,6 +26,7 @@ colchk_detect_correct_kernel(at::Half * dA, int64_t ldda, double E, int64_t stri
     double d2 = (*(dA_colchk + 1)) - (*(dA_colchk_r + 1));
 	
     //error detected
+	printf("error detected. \n");
     if(fabs(d1) > E) {
     	//locate the error
 		int loc = round(d2 / d1) - 1;
@@ -39,14 +46,17 @@ colchk_detect_correct_kernel(at::Half * dA, int64_t ldda, double E, int64_t stri
 
 __global__ void
 rowchk_detect_correct_kernel(at::Half * dA, int64_t ldda, double E, int64_t stridea,
-						     at::Half * dA_rowchk, 	int64_t ldda_rowchk,
-						     at::Half * dA_rowchk_r, int64_t ldda_rowchk_r){
-    //determin the block to process
+						     at::Half * dA_rowchk, 	int64_t ldda_rowchk,	int64_t stride_rowchk,
+						     at::Half * dA_rowchk_r, int64_t ldda_rowchk_r,	int64_t stride_rowchk_r){
+    printf("row_chk kernel func. \n");
+	//determin the block to process
+	printf("determin the block to process. \n");
     dA = dA + blockIdx.x * stridea;
-    dA_rowchk = dA_rowchk + blockIdx.x * 2;
-    dA_rowchk_r = dA_rowchk_r + blockIdx.x * 2;
+    dA_rowchk = dA_rowchk + blockIdx.x * stride_rowchk;
+    dA_rowchk_r = dA_rowchk_r + blockIdx.x * stride_rowchk_r;
         
     //determine the specific colum to process
+	printf("determin the specific colum to process. \n");
     dA = dA + threadIdx.x * ldda;
     dA_rowchk   = dA_rowchk   + threadIdx.x;
     dA_rowchk_r = dA_rowchk_r + threadIdx.x;
@@ -55,6 +65,7 @@ rowchk_detect_correct_kernel(at::Half * dA, int64_t ldda, double E, int64_t stri
     double d2 = (*(dA_rowchk + ldda_rowchk)) - (*(dA_rowchk_r + ldda_rowchk_r));
 	
     //error detected
+	printf("error detected. \n");
     if(fabs(d1) > E) {
 		//locate the error
 		int loc = round(d2 / d1) - 1;
@@ -81,8 +92,8 @@ void colchk_detect_correct(at::Half * dA, int64_t ldda, int64_t m, int64_t n, in
 	//error threshold 
 	double E = 1e-3;
 	colchk_detect_correct_kernel<<<dim3(num_batches), dim3(n), 0, stream>>>(dA, ldda, E, stridea,
-											dA_colchk,		ldda_colchk,
-											dA_colchk_r, 	ldda_colchk_r);
+											dA_colchk,		ldda_colchk,	(2*n),
+											dA_colchk_r, 	ldda_colchk_r,	(2*n));
 }
 
 void rowchk_detect_correct(at::Half * dA, int64_t ldda, int64_t m, int64_t n, int64_t stridea,
@@ -95,6 +106,6 @@ void rowchk_detect_correct(at::Half * dA, int64_t ldda, int64_t m, int64_t n, in
 	
 	double E = 1e-3;
 	rowchk_detect_correct_kernel<<<dim3(num_batches), dim3(m), 0, stream>>>(dA, ldda, E, stridea,
-											dA_rowchk, ldda_rowchk,
-											dA_rowchk_r, ldda_rowchk_r);
+											dA_rowchk, ldda_rowchk,		(2*m),
+											dA_rowchk_r, ldda_rowchk_r,	(2*m));
 }
