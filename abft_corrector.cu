@@ -7,7 +7,7 @@ __global__ void
 colchk_detect_correct_kernel(at::Half * dA, int64_t ldda, double E, int64_t stridea,
 						     at::Half * dA_colchk, 	int64_t ldda_colchk,	int64_t stride_colchk,
 						     at::Half * dA_colchk_r, int64_t ldda_colchk_r,	int64_t stride_colchk_r){
-    printf("col_chk kernel func. \n");
+    //printf("col_chk kernel func. \n");
 	//determin the block to process
 	printf("determin the block to process. \n");
     dA = dA + blockIdx.x * stridea;
@@ -55,9 +55,9 @@ rowchk_detect_correct_kernel(at::Half * dA, int64_t ldda, double E, int64_t stri
     dA_rowchk = dA_rowchk + blockIdx.x * stride_rowchk;
     dA_rowchk_r = dA_rowchk_r + blockIdx.x * stride_rowchk_r;
         
-    //determine the specific colum to process
-	printf("determin the specific colum to process. \n");
-    dA = dA + threadIdx.x * ldda;
+    //determine the specific row to process
+	printf("determin the specific row to process. \n");
+	dA = dA + threadIdx.x;
     dA_rowchk   = dA_rowchk   + threadIdx.x;
     dA_rowchk_r = dA_rowchk_r + threadIdx.x;
 	

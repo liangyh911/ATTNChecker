@@ -443,25 +443,28 @@ void mybgemm<at::Half>(CUDABLAS_MYBGEMM_ARGTYPES(at::Half)) {
   size_t size = (2*num_batches) * k * sizeof(at::Half);
 
   cudaMalloc((void**)&dA_colchk, size);
-  cudaMemset(dA_colchk, at::Half(114), size);
+  cudaMemset(dA_colchk, at::Half(0), size);
   cudaMalloc((void**)&dA_colchk_r, size);
-  cudaMemset(dA_colchk_r, at::Half(114), size);
+  cudaMemset(dA_colchk_r, at::Half(0), size);
   //std::cout << "  finish dA." << std::endl;
   
   cudaMalloc((void**)&dB_rowchk, size);
-  cudaMemset(dB_rowchk, at::Half(114), size);
+  cudaMemset(dB_rowchk, at::Half(0), size);
   cudaMalloc((void**)&dB_rowchk_r, size);
-  cudaMemset(dB_rowchk_r, at::Half(114), size);
+  cudaMemset(dB_rowchk_r, at::Half(0), size);
   //std::cout << "  finish dB." << std::endl;
 
+  size = (2*num_batches) * n * sizeof(at::Half);
   cudaMalloc((void**)&dC_colchk, size);
-  cudaMemset(dC_colchk, at::Half(114), size);
+  cudaMemset(dC_colchk, at::Half(0), size);
   cudaMalloc((void**)&dC_colchk_r, size);
-  cudaMemset(dC_colchk_r, at::Half(114), size);
+  cudaMemset(dC_colchk_r, at::Half(0), size);
+  
+  size = (2*num_batches) * m * sizeof(at::Half);
   cudaMalloc((void**)&dC_rowchk, size);
-  cudaMemset(dC_rowchk, at::Half(114), size);
+  cudaMemset(dC_rowchk, at::Half(0), size);
   cudaMalloc((void**)&dC_rowchk_r, size);
-  cudaMemset(dC_rowchk_r, at::Half(114), size);
+  cudaMemset(dC_rowchk_r, at::Half(0), size);
   //std::cout << "  finish dC." << std::endl;
 
   //int64_t len = (m > n)? m : n;
@@ -721,51 +724,51 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
     printf("gemm-row-ft: %f (%f)(%f)\n", t1, t1/t, (double)m*2*k*2/t1/1e6);
   }
 
-  //check check sum
-  // if (DEBUG_GEMM) cudaEventRecord(start, stream1);
-  // if (COL_FT && CHECK_AFTER) {
-  //   mem_row = m;
-  //   mem_col = n;
-  //   if (DEBUG) printf("dgemm-after-check-C-col\n");
-  //   abft_checker_colchk(transa, transb,
-  //                           dC, lddc, mem_row, mem_col, stridec,
-  //                           dC_colchk,   lddc_colchk,
-  //                           dC_colchk_r, lddc_colchk_r,
-  //                           chk_v,       ld_chk_v,
-  //                           DEBUG,
-  //                           stream1,
-  //                           num_batches);
-  // }
+  // --- check check-sum ---
+  if (DEBUG_GEMM) cudaEventRecord(start, stream1);
+  if (COL_FT && CHECK_AFTER) {
+    mem_row = m;
+    mem_col = n;
+    if (DEBUG) printf("dgemm-after-check-C-col\n");
+    abft_checker_colchk(transa, transb,
+                            dC, lddc, mem_row, mem_col, stridec,
+                            dC_colchk,   lddc_colchk,
+                            dC_colchk_r, lddc_colchk_r,
+                            chk_v,       ld_chk_v,
+                            DEBUG,
+                            stream1,
+                            num_batches);
+  }
 
-  // if (DEBUG_GEMM) {
-  //   cudaEventRecord(stop, stream1);
-  //   cudaEventSynchronize(stop);
-  //   cudaEventElapsedTime(&t1, start, stop);
-  //   printf("gemm-col-chk: %f (%f) (%f)\n", t1, t1/t, (num_batches)*2*n*m*2/t1/1e6);
-  // }
+  if (DEBUG_GEMM) {
+    cudaEventRecord(stop, stream1);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&t1, start, stop);
+    printf("gemm-col-chk: %f (%f) (%f)\n", t1, t1/t, (num_batches)*2*n*m*2/t1/1e6);
+  }
 
-  // if (DEBUG_GEMM) cudaEventRecord(start, stream1);
-  // if (ROW_FT && CHECK_AFTER) {
-  //   mem_row = m;
-  //   mem_col = n;
-  //   if (DEBUG) printf("dgemm-after-check-C-row\n");
-  //   abft_checker_rowchk(transa, transb,
-  //                           dC, lddc, mem_row, mem_col, stridec,
-  //                           dC_rowchk,   lddc_rowchk,
-  //                           dC_rowchk_r, lddc_rowchk_r,
-  //                           chk_v,       ld_chk_v,
-  //                           DEBUG,
-  //                           stream1,
-  //                           num_batches);
+  if (DEBUG_GEMM) cudaEventRecord(start, stream1);
+  if (ROW_FT && CHECK_AFTER) {
+    mem_row = m;
+    mem_col = n;
+    if (DEBUG) printf("dgemm-after-check-C-row\n");
+    abft_checker_rowchk(transa, transb,
+                            dC, lddc, mem_row, mem_col, stridec,
+                            dC_rowchk,   lddc_rowchk,
+                            dC_rowchk_r, lddc_rowchk_r,
+                            chk_v,       ld_chk_v,
+                            DEBUG,
+                            stream1,
+                            num_batches);
 
-  // }
+  }
 
-  // if (DEBUG_GEMM) {
-  //     cudaEventRecord(stop, stream1);
-  //     cudaEventSynchronize(stop);
-  //     cudaEventElapsedTime(&t1, start, stop);
-  //     printf("gemm-row-chk: %f (%f)(%f)\n", t1, t1/t, (num_batches)*m*2*n*2/t1/1e6);
-  // }
+  if (DEBUG_GEMM) {
+      cudaEventRecord(stop, stream1);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&t1, start, stop);
+      printf("gemm-row-chk: %f (%f)(%f)\n", t1, t1/t, (num_batches)*m*2*n*2/t1/1e6);
+  }
 }
 
 template <>
