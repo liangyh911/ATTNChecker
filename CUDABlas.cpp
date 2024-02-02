@@ -471,7 +471,7 @@ void mybgemm<at::Half>(CUDABLAS_MYBGEMM_ARGTYPES(at::Half)) {
   int64_t len = m;
   size = 2 * len * sizeof(at::Half);
   cudaMalloc((void**)&chk_v_a, size);
-  std::cout << "  assign values to chk_v_a." << std::endl;
+  // std::cout << "  assign values to chk_v_a." << std::endl;
   at::Half *h_matrix;
   h_matrix = (at::Half *)malloc(size);
   int idx = 0;
@@ -481,13 +481,13 @@ void mybgemm<at::Half>(CUDABLAS_MYBGEMM_ARGTYPES(at::Half)) {
     h_matrix[idx+1] = at::Half(i+1);
   }
   cudaMemcpy(chk_v_a, h_matrix, size, cudaMemcpyHostToDevice);
-  outputMatrixChk(chk_v_a, ld_chk_v, 0, 1, 2, len);
+  // outputMatrixChk(chk_v_a, ld_chk_v, 0, 1, 2, len);
   free(h_matrix);
 
   len = n;
   size = 2 * len * sizeof(at::Half);
   cudaMalloc((void**)&chk_v_b, size);
-  std::cout << "  assign values to chk_v_b." << std::endl;
+  // std::cout << "  assign values to chk_v_b." << std::endl;
   h_matrix = (at::Half *)malloc(size);
   idx = 0;
   for(int i = 0; i < len; i++){
@@ -496,7 +496,7 @@ void mybgemm<at::Half>(CUDABLAS_MYBGEMM_ARGTYPES(at::Half)) {
     h_matrix[idx+1] = at::Half(i+1);
   }
   cudaMemcpy(chk_v_b, h_matrix, size, cudaMemcpyHostToDevice);
-  outputMatrixChk(chk_v_b, ld_chk_v, 0, 1, 2, len);
+  // outputMatrixChk(chk_v_b, ld_chk_v, 0, 1, 2, len);
   free(h_matrix);
   //std::cout << "  finish chk_v." << std::endl;
 
@@ -554,11 +554,11 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
   float fbeta = at::opmath_type<at::Half>(0);
   // float falpha = alpha;
   // float fbeta = beta;
-  std::cout << "alpha: " << falpha << "; beta: " << fbeta << std::endl;
+  // std::cout << "alpha: " << falpha << "; beta: " << fbeta << std::endl;
   // std::cout << "transa: " << transa << "; transb: " << transb << std::endl;
 
   // get the col_chk and row_chk of A and B
-  std::cout << "  Get dA_colchk: " << std::endl;
+  // std::cout << "  Get dA_colchk: " << std::endl;
   cublasGemmStridedBatchedEx(
     handle, transA, transB, 2, k, m,
     (void*)(&falpha), chk_v_a, CUDA_R_16F, ld_chk_v, 0,
@@ -568,7 +568,7 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
   std::cout << "  Output dA_colchk: " << std::endl;
   outputMatrixChk(dA_colchk, ldda_colchk, (2*k), num_batches, 2, k);
   
-  std::cout << "  Get dB_rowchk: " << std::endl;
+  //std::cout << "  Get dB_rowchk: " << std::endl;
   transB = CUBLAS_OP_T;
   cublasGemmStridedBatchedEx(
     handle, transA, transB, k, 2, n,
@@ -588,7 +588,7 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
   int64_t mem_row = 0;
 	int64_t mem_col = 0;
 
-  // check before beginning
+  // --check before beginning-- //
   std::cout << "-----Check Before Beginning------" << std::endl;
   if (COL_FT && CHECK_BEFORE) {
 		// number of row and col of A stored in memory(no trans operation)
@@ -596,7 +596,7 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
 			mem_row = m;
 			mem_col = k;
 			if (DEBUG) printf("abftgemm-before-check-A-col\n");
-      abft_checker_colchk(transa, transb,
+      abft_checker_colchk(handle, transa, transb,
                           dA, ldda, mem_row, mem_col, stridea,
                           dA_colchk,   ldda_colchk,
                           dA_colchk_r, ldda_colchk_r,
@@ -608,7 +608,7 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
 		mem_row = m;
 		mem_col = n;
 		if (DEBUG) printf("abftgemm-before-check-C-col\n");
-		abft_checker_colchk(transa, transb,
+		abft_checker_colchk(handle, transa, transb,
                             dC, lddc, mem_row, mem_col, stridec,
                             dC_colchk,   lddc_colchk,
                             dC_colchk_r, lddc_colchk_r,
@@ -624,9 +624,7 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
 			mem_row = k;
 			mem_col = n;
 			if (DEBUG) printf("dgemm-before-check-B-row\n");
-      //想办法把chk-v-b搞成竖着的（row=ld=n,col=2）
-      //transb = "T";
-			abft_checker_rowchk(transa, transb,
+			abft_checker_rowchk(handle, transa, transb,
                               dB, lddb, mem_row, mem_col, strideb,
 	                            dB_rowchk,   lddb_rowchk,
 	                            dB_rowchk_r, lddb_rowchk_r,
@@ -639,7 +637,7 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
 		mem_row = m;
 		mem_col = n;
 		if (DEBUG) printf("dgemm-before-check-C-row\n");
-		abft_checker_rowchk(transa, transb,
+		abft_checker_rowchk(handle, transa, transb,
                             dC, lddc, mem_row, mem_col, stridec,
                             dC_rowchk,   lddc_rowchk,
                             dC_rowchk_r, lddc_rowchk_r,
@@ -666,8 +664,8 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
         dB, CUDA_R_16F, lddb, strideb, (void*)(&fbeta),
         dC, CUDA_R_16F, lddc, stridec,
         num_batches, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-    std::cout << "Output dC: " << std::endl;
-    outputMatrix(dC, lddc, stridec, num_batches, m, n);
+    // std::cout << "Output dC: " << std::endl;
+    // outputMatrix(dC, lddc, stridec, num_batches, m, n);
   
   if (DEBUG_GEMM) {
     cudaEventRecord(stop, stream1);
@@ -678,7 +676,7 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
 
   if (DEBUG_GEMM) cudaEventRecord(start, stream1);
   if(COL_FT){
-    std::cout << "  COL_FT" << std::endl;
+    //std::cout << "  COL_FT" << std::endl;
     if (transA == CUBLAS_OP_N) {
       std::cout << "  dA_colchk * dB = dC_colchk" << std::endl;
       cublasGemmStridedBatchedEx(
@@ -701,7 +699,7 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
 
   if (DEBUG_GEMM) cudaEventRecord(start, stream1);
   if (ROW_FT) {
-      std::cout << "  ROW_FT" << std::endl;
+      //std::cout << "  ROW_FT" << std::endl;
       if (transB == CUBLAS_OP_N) {
         std::cout << "  dA * dB_rowchk = dC_rowlchk" << std::endl;
         //we can further work on this to support trans A.
@@ -724,17 +722,18 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
     printf("gemm-row-ft: %f (%f)(%f)\n", t1, t1/t, (double)m*2*k*2/t1/1e6);
   }
 
-  // --- check check-sum ---
+  // --- check check-sum of C---//
+  std::cout << "------Check check-sum-------" << std::endl;
   if (DEBUG_GEMM) cudaEventRecord(start, stream1);
   if (COL_FT && CHECK_AFTER) {
     mem_row = m;
     mem_col = n;
     if (DEBUG) printf("dgemm-after-check-C-col\n");
-    abft_checker_colchk(transa, transb,
+    abft_checker_colchk(handle, transa, transb,
                             dC, lddc, mem_row, mem_col, stridec,
                             dC_colchk,   lddc_colchk,
                             dC_colchk_r, lddc_colchk_r,
-                            chk_v,       ld_chk_v,
+                            chk_v_a,       ld_chk_v,
                             DEBUG,
                             stream1,
                             num_batches);
@@ -752,11 +751,11 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
     mem_row = m;
     mem_col = n;
     if (DEBUG) printf("dgemm-after-check-C-row\n");
-    abft_checker_rowchk(transa, transb,
+    abft_checker_rowchk(handle, transa, transb,
                             dC, lddc, mem_row, mem_col, stridec,
                             dC_rowchk,   lddc_rowchk,
                             dC_rowchk_r, lddc_rowchk_r,
-                            chk_v,       ld_chk_v,
+                            chk_v_b,       ld_chk_v,
                             DEBUG,
                             stream1,
                             num_batches);

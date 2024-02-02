@@ -23,7 +23,7 @@ def compute_metrics(eval_preds):
     predictions = np.argmax(logits, axis=-1)
     return metric.compute(predictions=predictions, references=labels)
 
-training_args = TrainingArguments("test-trainer", evaluation_strategy="epoch", num_train_epochs=1, fp16=True)
+training_args = TrainingArguments("test-trainer", evaluation_strategy="epoch", num_train_epochs=1, fp16=False)
 model = AutoModelForSequenceClassification.from_pretrained(checkpoint, num_labels=2)
 
 trainer = Trainer(
