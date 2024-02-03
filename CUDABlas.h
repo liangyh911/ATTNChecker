@@ -160,6 +160,8 @@ inline void mybgemm(CUDABLAS_MYBGEMM_ARGTYPES(Dtype)) {
   AT_ERROR("at::cuda::blas::mybgemm: not implemented for ", typeid(Dtype).name());
 }
 template <>
+void mybgemm<float>(CUDABLAS_MYBGEMM_ARGTYPES(float));
+template <>
 void mybgemm<at::Half>(CUDABLAS_MYBGEMM_ARGTYPES(at::Half));
 
 #define CUDABLAS_ABFTGEMM_ARGTYPES(Dtype)                                                       \
@@ -180,6 +182,8 @@ template <typename Dtype>
 inline void abftgemm(CUDABLAS_ABFTGEMM_ARGTYPES(Dtype)) {
   AT_ERROR("at::cuda::blas::abftgemm: not implemented for ", typeid(Dtype).name());
 }
+template <>
+void abftgemm<float>(CUDABLAS_ABFTGEMM_ARGTYPES(float));
 template <>
 void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half));
 
