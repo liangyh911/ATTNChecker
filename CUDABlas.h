@@ -161,21 +161,19 @@ inline void mybgemm(CUDABLAS_MYBGEMM_ARGTYPES(Dtype)) {
 }
 template <>
 void mybgemm<float>(CUDABLAS_MYBGEMM_ARGTYPES(float));
-template <>
-void mybgemm<at::Half>(CUDABLAS_MYBGEMM_ARGTYPES(at::Half));
 
 #define CUDABLAS_ABFTGEMM_ARGTYPES(Dtype)                                                       \
     char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<Dtype> alpha,  \
     Dtype *dA, int64_t ldda, int64_t stridea,                                           \
     Dtype *dB, int64_t lddb, int64_t strideb, at::opmath_type<Dtype> beta,             \
     Dtype *dC, int64_t lddc, int64_t stridec,                                                 \
-    Dtype *dA_colchk, int64_t ldda_colchk,                                                  \
-    Dtype *dA_colchk_r, int64_t ldda_colchk_r,                                              \
-    Dtype *dB_rowchk, int64_t lddb_rowchk,                                                    \
-    Dtype *dB_rowchk_r, int64_t lddb_rowchk_r,                                               \
+    Dtype *dA_colchk, int64_t ldda_colchk, Dtype *dA_rowchk, int64_t ldda_rowchk,              \
+    Dtype *dA_colchk_r, int64_t ldda_colchk_r, Dtype *dA_rowchk_r, int64_t ldda_rowchk_r,      \
+    Dtype *dB_colchk, int64_t lddb_colchk, Dtype *dB_rowchk, int64_t lddb_rowchk,            \
+    Dtype *dB_colchk_r, int64_t lddb_colchk_r, Dtype *dB_rowchk_r, int64_t lddb_rowchk_r,      \
     Dtype *dC_colchk, int64_t lddc_colchk, Dtype *dC_rowchk, int64_t lddc_rowchk,           \
     Dtype *dC_colchk_r, int64_t lddc_colchk_r, Dtype *dC_rowchk_r, int64_t lddc_rowchk_r,   \
-    Dtype *chk_v_a, Dtype *chk_v_b, int64_t ld_chk_v,                                                        \
+    Dtype *chk_v_a, Dtype *chk_v_b, int64_t ld_chk_v,                                      \
     int64_t num_batches,                                                                    \
     bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER
 template <typename Dtype>
@@ -184,8 +182,6 @@ inline void abftgemm(CUDABLAS_ABFTGEMM_ARGTYPES(Dtype)) {
 }
 template <>
 void abftgemm<float>(CUDABLAS_ABFTGEMM_ARGTYPES(float));
-template <>
-void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half));
 
 #if defined(USE_ROCM) && ROCM_VERSION <= 50500
 // ROCm 5.6 hipblas matches the const Dtype *A API, but prior hipblas does not.

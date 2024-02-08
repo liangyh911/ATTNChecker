@@ -33,14 +33,14 @@ colchk_detect_correct_kernel(float * dA, int64_t ldda, float E, int64_t stridea,
 		printf("[col check]error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", d1, d2, loc);
 			
 		//the sum of the rest correct number except the error one
-		double sum = 0.0;
+		float sum = 0.0;
 		for(int i = 0; i < ldda; i++) {
 			if (i != loc) {
 				sum +=	*(dA + i); 
 			}
 		}
 		//correct the error
-		//*(dA + loc) = *dA_colchk - sum;
+		*(dA + loc) = *dA_colchk - sum;
     }
 }
 
@@ -72,14 +72,14 @@ rowchk_detect_correct_kernel(float * dA, int64_t ldda, float E, int64_t stridea,
 		printf("[row check]error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", d1, d2, loc);
 			
 		//the sum of the rest correct number except the error one
-		double sum = 0.0;
+		float sum = 0.0;
 		for (int i = 0; i < ldda; i++) {
 		    if (i != loc) {
 			sum +=	*(dA + i * ldda); 
 		    }
 		}
         //correct the error
-		// *(dA + loc * ldda) = *dA_rowchk - sum;
+		*(dA + loc * ldda) = *dA_rowchk - sum;
      }
 }
 
@@ -90,7 +90,7 @@ void colchk_detect_correct(float * dA, int64_t ldda, int64_t m, int64_t n, int64
                    		   cudaStream_t stream) {
 	printf("col_detect_correct called \n");
 	//error threshold 
-	float E = 1e-3;
+	float E = 1e-1;
 
 	colchk_detect_correct_kernel<<<dim3(num_batches), dim3(n), 0, stream>>>(dA, ldda, E, stridea,
 											dA_colchk,		ldda_colchk,	(2*n),
@@ -105,7 +105,7 @@ void rowchk_detect_correct(float * dA, int64_t ldda, int64_t m, int64_t n, int64
 	printf("row_detect_correct called \n");
 
 	//error threshold 
-	float E = 1e-3;
+	float E = 1e-1;
 	
 	rowchk_detect_correct_kernel<<<dim3(num_batches), dim3(m), 0, stream>>>(dA, ldda, E, stridea,
 											dA_rowchk, ldda_rowchk,		(2*m),
@@ -147,7 +147,7 @@ colchk_detect_correct_kernel(at::Half * dA, int64_t ldda, at::Half E, int64_t st
 			}
 		}
 		//correct the error
-		//*(dA + loc) = *dA_colchk - sum;
+		*(dA + loc) = *dA_colchk - sum;
     }
 }
 
@@ -186,7 +186,7 @@ rowchk_detect_correct_kernel(at::Half * dA, int64_t ldda, at::Half E, int64_t st
 		    }
 		}
         //correct the error
-		// *(dA + loc * ldda) = *dA_rowchk - sum;
+		*(dA + loc * ldda) = *dA_rowchk - sum;
      }
 }
 

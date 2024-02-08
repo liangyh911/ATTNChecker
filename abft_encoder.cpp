@@ -55,20 +55,29 @@ void col_chk_enc(cublasHandle_t handle, char transa, char transb, int64_t m, int
                  int64_t num_batches) {
     //cublasHandle_t handle = at::cuda::getCurrentCUDABlasHandle();
     
-    cublasOperation_t transA = _cublasOpFromChar(transa);
-    cublasOperation_t transB = _cublasOpFromChar(transb);
-    
+    // cublasOperation_t transA = _cublasOpFromChar(transa);
+    // cublasOperation_t transB = _cublasOpFromChar(transb);
+    // cublasOperation_t transA = CUBLAS_OP_N;
+    // cublasOperation_t transB = _cublasOpFromChar(transb); 
+
     float falpha = at::opmath_type<float>(1);
     float fbeta = at::opmath_type<float>(0);
 
+    // std::cout << "m: " << m << ", n: " << n << std::endl;
+    // std::cout << "alpha: " << falpha << ", beta: " << fbeta << std::endl;
+    // std::cout << "ld_chk: " << ld_chk_v << std::endl;
+    // std::cout << "ldA: " << lda << "; stridea: " << stridea << std::endl;
+    // std::cout << "ld_colchk: " << ld_dcolchk << std::endl;
+    // std::cout << "Before dcolchk_r: " << std::endl;
+    // outputMatrixChk(dcolchk, ld_dcolchk, 2*n, num_batches, 2, n);
     cublasSgemmStridedBatched(
-            handle, transA, transB, 2, n, m,
+            handle, CUBLAS_OP_N, CUBLAS_OP_N, 2, n, m,
             &falpha, chk_v, ld_chk_v, 0,
             A, lda, stridea, &fbeta,
             dcolchk, ld_dcolchk, 2*n,
             num_batches);
-    std::cout << "dcolchk_r: " << std::endl;
-    outputMatrixChk(dcolchk, ld_dcolchk, 2*n, num_batches, 2, n);
+    // std::cout << "dcolchk_r: " << std::endl;
+    // outputMatrixChk(dcolchk, ld_dcolchk, 2*n, num_batches, 2, n);
 }
 
 
@@ -79,20 +88,27 @@ void row_chk_enc(cublasHandle_t handle, char transa, char transb, int64_t m, int
                  int64_t num_batches) {
     //cublasHandle_t handle = at::cuda::getCurrentCUDABlasHandle();
     
-    cublasOperation_t transA = _cublasOpFromChar(transa);
-    cublasOperation_t transB = CUBLAS_OP_T;
+    // cublasOperation_t transA = _cublasOpFromChar(transa);
+    // cublasOperation_t transB = CUBLAS_OP_T;
     
     float falpha = at::opmath_type<float>(1);
     float fbeta = at::opmath_type<float>(0);
-
+    
+    // std::cout << "m: " << m << ", n: " << n << std::endl;
+    // std::cout << "alpha: " << falpha << ", beta: " << fbeta << std::endl;
+    // std::cout << "ld_chk: " << ld_chk_v << std::endl;
+    // std::cout << "ldA: " << lda << "; stridea: " << stridea << std::endl;
+    // std::cout << "ld_rowchk: " << ld_drowchk << std::endl;
+    // std::cout << "Before drowchk_r: " << std::endl;
+    // outputMatrixChk(drowchk, ld_drowchk, 2*m, num_batches, m, 2);
     cublasSgemmStridedBatched(
-            handle, transA, transB, m, 2, n,
+            handle, CUBLAS_OP_N, CUBLAS_OP_T, m, 2, n,
             &falpha, A, lda, stridea,
             chk_v, ld_chk_v, 0, &fbeta,
             drowchk, ld_drowchk, 2*m,
             num_batches);
-    std::cout << "drowchk_r: " << std::endl;
-    outputMatrixChk(drowchk, ld_drowchk, 2*m, num_batches, m, 2);
+    // std::cout << "drowchk_r: " << std::endl;
+    // outputMatrixChk(drowchk, ld_drowchk, 2*m, num_batches, m, 2);
 }
 
 void col_chk_enc(cublasHandle_t handle, char transa, char transb, int64_t m, int64_t n,
@@ -101,9 +117,10 @@ void col_chk_enc(cublasHandle_t handle, char transa, char transb, int64_t m, int
                  at::Half * dcolchk, int64_t ld_dcolchk,
                  int64_t num_batches) {
     //cublasHandle_t handle = at::cuda::getCurrentCUDABlasHandle();
-    
-    cublasOperation_t transA = _cublasOpFromChar(transa);
-    cublasOperation_t transB = _cublasOpFromChar(transb);
+    // cublasOperation_t transA = _cublasOpFromChar(transa);
+    // cublasOperation_t transB = _cublasOpFromChar(transb);
+    cublasOperation_t transA = CUBLAS_OP_N;
+    cublasOperation_t transB = CUBLAS_OP_N; 
     
     float falpha = at::opmath_type<at::Half>(1);
     float fbeta = at::opmath_type<at::Half>(0);
@@ -125,7 +142,8 @@ void row_chk_enc(cublasHandle_t handle, char transa, char transb, int64_t m, int
                  int64_t num_batches) {
     //cublasHandle_t handle = at::cuda::getCurrentCUDABlasHandle();
     
-    cublasOperation_t transA = _cublasOpFromChar(transa);
+    // cublasOperation_t transA = _cublasOpFromChar(transa);
+    cublasOperation_t transA = CUBLAS_OP_N;
     cublasOperation_t transB = CUBLAS_OP_T;
     
     float falpha = at::opmath_type<at::Half>(1);
