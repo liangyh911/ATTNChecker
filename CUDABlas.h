@@ -161,6 +161,8 @@ inline void mybgemm(CUDABLAS_MYBGEMM_ARGTYPES(Dtype)) {
 }
 template <>
 void mybgemm<float>(CUDABLAS_MYBGEMM_ARGTYPES(float));
+template <>
+void mybgemm<at::Half>(CUDABLAS_MYBGEMM_ARGTYPES(at::Half));
 
 #define CUDABLAS_ABFTGEMM_ARGTYPES(Dtype)                                                       \
     char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<Dtype> alpha,  \
@@ -182,6 +184,8 @@ inline void abftgemm(CUDABLAS_ABFTGEMM_ARGTYPES(Dtype)) {
 }
 template <>
 void abftgemm<float>(CUDABLAS_ABFTGEMM_ARGTYPES(float));
+template <>
+void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half));
 
 #if defined(USE_ROCM) && ROCM_VERSION <= 50500
 // ROCm 5.6 hipblas matches the const Dtype *A API, but prior hipblas does not.
