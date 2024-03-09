@@ -137,7 +137,8 @@ colchk_detect_correct_kernel(at::Half * dA, int64_t ldda, at::Half E, int64_t st
     if(fabs(d1) > E) {
     	//locate the error
 		int loc = round(d2 / d1) - 1;
-		printf("[col check]error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
+		printf("[col check]error detected (val1 = %.6f, val2 = %.6f), (d1 = %.6f, d2 = %.6f, loc = %d) \n", \
+												(float)(*dA_colchk), (float)(*dA_colchk_r), (float)d1, (float)d2, loc);
 			
 		//the sum of the rest correct number except the error one
 		at::Half sum = 0;
@@ -147,7 +148,7 @@ colchk_detect_correct_kernel(at::Half * dA, int64_t ldda, at::Half E, int64_t st
 			}
 		}
 		//correct the error
-		*(dA + loc) = *dA_colchk - sum;
+		// *(dA + loc) = *dA_colchk - sum;
     }
 }
 
@@ -176,7 +177,8 @@ rowchk_detect_correct_kernel(at::Half * dA, int64_t ldda, at::Half E, int64_t st
     if(fabs(d1) > E) {
 		//locate the error
 		int loc = round(d2 / d1) - 1;
-		printf("[row check]error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n",(float)d1, (float)d2, loc);
+		printf("[row check]error detected (val1 = %.6f, val2 = %.6f), (d1 = %.6f, d2 = %.6f, loc = %d) \n", \
+												(float)(*dA_rowchk), (float)(*dA_rowchk_r), (float)d1, (float)d2, loc);
 			
 		//the sum of the rest correct number except the error one
 		at::Half sum = 0.0;
@@ -186,7 +188,7 @@ rowchk_detect_correct_kernel(at::Half * dA, int64_t ldda, at::Half E, int64_t st
 		    }
 		}
         //correct the error
-		*(dA + loc * ldda) = *dA_rowchk - sum;
+		// *(dA + loc * ldda) = *dA_rowchk - sum;
      }
 }
 

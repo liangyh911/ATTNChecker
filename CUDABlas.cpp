@@ -597,7 +597,7 @@ void abftgemm<float>(CUDABLAS_ABFTGEMM_ARGTYPES(float)){
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
-  float t, t1;
+  float t, t1, t_Achk, t_Bchk;
   bool DEBUG_GEMM = true;
 
   if (DEBUG_GEMM) cudaEventRecord(start, stream1);
@@ -624,8 +624,8 @@ void abftgemm<float>(CUDABLAS_ABFTGEMM_ARGTYPES(float)){
   if (DEBUG_GEMM) {
     cudaEventRecord(stop, stream1);
     cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&t, start, stop);
-    printf("dA_chk_gemm: %f (%f)(%f)\n", t, (double)num_batches*m*2*k*2/t/1e6, (double)num_batches*(2*k+2*m+k*m)/t/1e6);
+    cudaEventElapsedTime(&t_Achk, start, stop);
+    // printf("dA_chk_gemm: %f (%f)(%f)\n", t, (double)num_batches*m*2*k*2/t/1e6, (double)num_batches*(2*k+2*m+k*m)/t/1e6);
   }
   
   //std::cout << "  Get dB_chk: " << std::endl;
@@ -653,8 +653,8 @@ void abftgemm<float>(CUDABLAS_ABFTGEMM_ARGTYPES(float)){
   if (DEBUG_GEMM) {
     cudaEventRecord(stop, stream1);
     cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&t1, start, stop);
-    printf("dB_chk_gemm: %f (%f)(%f)(%f)\n", t1, t1/t, (double)num_batches*2*n*k*2/t1/1e6, (double)num_batches*(2*k+k*n+2*n)/t1/1e6);
+    cudaEventElapsedTime(&t_Bchk, start, stop);
+    // printf("dB_chk_gemm: %f (%f)(%f)(%f)\n", t1, t1/t, (double)num_batches*2*n*k*2/t1/1e6, (double)num_batches*(2*k+k*n+2*n)/t1/1e6);
   }
 
   falpha = alpha;
@@ -773,8 +773,10 @@ void abftgemm<float>(CUDABLAS_ABFTGEMM_ARGTYPES(float)){
   if (DEBUG_GEMM) {
     cudaEventRecord(stop, stream1);
     cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&t1, start, stop);
-    printf("  gemm: %f (%f)(%f)(%f)\n", t1, t1/t, (double)num_batches*m*n*k*2/t1/1e6, (double)num_batches*(m*k+k*n+m*n)/t1/1e6);
+    cudaEventElapsedTime(&t, start, stop);
+    printf("  gemm: %f (%f)(%f)\n", t, (double)num_batches*m*n*k*2/t/1e6, (double)num_batches*(m*k+k*n+m*n)/t/1e6);
+    printf("dA_chk_gemm: %f (%f)(%f)(%f)\n", t_Achk, t_Achk/t, (double)num_batches*m*2*k*2/t_Achk/1e6, (double)num_batches*(2*k+2*m+k*m)/t_Achk/1e6);
+    printf("dB_chk_gemm: %f (%f)(%f)(%f)\n", t_Bchk, t_Bchk/t, (double)num_batches*2*n*k*2/t_Bchk/1e6, (double)num_batches*(2*k+k*n+2*n)/t_Bchk/1e6);
   }
 
   if (DEBUG_GEMM) cudaEventRecord(start, stream1);
@@ -1078,7 +1080,7 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
-  float t, t1;
+  float t, t1, t_Achk, t_Bchk;
   bool DEBUG_GEMM = true;
 
   if (DEBUG_GEMM) cudaEventRecord(start, stream1);
@@ -1105,8 +1107,8 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
   if (DEBUG_GEMM) {
     cudaEventRecord(stop, stream1);
     cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&t, start, stop);
-    printf("dA_chk_gemm: %f (%f)(%f)\n", t, (double)num_batches*m*2*k*2/t/1e6, (double)num_batches*(2*k+2*m+k*m)/t/1e6);
+    cudaEventElapsedTime(&t_Achk, start, stop);
+    // printf("dA_chk_gemm: %f (%f)(%f)\n", t, (double)num_batches*m*2*k*2/t/1e6, (double)num_batches*(2*k+2*m+k*m)/t/1e6);
   }
   
   //std::cout << "  Get dB_chk: " << std::endl;
@@ -1134,8 +1136,8 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
   if (DEBUG_GEMM) {
     cudaEventRecord(stop, stream1);
     cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&t1, start, stop);
-    printf("dB_chk_gemm: %f (%f)(%f)(%f)\n", t1, t1/t, (double)num_batches*2*n*k*2/t1/1e6, (double)num_batches*(2*k+k*n+2*n)/t1/1e6);
+    cudaEventElapsedTime(&t_Bchk, start, stop);
+    // printf("dB_chk_gemm: %f (%f)(%f)(%f)\n", t1, t1/t, (double)num_batches*2*n*k*2/t1/1e6, (double)num_batches*(2*k+k*n+2*n)/t1/1e6);
   }
 
   falpha = alpha;
@@ -1247,8 +1249,11 @@ void abftgemm<at::Half>(CUDABLAS_ABFTGEMM_ARGTYPES(at::Half)){
   if (DEBUG_GEMM) {
     cudaEventRecord(stop, stream1);
     cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&t1, start, stop);
-    printf("  gemm: %f (%f)(%f)(%f)\n", t1, t1/t, (double)num_batches*m*n*k*2/t1/1e6, (double)num_batches*(m*k+k*n+m*n)/t1/1e6);
+    cudaEventElapsedTime(&t, start, stop);
+    printf("  gemm: %f (%f)(%f)\n", t, (double)num_batches*m*n*k*2/t/1e6, (double)num_batches*(m*k+k*n+m*n)/t/1e6);
+
+    printf("dA_chk_gemm: %f (%f)(%f)(%f)\n", t_Achk, t_Achk/t, (double)num_batches*m*2*k*2/t_Achk/1e6, (double)num_batches*(2*k+2*m+k*m)/t_Achk/1e6);
+    printf("dB_chk_gemm: %f (%f)(%f)(%f)\n", t_Bchk, t_Bchk/t, (double)num_batches*2*n*k*2/t_Bchk/1e6, (double)num_batches*(2*k+k*n+2*n)/t_Bchk/1e6);
   }
 
   if (DEBUG_GEMM) cudaEventRecord(start, stream1);
