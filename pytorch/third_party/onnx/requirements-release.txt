@@ -1,0 +1,12 @@
+build
+ipython
+nbval
+numpy==1.24.3
+parameterized
+protobuf==4.21.12
+pytest
+setuptools
+twine
+wheel
+# Dependencies for the reference implementation.
+-r requirements-reference.txt
