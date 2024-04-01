@@ -505,3 +505,25 @@ void detect_correct_row_lancher(at::Half * dA, int64_t ldda, float E, int64_t st
                                           dA_rowchk, ldda_rowchk,     stride_rowchk,
                                           dA_rowchk_r, ldda_rowchk_r, stride_rowchk_r);
 }
+
+template <typename T>
+__global__ void addVector(T *dA_chk, T *dBias_chk, int64_t row, int64_t col){
+	
+	extern __shared__ T sm [];
+
+	int rowIdx = blockDim.y * blockIdx.y + threadIdx.y;
+	int colIdx = blockDim.x * blockIdx.x + threadIdx.x;
+	int idx = rowIdx * col + colIdx;
+	if(rowIdx < row && colIdx < col){
+		sm[threadIdx.y * blockDim.x + threadIdx.x] = dBias_chk[idx];
+	}
+	else{
+		sm[threadIdx.y * blockDim.x + threadIdx.x] = 0;
+	}
+	__syncthreads();
+
+	if (rowIdx < row && colIdx < col){
+		dA_chk[idx] += sm[threadIdx.y * blockDim.x + threadIdx.x];
+	}
+
+}
