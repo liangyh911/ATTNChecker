@@ -388,15 +388,13 @@ __global__ void addVector(T *dA_chk, T *biasMatrix, int row, int col) {
 	int c = blockIdx.x * blockDim.x + threadIdx.x;
 	int idx = r * col + c;
 
-	// Load elements of matrix a into shared memory
 	if (r < row && c < col) {
 		bias_ChkSM[threadIdx.y * blockDim.x + threadIdx.x] = biasMatrix[idx];
 	} else {
 		bias_ChkSM[threadIdx.y * blockDim.x + threadIdx.x] = 0;
 	}
-	__syncthreads(); // Synchronize threads within the block
+	__syncthreads();
 
-	// Perform in-place matrix addition using shared memory
 	if (r < row && c < col) {
 		dA_chk[idx] += bias_ChkSM[threadIdx.y * blockDim.x + threadIdx.x];
 	}
