@@ -4,15 +4,8 @@
 #include <cstdint>
 #include <stdlib.h>
 #include <iostream>
-
 #include <ATen/ATen.h>
-#include <ATen/cuda/CUDABlas.h>
-#include <ATen/cuda/Exceptions.h>
-#include <ATen/cuda/CUDADataType.h>
-#include <c10/cuda/CUDACachingAllocator.h>
-#include <c10/cuda/CUDAFunctions.h>
-#include <c10/macros/Export.h>
-#include <c10/util/irange.h>
+
 
 /*
 __constant__ float CHK_V_A[2*72];
@@ -120,12 +113,46 @@ __global__ void encode_col_v4(int m, int k, int num_batches,
 	}
 }
 */
-template<typename T, int NROW, int NCOL, int C>
-__global__ void encode_col_v5(int num_batches,
+
+template <typename T>
+struct SharedMemory
+{
+    // Ensure that we won't compile any un-specialized types
+    __device__ T *getPointer()
+    {
+        extern __device__ void error(void);
+        error();
+        return NULL;
+    }
+};
+template <>
+struct SharedMemory <float>
+{
+    __device__ float *getPointer()
+    {
+        extern __shared__ float s_float[];
+        return s_float;
+    }
+};
+template <>
+struct SharedMemory <at::Half>
+{
+    __device__ at::Half *getPointer()
+    {
+        extern __shared__ at::Half s_half[];
+        return s_half;
+    }
+};
+
+template<class T, int64_t NROW, int64_t NCOL, int64_t C>
+__global__ void encode_col_v5(int64_t num_batches,
 					T *dA, int64_t ldda, int64_t strideA, 
 					 T *dA_colchk, int64_t ldda_colchk, int64_t strideA_colchk) {
 
-	extern __shared__ T dA_sm [];
+	SharedMemory<T> smem;
+ 	T* dA_sm = smem.getPointer();
+	
+	// extern __shared__ T dA_sm [];
 
 	const int batch_id = blockIdx.x;
 	const int tid = threadIdx.x;
@@ -157,18 +184,8 @@ __global__ void encode_col_v5(int num_batches,
 		dA_colchk[y_compute + x_compute * ldda_colchk] = res;
 	}
 }
-template<typename T, int NROW, int NCOL, int C>
-void encode_col_lancher(int num_batches,
-					T *dA, int64_t ldda, int64_t strideA, 
-					T *dA_colchk, int64_t ldda_colchk, int64_t strideA_colchk,
-					cudaStream_t stream_colchk){
-	
-	encode_col_v5<T, NROW, NCOL, C><<<num_batches, dim3(NROW*4, 1), (NROW+1)*NCOL*sizeof(T), stream_colchk>>>(num_batches,
-                  dA, ldda, strideA, 
-                  dA_colchk, ldda_colchk, strideA_colchk);
-}
 
-template<typename T, int NROW, int NCOL>
+template<typename T, int64_t NROW, int64_t NCOL>
 __global__ void encode_row_v5(int num_batches,
 					T *dA, int64_t ldda, int64_t strideA, 
 					 T *dA_rowchk, int64_t ldda_rowchk, int64_t strideA_rowchk) {
@@ -198,24 +215,19 @@ __global__ void encode_row_v5(int num_batches,
 		dA_rowchk[y * NROW + x] = res;
 	}
 }
-template<typename T, int NROW, int NCOL>
-void encode_row_lancher(int num_batches,
-					T *dA, int64_t ldda, int64_t strideA, 
-					 T *dA_rowchk, int64_t ldda_rowchk, int64_t strideA_rowchk,
-					 cudaStream_t stream_rowchk){
-	
-	encode_row_v5<T, NROW, NCOL><<<num_batches, dim3(NROW*2, 1, 1), 0, stream_rowchk>>>(num_batches,
-                  dA, ldda, strideA, 
-                  dA_rowchk, ldda_rowchk, strideA_rowchk);
-}
 
-template<typename T, int NROW, int NCOL, int C>
-__global__ void update_col_v5(int num_batches,
+
+template<class T, int64_t NROW, int64_t NCOL, int C>
+__global__ void update_col_v5(int64_t num_batches,
 					T *dA_colchk, int64_t ldda_colchk, int64_t strideA_colchk, 
 					T *dB, int64_t lddb, int64_t strideB, 
 					T *dC_colchk, int64_t lddc_colchk, int64_t strideC_colchk) {
 
-	extern __shared__ T sm [];
+	// extern __shared__ T sm [];
+
+	SharedMemory<T> smem;
+ 	T* sm = smem.getPointer();
+
 	T * dA_colchk_sm = sm;
 	T * dB_sm = sm + 2*NROW;
 
@@ -253,22 +265,10 @@ __global__ void update_col_v5(int num_batches,
 		dC_colchk[y_compute + x_compute * 2] = res;
 	}
 }
-template<typename T, int NROW, int NCOL, int C>
-void update_col_lancher(int num_batches,
-					T *dA_colchk, int64_t ldda_colchk, int64_t strideA_colchk, 
-					T *dB, int64_t lddb, int64_t strideB, 
-					T *dC_colchk, int64_t lddc_colchk, int64_t strideC_colchk,
-					cudaStream_t stream_colchk){
-	
-	update_col_v5<T, NROW, NCOL, C><<<num_batches, dim3(NROW*4, 1, 1), ((NROW+1)*NCOL+2*NROW) * sizeof(T), stream_colchk>>>(num_batches,
-                    dA_colchk, ldda_colchk, strideA_colchk, 
-                    dB, lddb, strideB, 
-                    dC_colchk, lddc_colchk, strideC_colchk);
-}
 
 
-template<typename T, int NROW, int NCOL>
-__global__ void update_row_v5(int num_batches,
+template<typename T, int64_t NROW, int64_t NCOL>
+__global__ void update_row_v5(int64_t num_batches,
 					T *dA, int64_t ldda, int64_t strideA, 
 					T *dB_rowchk, int64_t lddb_rowchk, int64_t strideB_rowchk,
 					T *dC_rowchk, int64_t lddc_rowchk, int64_t strideC_rowchk) {
@@ -296,24 +296,12 @@ __global__ void update_row_v5(int num_batches,
 		dC_rowchk[y * NROW + x] = res;
 	}
 }
-template<typename T, int NROW, int NCOL>
-void update_row_lancher(int num_batches,
-					T *dA, int64_t ldda, int64_t strideA, 
-					T *dB_rowchk, int64_t lddb_rowchk, int64_t strideB_rowchk,
-					T *dC_rowchk, int64_t lddc_rowchk, int64_t strideC_rowchk,
-					cudaStream_t stream_rowchk){
-	
-	update_row_v5<T, NROW, NCOL><<<num_batches, dim3(NROW*2, 1, 1), (2*NCOL) * sizeof(T), stream_rowchk>>>(num_batches,
-                    dA, ldda, strideA, 
-                    dB_rowchk, lddb_rowchk, strideB_rowchk, 
-                    dC_rowchk, lddc_rowchk, strideC_rowchk);
-}
 
-
+template <typename T>
 __global__ void
-detect_correct_col(float * dA, int64_t ldda, float E, int64_t stridea,
-						     float * dA_colchk, 	int64_t ldda_colchk,	int64_t stride_colchk,
-						     float * dA_colchk_r, int64_t ldda_colchk_r,	int64_t stride_colchk_r){
+detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
+						     T * dA_colchk, 	int64_t ldda_colchk,	int64_t stride_colchk,
+						     T * dA_colchk_r, int64_t ldda_colchk_r,	int64_t stride_colchk_r){
     //printf("col_chk kernel func. \n");
 	//determin the block to process
 	// printf("determin the block to process. \n");
@@ -327,18 +315,18 @@ detect_correct_col(float * dA, int64_t ldda, float E, int64_t stridea,
     dA_colchk   = dA_colchk   + threadIdx.x * ldda_colchk;
     dA_colchk_r = dA_colchk_r + threadIdx.x * ldda_colchk_r;
 	
-    float d1 = (*dA_colchk)       - (*dA_colchk_r);
-    float d2 = (*(dA_colchk + 1)) - (*(dA_colchk_r + 1));
+    float d1 = (float)(*dA_colchk)       - (*dA_colchk_r);
+    float d2 = (float)(*(dA_colchk + 1)) - (*(dA_colchk_r + 1));
 	
     //error detected
 	// printf("error detected. \n");
     if(fabs(d1) > E) {
     	//locate the error
 		int loc = round(d2 / d1) - 1;
-		printf("[col check]error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", d1, d2, loc);
+		printf("[col check]error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
 			
 		//the sum of the rest correct number except the error one
-		float sum = 0.0;
+		T sum = 0.0;
 		for(int i = 0; i < ldda; i++) {
 			if (i != loc) {
 				sum +=	*(dA + i); 
@@ -348,20 +336,12 @@ detect_correct_col(float * dA, int64_t ldda, float E, int64_t stridea,
 		*(dA + loc) = *dA_colchk - sum;
     }
 }
-void detect_correct_col_lancher(float * dA, int64_t ldda, float E, int64_t stridea,
-						     float * dA_colchk, 	int64_t ldda_colchk,	int64_t stride_colchk,
-						     float * dA_colchk_r, int64_t ldda_colchk_r,	int64_t stride_colchk_r,
-							 int numBlock, int64_t numThread, cudaStream_t stream_colchk){
-	
-	detect_correct_col<<<dim3(numBlock), dim3(numThread), 0, stream_colchk>>>(dA, ldda, E, stridea,
-                                            dA_colchk,      ldda_colchk,    stride_colchk,
-                                            dA_colchk_r,    ldda_colchk_r,  stride_colchk_r);
-}
 
+template<typename T>
 __global__ void
-detect_correct_row(float * dA, int64_t ldda, float E, int64_t stridea,
-						     float * dA_rowchk, 	int64_t ldda_rowchk,	int64_t stride_rowchk,
-						     float * dA_rowchk_r, int64_t ldda_rowchk_r,	int64_t stride_rowchk_r){
+detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea,
+						    T * dA_rowchk, 	int64_t ldda_rowchk,	int64_t stride_rowchk,
+						     T * dA_rowchk_r, int64_t ldda_rowchk_r,	int64_t stride_rowchk_r){
     // printf("row_chk kernel func. \n");
 	//determin the block to process
 	// printf("determin the block to process. \n");
@@ -375,18 +355,18 @@ detect_correct_row(float * dA, int64_t ldda, float E, int64_t stridea,
     dA_rowchk   = dA_rowchk   + threadIdx.x;
     dA_rowchk_r = dA_rowchk_r + threadIdx.x;
 	
-    float d1 = (*dA_rowchk)                 - (*dA_rowchk_r);
-    float d2 = (*(dA_rowchk + ldda_rowchk)) - (*(dA_rowchk_r + ldda_rowchk_r));
+    float d1 = (float)(*dA_rowchk)                 - (*dA_rowchk_r);
+    float d2 = (float)(*(dA_rowchk + ldda_rowchk)) - (*(dA_rowchk_r + ldda_rowchk_r));
 	
     //error detected
 	// printf("error detected. \n");
     if(fabs(d1) > E) {
 		//locate the error
 		int loc = round(d2 / d1) - 1;
-		printf("[row check]error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", d1, d2, loc);
+		printf("[row check]error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
 			
 		//the sum of the rest correct number except the error one
-		float sum = 0.0;
+		T sum = 0.0;
 		for (int i = 0; i < ldda; i++) {
 		    if (i != loc) {
 				sum +=	*(dA + i * ldda); 
@@ -396,134 +376,36 @@ detect_correct_row(float * dA, int64_t ldda, float E, int64_t stridea,
 		*(dA + loc * ldda) = *dA_rowchk - sum;
      }
 }
-void detect_correct_row_lancher(float * dA, int64_t ldda, float E, int64_t stridea,
-						     float * dA_rowchk, 	int64_t ldda_rowchk,	int64_t stride_rowchk,
-						     float * dA_rowchk_r, int64_t ldda_rowchk_r,	int64_t stride_rowchk_r,
-							 int numBlock, int64_t numThread, cudaStream_t stream_rowchk){
-	
-	detect_correct_row<<<dim3(numBlock), dim3(numThread), 0, stream_rowchk>>>(dA, ldda, E, stridea,
-                                          dA_rowchk, ldda_rowchk,     stride_rowchk,
-                                          dA_rowchk_r, ldda_rowchk_r, stride_rowchk_r);
-}
 
-__global__ void
-detect_correct_col(at::Half * dA, int64_t ldda, at::Half E, int64_t stridea,
-						     at::Half * dA_colchk, 	int64_t ldda_colchk,	int64_t stride_colchk,
-						     at::Half * dA_colchk_r, int64_t ldda_colchk_r,	int64_t stride_colchk_r){
-    //printf("col_chk kernel func. \n");
-	//determin the block to process
-	// printf("determin the block to process. \n");
-    dA = dA + blockIdx.x * stridea;
-	dA_colchk = dA_colchk + blockIdx.x * stride_colchk;
-	dA_colchk_r = dA_colchk_r + blockIdx.x * stride_colchk_r;
-    
-    //determine the specific colum to process
-	// printf("determin the specific colum to process. \n");
-    dA = dA + threadIdx.x * ldda;
-    dA_colchk   = dA_colchk   + threadIdx.x * ldda_colchk;
-    dA_colchk_r = dA_colchk_r + threadIdx.x * ldda_colchk_r;
-	
-    float d1 = (float)((*dA_colchk)       - (*dA_colchk_r));
-    float d2 = (float)((*(dA_colchk + 1)) - (*(dA_colchk_r + 1)));
-	
-    //error detected
-	// printf("error detected. \n");
-    if(float(d1) > E) {
-    	//locate the error
-		// int loc = __half2int_rn(d2 / d1) - 1;
-		int loc = round(d2 / d1) - 1;
-		printf("[col check]error detected (val1 = %.6f, val2 = %.6f), (d1 = %.6f, d2 = %.6f, loc = %d) \n", \
-												(float)(*dA_colchk), (float)(*dA_colchk_r), (float)(d1), (float)(d2), loc);
-			
-		//the sum of the rest correct number except the error one
-		at::Half sum = 0;
-		for(int i = 0; i < ldda; i++) {
-			if (i != loc) {
-				sum = sum + (*(dA + i)); 
-			}
-		}
-		//correct the error
-		*(dA + loc) = *dA_colchk - sum;
-    }
-}
-void detect_correct_col_lancher(at::Half * dA, int64_t ldda, float E, int64_t stridea,
-						     at::Half * dA_colchk, 	int64_t ldda_colchk,	int64_t stride_colchk,
-						     at::Half * dA_colchk_r, int64_t ldda_colchk_r,	int64_t stride_colchk_r,
-							 int numBlock, int64_t numThread, cudaStream_t stream_colchk){
-	
-	detect_correct_col<<<dim3(numBlock), dim3(numThread), 0, stream_colchk>>>(dA, ldda, E, stridea,
-                                            dA_colchk,      ldda_colchk,    stride_colchk,
-                                            dA_colchk_r,    ldda_colchk_r,  stride_colchk_r);
-}
+template<typename T>
+__global__ void addVector(T *dA_chk, T *biasMatrix, int row, int col) {
+   
+   	// extern __shared__ float dA_ChkSM[];
+	SharedMemory<T> smem;
+ 	T* bias_ChkSM = smem.getPointer();
 
-__global__ void
-detect_correct_row(at::Half * dA, int64_t ldda, at::Half E, int64_t stridea,
-						     at::Half * dA_rowchk, 	int64_t ldda_rowchk,	int64_t stride_rowchk,
-						     at::Half * dA_rowchk_r, int64_t ldda_rowchk_r,	int64_t stride_rowchk_r){
-    // printf("row_chk kernel func. \n");
-	//determin the block to process
-	// printf("determin the block to process. \n");
-    dA = dA + blockIdx.x * stridea;
-    dA_rowchk = dA_rowchk + blockIdx.x * stride_rowchk;
-    dA_rowchk_r = dA_rowchk_r + blockIdx.x * stride_rowchk_r;
-        
-    //determine the specific row to process
-	// printf("determin the specific row to process. \n");
-	dA = dA + threadIdx.x;
-    dA_rowchk   = dA_rowchk   + threadIdx.x;
-    dA_rowchk_r = dA_rowchk_r + threadIdx.x;
-	
-    float d1 =  (float)((*dA_rowchk)                 - (*dA_rowchk_r));
-    float d2 =  (float)((*(dA_rowchk + ldda_rowchk)) - (*(dA_rowchk_r + ldda_rowchk_r)));
-	
-    //error detected
-	// printf("error detected. \n");
-    if(float(d1) > E) {
-		//locate the error
-		// int loc = __half2int_rn(d2 / d1) - 1;
-		int loc = round(d2 / d1) - 1;
-		printf("[row check]error detected (val1 = %.6f, val2 = %.6f), (d1 = %.6f, d2 = %.6f, loc = %d) \n", \
-												(float)(*dA_rowchk), (float)(*dA_rowchk_r), (float)(d1), (float)(d2), loc);
-			
-		//the sum of the rest correct number except the error one
-		at::Half sum = 0.0;
-		for (int i = 0; i < ldda; i++) {
-		    if (i != loc) {
-				sum += *(dA + i * ldda); 
-		    }
-		}
-        //correct the error
-		*(dA + loc * ldda) = *dA_rowchk - sum;
-     }
-}
-void detect_correct_row_lancher(at::Half * dA, int64_t ldda, float E, int64_t stridea,
-						     at::Half * dA_rowchk, 	int64_t ldda_rowchk,	int64_t stride_rowchk,
-						     at::Half * dA_rowchk_r, int64_t ldda_rowchk_r,	int64_t stride_rowchk_r,
-							 int numBlock, int64_t numThread, cudaStream_t stream_rowchk){
-	
-	detect_correct_row<<<dim3(numBlock), dim3(numThread), 0, stream_rowchk>>>(dA, ldda, E, stridea,
-                                          dA_rowchk, ldda_rowchk,     stride_rowchk,
-                                          dA_rowchk_r, ldda_rowchk_r, stride_rowchk_r);
-}
+   	int r = blockIdx.y * blockDim.y + threadIdx.y;
+	int c = blockIdx.x * blockDim.x + threadIdx.x;
+	int idx = r * col + c;
 
-template <typename T>
-__global__ void addVector(T *dA_chk, T *dBias_chk, int64_t row, int64_t col){
-	
-	extern __shared__ T sm [];
-
-	int rowIdx = blockDim.y * blockIdx.y + threadIdx.y;
-	int colIdx = blockDim.x * blockIdx.x + threadIdx.x;
-	int idx = rowIdx * col + colIdx;
-	if(rowIdx < row && colIdx < col){
-		sm[threadIdx.y * blockDim.x + threadIdx.x] = dBias_chk[idx];
+	// Load elements of matrix a into shared memory
+	if (r < row && c < col) {
+		bias_ChkSM[threadIdx.y * blockDim.x + threadIdx.x] = biasMatrix[idx];
+	} else {
+		bias_ChkSM[threadIdx.y * blockDim.x + threadIdx.x] = 0;
 	}
-	else{
-		sm[threadIdx.y * blockDim.x + threadIdx.x] = 0;
-	}
-	__syncthreads();
+	__syncthreads(); // Synchronize threads within the block
 
-	if (rowIdx < row && colIdx < col){
-		dA_chk[idx] += sm[threadIdx.y * blockDim.x + threadIdx.x];
+	// Perform in-place matrix addition using shared memory
+	if (r < row && c < col) {
+		dA_chk[idx] += bias_ChkSM[threadIdx.y * blockDim.x + threadIdx.x];
 	}
+}
 
+template<typename T>
+__global__ void getBiasMatrix(T *biasVector, T *biasMatrix){
+	int vectorId = threadIdx.x;
+	int matrixId = blockIdx.x * blockDim.x + threadIdx.x;
+
+	biasMatrix[matrixId] = biasVector[vectorId];
 }
