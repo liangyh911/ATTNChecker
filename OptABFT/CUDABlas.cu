@@ -435,6 +435,26 @@ void outputChk(T *A, int64_t nb, int64_t ld, int64_t stride, int64_t row, int64_
   free(tensor);
 }
 
+void recordEffeciency(string FP, float time, float overhead, float gflop, float memory){
+  std::ofstream outFile(FP, std::ios::app);
+  if(!outFile){
+    std::cerr << "Failed to open the file for appending." << std::endl;
+    return;
+  }
+  outFile << time << " " << overhead << " " << gflop << " " << memory << std::endl;
+  // printf("Data appended to the file successfully.\n");
+}
+
+void recordTime(string FP, float time, bool DEBUG){
+  std::ofstream outFile(FP, std::ios::app);
+  if(!outFile){
+    std::cerr << "Failed to open the file for appending." << std::endl;
+    return;
+  }
+  outFile << time << std::endl;
+  if(DEBUG) printf("Data appended to the file successfully.\n");
+}
+
 template <typename T, int64_t M, int64_t N, int64_t K>
 void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<T> alpha,  
               T *dA, int64_t ldda, int64_t stridea,                                           
@@ -566,11 +586,16 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&t, start, stop);
     printf("  gemm: %f (%f)(%f)\n", t, (double)num_batches*m*n*k*2/t/1e6, (double)num_batches*(m*k+k*n+m*n)/t/1e6);
+    recordEffeciency("/home/exouser/records/effeciency/abftbgemm.txt", t, 1, (double)num_batches*m*n*k*2/t/1e6, (double)num_batches*(m*k+k*n+m*n)/t/1e6);
     if(COL_FT){
       printf("dA_chk_gemm: %f (%f)(%f)(%f)\n", t_Achk, t_Achk/t, (double)num_batches*m*2*k*2/t_Achk/1e6, (double)num_batches*(2*k+2*m+k*m)/t_Achk/1e6);
+      recordEffeciency("/home/exouser/records/effeciency/abftbgemm.txt", t_Achk, t_Achk/t, 
+                                    (double)num_batches*m*2*k*2/t_Achk/1e6, (double)num_batches*(2*k+2*m+k*m)/t_Achk/1e6);
     }
     if(ROW_FT){
       printf("dB_chk_gemm: %f (%f)(%f)(%f)\n", t_Bchk, t_Bchk/t, (double)num_batches*2*n*k*2/t_Bchk/1e6, (double)num_batches*(2*k+k*n+2*n)/t_Bchk/1e6);
+      recordEffeciency("/home/exouser/records/effeciency/abftbgemm.txt", t_Bchk, t_Bchk/t, 
+                                    (double)num_batches*2*n*k*2/t_Bchk/1e6, (double)num_batches*(2*k+k*n+2*n)/t_Bchk/1e6);
     }
   }
 
@@ -595,6 +620,8 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
       printf("  gemm-col-ft: %f (%f)(%f)(%f)\n", t1, t1/t, (double)num_batches*2*n*k*2/t1/1e6, (double)num_batches*(2*k+k*n+2*n)/t1/1e6);
+      recordEffeciency("/home/exouser/records/effeciency/abftbgemm.txt", t1, t1/t, (double)num_batches*2*n*k*2/t1/1e6, (double)num_batches*(2*k+k*n+2*n)/t1/1e6);
+
     }
   }
 
@@ -620,6 +647,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
         cudaEventSynchronize(stop);
         cudaEventElapsedTime(&t1, start, stop);
         printf("  gemm-row-ft: %f (%f)(%f)(%f)\n", t1, t1/t, (double)num_batches*m*2*k*2/t1/1e6, (double)num_batches*(m*k+k*2+m*2)/t1/1e6);
+        recordEffeciency("/home/exouser/records/effeciency/abftbgemm.txt", t1, t1/t, (double)num_batches*m*2*k*2/t1/1e6, (double)num_batches*(m*k+k*2+m*2)/t1/1e6);
       }
   }
 
@@ -679,6 +707,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
       printf("gemm-col-chk: %f (%f)(%f)(%f)\n", t1, t1/t, (double)(num_batches)*2*n*m*2/t1/1e6, (double)num_batches*(m*n+2*m+2*n)/t1/1e6);
+      recordEffeciency("/home/exouser/records/effeciency/abftbgemm.txt",t1, t1/t, (double)(num_batches)*2*n*m*2/t1/1e6, (double)num_batches*(m*n+2*m+2*n)/t1/1e6);
     }
   }
 
@@ -726,6 +755,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
       printf("gemm-row-chk: %f (%f)(%f)(%f)\n", t1, t1/t, (double)(num_batches)*m*2*n*2/t1/1e6, (double)num_batches*(m*n+2*n+2*m)/t1/1e6);
+      recordEffeciency("/home/exouser/records/effeciency/abftbgemm.txt",t1, t1/t, (double)(num_batches)*m*2*n*2/t1/1e6, (double)num_batches*(m*n+2*n+2*m)/t1/1e6);
     }
   }
 }
@@ -736,7 +766,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
               const T *dB, int64_t lddb, int64_t strideb, at::opmath_type<T> beta,             
               T *dC, int64_t lddc, int64_t stridec,                                                
               int64_t num_batches) {
-  std::cout << "Using mybgemm-T function." << std::endl;
+  // std::cout << "Using mybgemm-T function." << std::endl;
 
   T *dA_ = const_cast<T*>(dA);
   T *dB_ = const_cast<T*>(dB);
@@ -752,8 +782,8 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   // std::cout << "_B: " << std::endl;
   // outputMatrix(dB_, lddb, strideb, num_batches, m, k);
   // std::cout << "strideb: " << strideb << "; ldb: " << lddb << std::endl;
-  std::cout << "m: " << m << "; n: " << n << "; k: " << k << std::endl;
-  std::cout << "num_batches: " << num_batches << std::endl;
+  // std::cout << "m: " << m << "; n: " << n << "; k: " << k << std::endl;
+  // std::cout << "num_batches: " << num_batches << std::endl;
 
   // std::cout << "leading dimension." << std::endl;
   
@@ -858,7 +888,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   bool CHECK_AFTER = true;
 
   char flag;
-  std::ifstream colFile("/home/exouser/abftCOL_FT.txt");
+  std::ifstream colFile("/home/exouser/control/abftCOL_FT.txt");
   if (colFile.is_open()){
     colFile.get(flag);
     if(flag == 'f'){
@@ -871,7 +901,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   }
   colFile.close();
   
-  std::ifstream rowFile("/home/exouser/abftROW_FT.txt");
+  std::ifstream rowFile("/home/exouser/control/abftROW_FT.txt");
   if (rowFile.is_open()){
     rowFile.get(flag);
     if(flag == 'f'){
@@ -1061,17 +1091,9 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   cudaDeviceSynchronize();
   auto stop = high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<microseconds>(stop - start);
-  
-  std::ifstream myfile("/home/exouser/records/abftbgemm.txt");
-  float t = 0;
-  myfile >> t;
-  myfile.close();
-  std::ofstream MyFile("/home/exouser/records/abftbgemm.txt");
-  t + duration.count() / 1000.0;
-  MyFile << t << std::endl;
-  MyFile.close();
-  
   std::cout << "abftbgemm: " << duration.count() / 1000.0 << std::endl;
+
+  recordTime("/home/exouser/records/time/abftbgemm.txt", (duration.count() / 1000.0), DEBUG);
 
   cudaFree(dA_colchk);
   cudaFree(dA_rowchk);
@@ -1227,7 +1249,7 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   bool CHECK_AFTER = true;
 
   char flag;
-  std::ifstream colFile("/home/exouser/abftCOL_FT.txt");
+  std::ifstream colFile("/home/exouser/control/abftCOL_FT.txt");
   if (colFile.is_open()){
     colFile.get(flag);
     if(flag == 'f'){
@@ -1240,7 +1262,7 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   }
   colFile.close();
     
-  std::ifstream rowFile("/home/exouser/abftROW_FT.txt");
+  std::ifstream rowFile("/home/exouser/control/abftROW_FT.txt");
   if (rowFile.is_open()){
     rowFile.get(flag);
     if(flag == 'f'){
@@ -1297,18 +1319,8 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   cudaDeviceSynchronize();
   auto stop = high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<microseconds>(stop - start);
-  std::ifstream myfile("/home/exouser/records/abftgemm.txt");
-  
-  float t = 0;
-  myfile >> t;
-  myfile.close();
-
-  std::ofstream MyFile("/home/exouser/records/abftgemm.txt");
-  t += duration.count() / 1000.0;
-  MyFile << t << std::endl;
-  MyFile.close();
-
   std::cout << "abftGemm: " << duration.count() / 1000.0 << std::endl;
+  recordTime("/home/exouser/records/time/abftgemm.txt", (duration.count() / 1000.0), DEBUG);
 
   cudaFree(dA_colchk);
   cudaFree(dA_rowchk);
@@ -1393,7 +1405,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
   float falpha = at::opmath_type<T>(1);
   float fbeta = at::opmath_type<T>(0);
 
-  std::cout << "transa: " << transa << "; transb: " << transb << std::endl;
+  // std::cout << "transa: " << transa << "; transb: " << transb << std::endl;
 
   // printf("mat1: \n");
   // outputMatrix(a,lda, m*k, 1, m, k);
@@ -1511,11 +1523,14 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&t, start, stop);
     printf("  gemm: %f (%f)(%f)\n", t, (double)1*m*n*k*2/t/1e6, (double)1*(m*k+k*n+m*n)/t/1e6);
+    recordEffeciency("/home/exouser/records/effeciency/abftgemm.txt", t, 1, (double)1*m*n*k*2/t/1e6, (double)1*(m*k+k*n+m*n)/t/1e6);
     if(COL_FT){
       printf("dA_chk_gemm: %f (%f)(%f)(%f)\n", t_Achk, t_Achk/t, (double)1*m*2*k*2/t_Achk/1e6, (double)1*(2*k+2*m+k*m)*sizeof(T)/t_Achk/1e6);
+      recordEffeciency("/home/exouser/records/effeciency/abftgemm.txt", t_Achk, t_Achk/t, (double)1*m*2*k*2/t_Achk/1e6, (double)1*(2*k+2*m+k*m)*sizeof(T)/t_Achk/1e6);
     }
     if(ROW_FT){
       printf("dB_chk_gemm: %f (%f)(%f)(%f)\n", t_Bchk, t_Bchk/t, (double)1*2*n*k*2/t_Bchk/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t_Bchk/1e6);
+      recordEffeciency("/home/exouser/records/effeciency/abftgemm.txt", t_Bchk, t_Bchk/t, (double)1*2*n*k*2/t_Bchk/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t_Bchk/1e6);
     }
   }
 
@@ -1562,6 +1577,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
       printf("  gemm-col-ft: %f (%f)(%f)(%f)\n", t1, t1/t, (double)1*2*n*k*2/t1/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t1/1e6);
+      recordEffeciency("/home/exouser/records/effeciency/abftgemm.txt",  t1, t1/t, (double)1*2*n*k*2/t1/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t1/1e6);
     }
   }
 
@@ -1608,6 +1624,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
       printf("  gemm-row-ft: %f (%f)(%f)(%f)\n", t1, t1/t, (double)1*m*2*k*2/t1/1e6, (double)1*(m*k+k*2+m*2)*sizeof(T)/t1/1e6);
+      recordEffeciency("/home/exouser/records/effeciency/abftgemm.txt", t1, t1/t, (double)1*m*2*k*2/t1/1e6, (double)1*(m*k+k*2+m*2)*sizeof(T)/t1/1e6);      
     }
   }
 
@@ -1672,6 +1689,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
       printf("gemm-col-chk: %f (%f)(%f)(%f)\n", t1, t1/t, (double)(1)*2*n*m*2/t1/1e6, (double)1*(m*n+2*m+2*n)*sizeof(T)/t1/1e6);
+      recordEffeciency("/home/exouser/records/effeciency/abftgemm.txt",  t1, t1/t, (double)(1)*2*n*m*2/t1/1e6, (double)1*(m*n+2*m+2*n)*sizeof(T)/t1/1e6);      
     }
   }
 
@@ -1725,6 +1743,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
       printf("gemm-row-chk: %f (%f)(%f)(%f)\n", t1, t1/t, (double)(1)*m*2*n*2/t1/1e6, (double)1*(m*n+2*n+2*m)*sizeof(T)/t1/1e6);
+      recordEffeciency("/home/exouser/records/effeciency/abftgemm.txt",  t1, t1/t, (double)(1)*m*2*n*2/t1/1e6, (double)1*(m*n+2*n+2*m)*sizeof(T)/t1/1e6);      
     }
   }
 }
@@ -2187,7 +2206,7 @@ void myGemmBias (
     bool CHECK_AFTER = true;
     
     char flag;
-    std::ifstream colFile("/home/exouser/abftCOL_FT.txt");
+    std::ifstream colFile("/home/exouser/control/abftCOL_FT.txt");
     if (colFile.is_open()){
       colFile.get(flag);
       if(flag == 'f'){
@@ -2200,7 +2219,7 @@ void myGemmBias (
     }
     colFile.close();
     
-    std::ifstream rowFile("/home/exouser/abftROW_FT.txt");
+    std::ifstream rowFile("/home/exouser/control/abftROW_FT.txt");
     if (rowFile.is_open()){
       rowFile.get(flag);
       if(flag == 'f'){
@@ -2261,15 +2280,8 @@ void myGemmBias (
     cudaDeviceSynchronize();
     auto stop = high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<microseconds>(stop - start);
-    std::ifstream myfile("/home/exouser/records/abftBias.txt");
-    float t = 0;
-    myfile >> t;
-    myfile.close();
-    std::ofstream MyFile("/home/exouser/records/abftBias.txt");
-    t += duration.count() / 1000.0;
-    MyFile << t << std::endl;
-    MyFile.close();
     std::cout << "abftGemmBias: " << duration.count() / 1000.0 << std::endl;
+    recordTime("/home/exouser/records/time/abftBias.txt", (duration.count() / 1000.0), DEBUG);
 
     cudaFree(dA_colchk);
     cudaFree(dA_rowchk);
@@ -2623,13 +2635,20 @@ void abftGemmBias(
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t, start, stop);
       printf("  gemm: %f (%f)(%f)\n", t, (double)1*m*n*k*2/t/1e6, (double)1*(m*k+k*n+m*n)/t/1e6);
+      recordEffeciency("/home/exouser/records/effeciency/abftBias.txt",  t, 1, (double)1*m*n*k*2/t/1e6, (double)1*(m*k+k*n+m*n)/t/1e6);
       if(COL_FT){
         printf("dA_chk_gemm: %f (%f)(%f)(%f)\n", t_Achk, t_Achk/t, (double)1*m*2*k*2/t_Achk/1e6, (double)1*(2*k+2*m+k*m)*sizeof(T)/t_Achk/1e6);
+        recordEffeciency("/home/exouser/records/effeciency/abftBias.txt",  t_Achk, t_Achk/t, 
+                                        (double)1*m*2*k*2/t_Achk/1e6, (double)1*(2*k+2*m+k*m)*sizeof(T)/t_Achk/1e6);
         printf("dBias_colchk_gemm: %f (%f)(%f)(%f)\n", t_Biascolchk, t_Biascolchk/t, (double)1*m*2*n*2/t_Biascolchk/1e6, (double)1*(2*n+2*m+n*m)*sizeof(T)/t_Biascolchk/1e6);
+        recordEffeciency("/home/exouser/records/effeciency/abftBias.txt",  t_Biascolchk, t_Biascolchk/t, 
+                                        (double)1*m*2*n*2/t_Biascolchk/1e6, (double)1*(2*n+2*m+n*m)*sizeof(T)/t_Biascolchk/1e6);      
       }
       if(ROW_FT){
         printf("dB_chk_gemm: %f (%f)(%f)(%f)\n", t_Bchk, t_Bchk/t, (double)1*2*n*k*2/t_Bchk/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t_Bchk/1e6);
+        recordEffeciency("/home/exouser/records/effeciency/abftBias.txt",  t_Bchk, t_Bchk/t, (double)1*2*n*k*2/t_Bchk/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t_Bchk/1e6);
         printf("dBias_rowchk_gemm: %f (%f)(%f)(%f)\n", t_Biasrowchk, t_Biascolchk/t, (double)1*2*n*m*2/t_Biascolchk/1e6, (double)1*(2*m+m*n+2*n)*sizeof(T)/t_Biascolchk/1e6);
+        recordEffeciency("/home/exouser/records/effeciency/abftBias.txt",  t_Biasrowchk, t_Biascolchk/t, (double)1*2*n*m*2/t_Biascolchk/1e6, (double)1*(2*m+m*n+2*n)*sizeof(T)/t_Biascolchk/1e6);
       }
   }
 
@@ -2685,6 +2704,7 @@ void abftGemmBias(
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
       printf("  gemm-col-ft: %f (%f)(%f)(%f)\n", t1, t1/t, (double)1*2*n*k*2/t1/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t1/1e6);
+      recordEffeciency("/home/exouser/records/effeciency/abftBias.txt",  t1, t1/t, (double)1*2*n*k*2/t1/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t1/1e6);     
     }
   }
 
@@ -2743,6 +2763,7 @@ void abftGemmBias(
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&t1, start, stop);
     printf("  gemm-row-ft: %f (%f)(%f)(%f)\n", t1, t1/t, (double)1*m*2*k*2/t1/1e6, (double)1*(m*k+k*2+m*2)*sizeof(T)/t1/1e6);
+    recordEffeciency("/home/exouser/records/effeciency/abftBias.txt",  t1, t1/t, (double)1*m*2*k*2/t1/1e6, (double)1*(m*k+k*2+m*2)*sizeof(T)/t1/1e6);
   }
 
   // --- check check-sum of C---//
@@ -2806,6 +2827,7 @@ void abftGemmBias(
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
       printf("gemm-col-chk: %f (%f)(%f)(%f)\n", t1, t1/t, (double)(1)*2*n*m*2/t1/1e6, (double)1*(m*n+2*m+2*n)*sizeof(T)/t1/1e6);
+      recordEffeciency("/home/exouser/records/effeciency/abftBias.txt",  t1, t1/t, (double)(1)*2*n*m*2/t1/1e6, (double)1*(m*n+2*m+2*n)*sizeof(T)/t1/1e6);
     }
   }
   
@@ -2860,6 +2882,7 @@ void abftGemmBias(
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
       printf("gemm-row-chk: %f (%f)(%f)(%f)\n", t1, t1/t, (double)(1)*m*2*n*2/t1/1e6, (double)1*(m*n+2*n+2*m)*sizeof(T)/t1/1e6);
+      recordEffeciency("/home/exouser/records/effeciency/abftBias.txt",  t1, t1/t, (double)(1)*m*2*n*2/t1/1e6, (double)1*(m*n+2*n+2*m)*sizeof(T)/t1/1e6);
   }
 
   }
