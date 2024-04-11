@@ -326,9 +326,6 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 		printf("INF or NAN loc: %d, %d\n", *BatIdx, *colIdx);
 		return;
 	}
-	// else{
-		//error detected
-		// printf("error detected. \n");
 	if(fabs(d1) > E) {
 		//locate the error
 		int loc = round(d2 / d1) - 1;
@@ -344,7 +341,6 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 		//correct the error
 		*(dA + loc) = *dA_colchk - sum;
 	}
-	// }
 }
 
 template<typename T>
@@ -371,17 +367,15 @@ detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea,
 
 	if(isinf(*dA_rowchk_r) || isnan(*dA_rowchk_r)){
 		*BatIdx = (int64_t)blockIdx.x;
-		*rowIdx =(int64_t)threadIdx.x;
+		*rowIdx = (int64_t)threadIdx.x;
 		printf("INF or NAN loc: %d, %d\n", *BatIdx, *rowIdx);
 		return;
 	}
-	// else{
-		//error detected
-		// printf("error detected. \n");
 	if(fabs(d1) > E) {
 		//locate the error
 		int loc = round(d2 / d1) - 1;
-		printf("[row check]error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
+		printf("[row check]error detected (idx = (%d, %d), d1 = %.6f, d2 = %.6f, loc = %d) \n", 
+								 (blockIdx.x),(threadIdx.x),  (float)d1, (float)d2, loc);
 			
 		//the sum of the rest correct number except the error one
 		T sum = 0.0;
@@ -390,10 +384,104 @@ detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea,
 				sum +=	*(dA + i * ldda); 
 			}
 		}
-		//correct the error
 		*(dA + loc * ldda) = *dA_rowchk - sum;
 	}
-	// }
+}
+
+template<typename T>
+__global__ void 
+detect_correct_col_Gemm(T * dA, int64_t ldda, T E, int64_t num_col,
+								T * dA_colchk, 	int64_t ldda_colchk,
+								T * dA_colchk_r, int64_t ldda_colchk_r,
+								int64_t *BatIdx, int64_t *colIdx){
+	int col_batchid = blockIdx.x * blockDim.x;
+	int colid = col_batchid + threadIdx.x;
+	if(colid < num_col){
+		//determin the block to process
+		dA 			= dA + col_batchid * ldda;
+		dA_colchk   = dA_colchk + col_batchid * ldda_colchk;
+		dA_colchk_r = dA_colchk_r + col_batchid * ldda_colchk_r;
+		
+		//determine the specific colum to process
+		dA 			= dA + threadIdx.x * ldda;
+		dA_colchk   = dA_colchk   + threadIdx.x * ldda_colchk;
+		dA_colchk_r = dA_colchk_r + threadIdx.x * ldda_colchk_r;
+		
+		float d1 = (float)(*dA_colchk)       - (*dA_colchk_r);
+		float d2 = (float)(*(dA_colchk + 1)) - (*(dA_colchk_r + 1));
+
+		if(isinf(*dA_colchk_r) || isnan(*dA_colchk_r)){
+			*BatIdx = (int64_t)blockIdx.x;
+			*colIdx = (int64_t)threadIdx.x;
+			printf("INF or NAN loc: %d, %d\n", *BatIdx, *colIdx);
+			return;
+		}
+		
+		//error detected
+		if(fabs(d1) > E) {
+			//locate the error
+			int loc = round(d2 / d1) - 1;
+			printf("[col check]error detected (d1 = %f, d2 = %f, loc = %d) \n",(float)d1, (float)d2, loc);
+				
+			//the sum of the rest correct number except the error one
+			T sum = 0.0;
+			for (int i = 0; i < ldda; i++) {
+				if (i != loc) {
+					sum +=  *(dA + i); 
+				}
+			}
+			//correct the error
+			*(dA + loc) = *dA_colchk - sum;
+		}
+	}
+}
+
+template <typename T>
+__global__ void 
+detect_correct_row_Gemm(T * dA, int64_t ldda, T E, int64_t num_row, int64_t num_col,
+						    	T * dA_rowchk, 	int64_t ldda_rowchk,
+						    	T * dA_rowchk_r, int64_t ldda_rowchk_r,
+							 	int64_t *BatIdx, int64_t *rowIdx){
+	int row_batchid = blockIdx.x * blockDim.x;
+	int rowid = row_batchid + threadIdx.x;
+	if(rowid < num_row){
+		//determin the block to process
+		dA 			= dA + row_batchid;
+		dA_rowchk   = dA_rowchk   + row_batchid;
+		dA_rowchk_r = dA_rowchk_r + row_batchid;
+			
+		//determine the specific row to process
+		dA 			= dA + threadIdx.x;
+		dA_rowchk   = dA_rowchk   + threadIdx.x;
+		dA_rowchk_r = dA_rowchk_r + threadIdx.x;
+		
+		float d1 = (float)(*dA_rowchk)                 - (*dA_rowchk_r);
+		float d2 = (float)(*(dA_rowchk + ldda_rowchk)) - (*(dA_rowchk_r + ldda_rowchk_r));
+
+		if(isinf(*dA_rowchk_r) || isnan(*dA_rowchk_r)){
+			*BatIdx = (int64_t)blockIdx.x;
+			*rowIdx =(int64_t)threadIdx.x;
+			printf("INF or NAN loc: %d, %d\n", *BatIdx, *rowIdx);
+			return;
+		}
+		
+		//error detected
+		if(fabs(d1) > E) {
+			//locate the error
+			int loc = round(d2 / d1) - 1;
+			printf("[row check]error detected (d1 = %f, d2 = %f, loc = %d) \n",(float)d1, (float)d2, loc);
+				
+			//the sum of the rest correct number except the error one
+			T sum = 0.0;
+			for (int i = 0; i < num_col; i++) {
+				if (i != loc) {
+					sum +=  *(dA + i * ldda); 
+				}
+			}
+			//correct the error
+			*(dA + loc * ldda) = *dA_rowchk - sum;
+		}
+	}
 }
 
 template<typename T>

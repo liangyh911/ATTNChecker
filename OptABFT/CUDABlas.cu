@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <fstream>
+#include <cmath>
 
 #include <ATen/ATen.h>
 #include <ATen/cuda/CUDABlas.h>
@@ -435,6 +436,38 @@ void outputChk(T *A, int64_t nb, int64_t ld, int64_t stride, int64_t row, int64_
   free(tensor);
 }
 
+int64_t CommFactor3(int64_t m,int64_t n){
+  int64_t res = n;
+  while (m % n != 0)
+  {
+    res = m % n;
+    m = n;
+    n = res;
+  }
+  return res;
+}
+
+int64_t closestFactors(int64_t number) {
+  int64_t bestFactor1 = 1;
+  int64_t bestFactor2 =  number;
+  int64_t minDifference = std::abs(bestFactor1 - bestFactor2);
+  
+  // Iterate up to the square root of the number
+  for (int64_t factor = 2; factor <= std::sqrt(number); ++factor) {
+      if (number % factor == 0) {
+          // Calculate the other factor
+          int64_t otherFactor = number / factor;
+          // Check if the absolute difference is smaller
+          if (std::abs(factor - otherFactor) < minDifference) {
+              bestFactor1 = factor;
+              bestFactor2 = otherFactor;
+              minDifference = std::abs(factor - otherFactor);
+          }
+      }
+  }
+  return bestFactor1;
+}
+
 void recordEffeciency(string FP, float time, float overhead, float gflop, float memory){
   std::ofstream outFile(FP, std::ios::app);
   if(!outFile){
@@ -475,6 +508,10 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   globalContext().alertCuBLASConfigNotDeterministic();
   // std::cout << "handle. \n";
   cublasHandle_t handle = at::cuda::getCurrentCUDABlasHandle();
+  cublasHandle_t handle_colchk;
+  cublasHandle_t handle_rowchk;
+  cublasCreate(&handle_colchk);
+  cublasCreate(&handle_rowchk);
 
   // std::cout << "transA & transB. \n";
   cublasOperation_t transA = _cublasOpFromChar(transa);
@@ -494,6 +531,8 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   cudaStreamCreate(&stream_colchk);
   cudaStreamCreate(&stream_rowchk);
   cublasSetStream(handle, stream_main);
+  cublasSetStream(handle_colchk, stream_colchk);
+  cublasSetStream(handle_rowchk, stream_rowchk);
 
   cudaEvent_t main_compute_done;
   cudaEventCreate(&main_compute_done);
@@ -621,7 +660,6 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
       cudaEventElapsedTime(&t1, start, stop);
       printf("  gemm-col-ft: %f (%f)(%f)(%f)\n", t1, t1/t, (double)num_batches*2*n*k*2/t1/1e6, (double)num_batches*(2*k+k*n+2*n)/t1/1e6);
       recordEffeciency("/home/exouser/records/effeciency/abftbgemm.txt", t1, t1/t, (double)num_batches*2*n*k*2/t1/1e6, (double)num_batches*(2*k+k*n+2*n)/t1/1e6);
-
     }
   }
 
@@ -651,7 +689,6 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
       }
   }
 
-  cudaDeviceSynchronize();
   // --- check check-sum of C---//
 
   int64_t *batIdx = (int64_t*)malloc(sizeof(int64_t));
@@ -681,20 +718,20 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     detect_correct_col<T><<<dim3(num_batches), dim3(n), 0, stream_colchk>>>(dC, lddc, E, stridec,
                                             dC_colchk,      lddc_colchk,    (2*n),
                                             dC_colchk_r,    lddc_colchk_r,  (2*n), d_batIdx, d_RCIdx);
-    cudaMemcpy(batIdx, d_batIdx, sizeof(int64_t), cudaMemcpyDeviceToHost);
-    cudaMemcpy(RCIdx, d_RCIdx, sizeof(int64_t), cudaMemcpyDeviceToHost);
+    cudaMemcpyAsync(batIdx, d_batIdx, sizeof(int64_t), cudaMemcpyDeviceToHost,stream_colchk);
+    cudaMemcpyAsync(RCIdx, d_RCIdx, sizeof(int64_t), cudaMemcpyDeviceToHost, stream_colchk);
    
     if (*batIdx != (int64_t)-1){
       if constexpr (std::is_same<T, float>::value) {
         cublasSgemmStridedBatched(
-            handle, transA, transB, 1, n, k,
+            handle_colchk, transA, transB, 1, n, k,
             &falpha, dA + (stridea*(*batIdx) + *RCIdx), 1, 1*k,
             dB, lddb, strideb, &fbeta,
             dC + (stridec*(*batIdx)  + *RCIdx), 1, 1*n,
             (int64_t)1);
       } else if constexpr(std::is_same<T, at::Half>::value) {
         cublasGemmStridedBatchedEx(
-          handle, transA, transB, 1, n, k,
+          handle_colchk, transA, transB, 1, n, k,
           &falpha, dA + (stridea*(*batIdx)  + *RCIdx), CUDA_R_16F, 1, 1*k,
           dB, CUDA_R_16F, lddb, strideb, &fbeta,
           dC + (stridec*(*batIdx)  + *RCIdx), CUDA_R_16F, 1, t*n,
@@ -726,20 +763,20 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
                                           dC_rowchk, lddc_rowchk,     (2*m),
                                           dC_rowchk_r, lddc_rowchk_r, (2*m), d_batIdx, d_RCIdx);
     
-    cudaMemcpy(batIdx, d_batIdx, sizeof(int64_t), cudaMemcpyDeviceToHost);
-    cudaMemcpy(RCIdx, d_RCIdx, sizeof(int64_t), cudaMemcpyDeviceToHost);
+    cudaMemcpyAsync(batIdx, d_batIdx, sizeof(int64_t), cudaMemcpyDeviceToHost,stream_rowchk);
+    cudaMemcpyAsync(RCIdx, d_RCIdx, sizeof(int64_t), cudaMemcpyDeviceToHost,stream_rowchk);
 
     if (*batIdx != (int64_t)-1){
       if constexpr (std::is_same<T, float>::value) {
         cublasSgemmStridedBatched(
-            handle, transA, transB, m, 1, k,
+            handle_rowchk, transA, transB, m, 1, k,
             &falpha, dA, ldda, stridea,
             dB + (strideb*(*batIdx) + (*RCIdx)*lddb), lddb, 1*k, &fbeta,
             dC + (stridec*(*batIdx) + (*RCIdx)*lddc), 1, 1*n,
             1);
       } else if constexpr(std::is_same<T, at::Half>::value) {
         cublasGemmStridedBatchedEx(
-          handle, transA, transB, m, 1, k,
+          handle_rowchk, transA, transB, m, 1, k,
           &falpha, dA, CUDA_R_16F, ldda, stridea,
           dB + (strideb*(*batIdx) + (*RCIdx)*lddb), CUDA_R_16F, lddb, strideb, &fbeta,
           dC + (stridec*(*batIdx) + (*RCIdx)*lddc), CUDA_R_16F, 1*k, 1*K,
@@ -1152,7 +1189,7 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
             const T *a, int64_t lda, const T *b, int64_t ldb, at::opmath_type<T> beta,
             T *c, int64_t ldc){
 
-  // printf("m:%d, n:%d, k:%d\n", m, n, k);
+  printf("m:%d, n:%d, k:%d\n", m, n, k);
   // printf("%d, %d, %d\n", lda, ldb, ldc);
 
   T *dA_ = const_cast<T*>(a);
@@ -1405,31 +1442,27 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
   float falpha = at::opmath_type<T>(1);
   float fbeta = at::opmath_type<T>(0);
 
-  // std::cout << "transa: " << transa << "; transb: " << transb << std::endl;
+  printf("m:%d, n:%d, k:%d \n", m,n,k);
 
-  // printf("mat1: \n");
-  // outputMatrix(a,lda, m*k, 1, m, k);
-  // printf("mat2:\n");
-  // outputMatrix(b,ldb, k*n, 1, k, n);
-
+  
   //A check col
   if (COL_FT){
     if (DEBUG) std::cout << "dA_colchk" << std::endl;
     if (DEBUG) cudaEventRecord(start, stream_colchk);
     if(opa == CUBLAS_OP_N){
-    if constexpr (std::is_same<T, float>::value) {
-      cublasSgemm(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, m, 
-                    &falpha, chk_v_a, ld_chk_v, 
-                    a, lda, &fbeta, 
-                    dA_colchk, ldda_colchk);
-    }
-    else if constexpr(std::is_same<T, half>::value) {
-      cublasGemmEx(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, m,
-                    &falpha, chk_v_a, CUDA_R_16F, ld_chk_v, 
-                    a, CUDA_R_16F, lda,
-                    &fbeta, dA_colchk, CUDA_R_16F, ldda_colchk,
-                    CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-    } 
+      if constexpr (std::is_same<T, float>::value) {
+        cublasSgemm(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, m, 
+                      &falpha, chk_v_a, ld_chk_v, 
+                      a, lda, &fbeta, 
+                      dA_colchk, ldda_colchk);
+      }
+      else if constexpr(std::is_same<T, at::Half>::value) {
+        cublasGemmEx(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, m,
+                      &falpha, chk_v_a, CUDA_R_16F, ld_chk_v, 
+                      a, CUDA_R_16F, lda,
+                      &fbeta, dA_colchk, CUDA_R_16F, ldda_colchk,
+                      CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+      } 
     }
     else{
       if constexpr (std::is_same<T, float>::value) {
@@ -1438,7 +1471,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
                       chk_v_a, ld_chk_v, &fbeta, 
                       dA_rowchk, ldda_rowchk);
       }
-      else if constexpr(std::is_same<T, half>::value) {
+      else if constexpr(std::is_same<T, at::Half>::value) {
         cublasGemmEx(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_T, k,2,m,
                       &falpha, a, CUDA_R_16F, lda, 
                       chk_v_a, CUDA_R_16F, ld_chk_v,
@@ -1446,6 +1479,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
       } 
     }
+    cudaStreamSynchronize(stream_colchk);
     if (DEBUG) {
       cudaEventRecord(stop, stream_colchk);
       cudaEventSynchronize(stop);
@@ -1464,7 +1498,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
                     chk_v_b, ld_chk_v, &fbeta, 
                     dB_rowchk, lddb_rowchk);
       }
-      else if constexpr(std::is_same<T, half>::value){
+      else if constexpr(std::is_same<T, at::Half>::value){
         cublasGemmEx(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, n,
                       &falpha, b, CUDA_R_16F, ldb, 
                       chk_v_b, CUDA_R_16F, ld_chk_v,
@@ -1478,7 +1512,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
                       b, ldb, &fbeta, 
                       dB_colchk, lddb_colchk);
         }
-        else if constexpr(std::is_same<T, half>::value){
+        else if constexpr(std::is_same<T, at::Half>::value){
           cublasGemmEx(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, n,
                         &falpha, chk_v_b, CUDA_R_16F, ld_chk_v, 
                         b, CUDA_R_16F, ldb,
@@ -1486,6 +1520,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
                         CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
         }
     }
+    cudaStreamSynchronize(stream_rowchk);
     if (DEBUG) {
       cudaEventRecord(stop, stream_rowchk);
       cudaEventSynchronize(stop);
@@ -1493,11 +1528,12 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
       t_Bchk /= 1.0;
     }
   }
-
+  
   int64_t mem_row = 0;
   int64_t mem_col = 0;
   falpha = alpha;
   fbeta = beta;
+
 
   // A * B
   if (DEBUG)  cudaEventRecord(start, stream_main);
@@ -1517,7 +1553,9 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
   cudaStreamSynchronize(stream_main);
   // std::cout << "Output dC: " << std::endl;
   // outputMatrix(dC, lddc, stridec, num_batches, m, n);
-
+  
+  
+  
   if (DEBUG)  {
     cudaEventRecord(stop, stream_main);
     cudaEventSynchronize(stop);
@@ -1533,6 +1571,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
       recordEffeciency("/home/exouser/records/effeciency/abftgemm.txt", t_Bchk, t_Bchk/t, (double)1*2*n*k*2/t_Bchk/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t_Bchk/1e6);
     }
   }
+
 
   if(COL_FT){
     if (DEBUG)  cudaEventRecord(start, stream_colchk);
@@ -1570,6 +1609,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
       }
     }
+    cudaStreamSynchronize(stream_colchk);
     // std::cout << "Output dC_colchk: " << std::endl;
     // outputMatrixChk(dC_colchk, ldda_colchk, n*2, num_batches, 2, n);
     if (DEBUG)  {
@@ -1617,6 +1657,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
       }
     }
+    cudaStreamSynchronize(stream_rowchk);
     // std::cout << "Output dC_rowchk: " << std::endl;
     // outputMatrixChk(dC_rowchk,lddc_rowchk, m*2, num_batches, m, 2);
     if (DEBUG)  {
@@ -1627,23 +1668,22 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
       recordEffeciency("/home/exouser/records/effeciency/abftgemm.txt", t1, t1/t, (double)1*m*2*k*2/t1/1e6, (double)1*(m*k+k*2+m*2)*sizeof(T)/t1/1e6);      
     }
   }
-
+    
   // --- check check-sum of C---//
-
-  int64_t *batIdx = (int64_t*)malloc(sizeof(int64_t));
-  *batIdx = (int64_t)-1;
-  int64_t *RCIdx = (int64_t*)malloc(sizeof(int64_t));
-  *RCIdx = (int64_t)-1;
-  
-  int64_t *d_batIdx, *d_RCIdx;
-  cudaMalloc((void **) &d_batIdx, sizeof(int64_t));
-  cudaMalloc((void **) &d_RCIdx, sizeof(int64_t));
-
 
   if (DEBUG) std::cout << "------Check check-sum-------" << std::endl;
   falpha = at::opmath_type<T>(1);
   fbeta = at::opmath_type<T>(0);
   if (COL_FT && CHECK_AFTER) {
+    int64_t *batIdx = (int64_t*)malloc(sizeof(int64_t));
+    *batIdx = (int64_t)-1;
+    int64_t *RCIdx = (int64_t*)malloc(sizeof(int64_t));
+    *RCIdx = (int64_t)-1;
+    
+    int64_t *d_batIdx, *d_RCIdx;
+    cudaMalloc((void **) &d_batIdx, sizeof(int64_t));
+    cudaMalloc((void **) &d_RCIdx, sizeof(int64_t));
+
     cudaMemcpy(d_batIdx, batIdx, sizeof(int64_t), cudaMemcpyHostToDevice);
     cudaMemcpy(d_RCIdx, RCIdx, sizeof(int64_t), cudaMemcpyHostToDevice);
     mem_row = m;
@@ -1664,26 +1704,29 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
     }
     T E = 1e-2;
-    detect_correct_col<T><<<dim3(1), dim3(n), 0, stream_colchk>>>(c, ldc, E, m*n,
-                                            dC_colchk,      lddc_colchk,    (2*n),
-                                            dC_colchk_r,    lddc_colchk_r,  (2*n), d_batIdx, d_RCIdx);
+    detect_correct_col_Gemm<T><<<dim3(128), dim3((n+128-1)/128), 0, stream_colchk>>>(c ,ldc, E, n,
+                                                                                      dC_colchk, lddc_colchk,
+                                                                                      dC_colchk_r, lddc_colchk_r,
+                                                                                      d_batIdx, d_RCIdx);
 
-    cudaMemcpy(batIdx, d_batIdx, sizeof(int64_t), cudaMemcpyDeviceToHost);
-    cudaMemcpy(RCIdx, d_RCIdx, sizeof(int64_t), cudaMemcpyDeviceToHost);
-    
-    if constexpr (std::is_same<T, float>::value) {
-      cublasSgemm(handle, opa, opb, 1, n, k, 
-                    &alpha, a+(*RCIdx), 1, 
-                    b, ldb, &beta, 
-                    c+(*RCIdx), 1);
-    } else if constexpr(std::is_same<T, half>::value) {
-        cublasGemmEx(handle, opa, opb, 1, n, k,
-          &alpha, a+(*RCIdx), CUDA_R_16F, 1, 
-          b, CUDA_R_16F, ldb,
-          &beta, c+(*RCIdx), CUDA_R_16F, 1,
-          CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-    }
+    // cudaMemcpyAsync(batIdx, d_batIdx, sizeof(int64_t), cudaMemcpyDeviceToHost,stream_colchk);
+    // cudaMemcpyAsync(RCIdx, d_RCIdx, sizeof(int64_t), cudaMemcpyDeviceToHost, stream_colchk);
 
+    // if(*RCIdx != (int64_t)-1){
+    //   if constexpr (std::is_same<T, float>::value) {
+    //     cublasSgemm(handle_colchk, opa, opb, 1, n, k, 
+    //                   &alpha, a+(*RCIdx), 1, 
+    //                   b, ldb, &beta, 
+    //                   c+(*RCIdx), 1);
+    //   } else if constexpr(std::is_same<T, half>::value) {
+    //       cublasGemmEx(handle_colchk, opa, opb, 1, n, k,
+    //         &alpha, a+(*RCIdx), CUDA_R_16F, 1, 
+    //         b, CUDA_R_16F, ldb,
+    //         &beta, c+(*RCIdx), CUDA_R_16F, 1,
+    //         CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+    //   }
+    // }
+    // cudaStreamSynchronize(stream_colchk);
     if (DEBUG)  {
       cudaEventRecord(stop, stream_colchk);
       cudaEventSynchronize(stop);
@@ -1691,19 +1734,32 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
       printf("gemm-col-chk: %f (%f)(%f)(%f)\n", t1, t1/t, (double)(1)*2*n*m*2/t1/1e6, (double)1*(m*n+2*m+2*n)*sizeof(T)/t1/1e6);
       recordEffeciency("/home/exouser/records/effeciency/abftgemm.txt",  t1, t1/t, (double)(1)*2*n*m*2/t1/1e6, (double)1*(m*n+2*m+2*n)*sizeof(T)/t1/1e6);      
     }
+    cudaFree(d_batIdx);
+    cudaFree(d_RCIdx);
+    free(batIdx);
+    free(RCIdx);
   }
 
+  
   if (ROW_FT && CHECK_AFTER) {
     mem_row = m;
     mem_col = n;
-    *batIdx = (int64_t)-1;
-    *RCIdx = (int64_t)-1;
-    cudaMemcpy(d_batIdx, batIdx, sizeof(int64_t), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_RCIdx, RCIdx, sizeof(int64_t), cudaMemcpyHostToDevice);
+    
+    int64_t *batIdx1 = (int64_t*)malloc(sizeof(int64_t));
+    *batIdx1 = (int64_t)-1;
+    int64_t *RCIdx1 = (int64_t*)malloc(sizeof(int64_t));
+    *RCIdx1 = (int64_t)-1;
+
+    int64_t *d_batIdx1, *d_RCIdx1;
+    cudaMalloc((void **) &d_batIdx1, sizeof(int64_t));
+    cudaMalloc((void **) &d_RCIdx1, sizeof(int64_t));
+    cudaMemcpy(d_batIdx1, batIdx1, sizeof(int64_t), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_RCIdx1, RCIdx1, sizeof(int64_t), cudaMemcpyHostToDevice);
+    
     if (DEBUG) printf("dgemm-after-check-C-row\n");
     if (DEBUG)  cudaEventRecord(start, stream_rowchk);
     if constexpr (std::is_same<T, float>::value){
-        cublasSgemm(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T,  mem_row, 2, mem_col,
+      cublasSgemm(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T,  mem_row, 2, mem_col,
                       &falpha, c, ldc, 
                       chk_v_b, ld_chk_v, &fbeta, 
                       dC_rowchk_r, lddc_rowchk_r);
@@ -1717,27 +1773,34 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
     }
     
     T E = 1e-2;
-    detect_correct_row<T><<<dim3(1), dim3(m), 0, stream_rowchk>>>(c, ldc, E, m*n,
-                                            dC_rowchk, lddc_rowchk,     (2*m),
-                                            dC_rowchk_r, lddc_rowchk_r, (2*m), d_batIdx, d_RCIdx);
-    
-    cudaMemcpy(batIdx, d_batIdx, sizeof(int64_t), cudaMemcpyDeviceToHost);
-    cudaMemcpy(RCIdx, d_RCIdx, sizeof(int64_t), cudaMemcpyDeviceToHost);
-    
-    if constexpr (std::is_same<T, float>::value) {
-      cublasSgemm(handle_rowchk, opa, opb, m, 1, k, 
-                    &alpha, a, lda, 
-                    b+((*RCIdx)*ldb), ldb, &beta, 
-                    c+((*RCIdx)*ldc), ldc);
-    } 
-    else if constexpr(std::is_same<T, at::Half>::value) {
-        cublasGemmEx(handle_rowchk, opa, opb, m, 1, k,
-          &alpha, a, CUDA_R_16F, lda, 
-          b+((*RCIdx)*ldb), CUDA_R_16F, ldb,
-          &beta, c+((*RCIdx)*ldc), CUDA_R_16F, ldc,
-          CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-    }
+    // detect_correct_row<T><<<dim3(1), dim3(m), 0, stream_rowchk>>>(c, ldc, E, m*n,
+    //                                         dC_rowchk, ldda_rowchk,     (2*m),
+    //                                         dC_rowchk_r, ldda_rowchk_r, (2*m), d_batIdx1, d_RCIdx1);
 
+    detect_correct_row_Gemm<T><<<dim3(128), dim3((m+128-1)/128), 0, stream_rowchk>>>(c, ldc, E, m, n,
+                                                                          dC_rowchk, lddc_rowchk,
+                                                                          dC_rowchk_r, lddc_rowchk_r,
+                                                                          d_batIdx1, d_RCIdx1);
+    
+    // cudaMemcpyAsync(batIdx1, d_batIdx1, sizeof(int64_t), cudaMemcpyDeviceToHost,stream_rowchk);
+    // cudaMemcpyAsync(RCIdx1, d_RCIdx1, sizeof(int64_t), cudaMemcpyDeviceToHost,stream_rowchk);
+
+    // if(*RCIdx1 != (int64_t)-1){
+    //   if constexpr (std::is_same<T, float>::value) {
+    //     cublasSgemm(handle_rowchk, opa, opb, m, 1, k, 
+    //                   &alpha, a, lda, 
+    //                   b+((*RCIdx1)*ldb), ldb, &beta, 
+    //                   c+((*RCIdx1)*ldc), ldc);
+    //   } 
+    //   else if constexpr(std::is_same<T, at::Half>::value) {
+    //       cublasGemmEx(handle_rowchk, opa, opb, m, 1, k,
+    //         &alpha, a, CUDA_R_16F, lda, 
+    //         b+(*RCIdx1)*ldb), CUDA_R_16F, ldb,
+    //         &beta, c+((*RCIdx1)*ldc), CUDA_R_16F, ldc,
+    //         CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+    //   }
+    // }
+    cudaStreamSynchronize(stream_rowchk);
     if (DEBUG)  {
       cudaEventRecord(stop, stream_rowchk);
       cudaEventSynchronize(stop);
@@ -1745,6 +1808,10 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
       printf("gemm-row-chk: %f (%f)(%f)(%f)\n", t1, t1/t, (double)(1)*m*2*n*2/t1/1e6, (double)1*(m*n+2*n+2*m)*sizeof(T)/t1/1e6);
       recordEffeciency("/home/exouser/records/effeciency/abftgemm.txt",  t1, t1/t, (double)(1)*m*2*n*2/t1/1e6, (double)1*(m*n+2*n+2*m)*sizeof(T)/t1/1e6);      
     }
+    cudaFree(d_batIdx1);
+    cudaFree(d_RCIdx1);
+    free(batIdx1);
+    free(RCIdx1);
   }
 }
 
@@ -2458,6 +2525,7 @@ void abftGemmBias(
 
   float falpha = at::opmath_type<T>(1);
   float fbeta = at::opmath_type<T>(0);
+  printf("m:%d, n:%d, k:%d\n ", m, n, k);
 
   // printf("alpha: %f, beta: %f \n", alpha_val, beta_val);
 
@@ -2470,6 +2538,7 @@ void abftGemmBias(
   size_t size =  m * n * sizeof(T);
   cudaMalloc((void**)&biasMatrix, size);
   getBiasMatrix<<<n, m>>>(bias, biasMatrix);
+  
   // printf("bias:\n");
   // outputMatrixChk(biasMatrix, m, m, 1, m, n);
 
@@ -2558,7 +2627,10 @@ void abftGemmBias(
     }
   }
 
+  // Bias checksum
+  
   // Bias col chk
+  
   if (COL_FT){
     if (DEBUG) std::cout << "bias_check_col_sum" << std::endl;
     if (DEBUG) cudaEventRecord(start, stream_colchk);
@@ -2692,10 +2764,21 @@ void abftGemmBias(
     }
     // std::cout << "Output org dC_colchk: " << std::endl;
     // outputMatrixChk(dC_colchk, lddc_colchk, n*2, 1, 2, n);
+    
     // dC_colchk + dBias_colchk
-    dim3 blockSize(16, 16);
-    dim3 gridSize((n + blockSize.x - 1) / blockSize.x, (2 + blockSize.y - 1) / blockSize.y);
-    addVector<T><<<blockSize, gridSize, (2*n)*sizeof(T), stream_colchk>>>(dC_colchk, dBias_colchk, 2, n);
+    if constexpr (std::is_same<T, float>::value){
+      cublasSgeam(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, n,
+                    &falpha, dBias_colchk, lddc_colchk, &falpha,
+                    dC_colchk, lddc_colchk,
+                    dC_colchk, lddc_colchk);
+    }
+    else if constexpr (std::is_same<T, at::Half>::value){
+      
+    }
+    // dim3 blockSize(16, 16);
+    // dim3 gridSize((n + blockSize.x - 1) / blockSize.x, (2 + blockSize.y - 1) / blockSize.y);
+    // addVector<T><<<blockSize, gridSize, (2*n)*sizeof(T), stream_colchk>>>(dC_colchk, dBias_colchk, 2, n);
+    
     // std::cout << "Output dC_colchk: " << std::endl;
     // outputMatrixChk(dC_colchk, lddc_colchk, n*2, 1, 2, n);
     
@@ -2751,9 +2834,16 @@ void abftGemmBias(
       // std::cout << "Output org dC_colchk: " << std::endl;
       // outputMatrixChk(dC_rowchk, lddc_rowchk, m*2, 1, m, 2);
       // dC_colchk + dBias_colchk
-      dim3 blockSize(16, 16);
-      dim3 gridSize((2 + blockSize.x - 1) / blockSize.x, (m + blockSize.y - 1) / blockSize.y);
-      addVector<T><<<blockSize, gridSize, (m*2)*sizeof(T),stream_rowchk>>>(dC_rowchk, dBias_rowchk, m, 2);
+
+      // dim3 blockSize(16, 16);
+      // dim3 gridSize((2 + blockSize.x - 1) / blockSize.x, (m + blockSize.y - 1) / blockSize.y);
+      // addVector<T><<<blockSize, gridSize, (m*2)*sizeof(T),stream_rowchk>>>(dC_rowchk, dBias_rowchk, m, 2);
+      if constexpr (std::is_same<T, float>::value){ 
+        cublasSgeam(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_N, m, 2,
+                  &falpha, dBias_rowchk, lddc_rowchk, &falpha,
+                  dC_rowchk, lddc_rowchk,
+                  dC_rowchk, lddc_rowchk);
+      }
       // std::cout << "Output dC_rowchk: " << std::endl;
       // outputMatrixChk(dC_rowchk, lddc_rowchk, m*2, 1, m, 2);
       // outputMatrixChk(dC_rowchk,lddc_rowchk, m*2, num_batches, m, 2);
@@ -2800,27 +2890,33 @@ void abftGemmBias(
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
     }
     T E = 1e-2;
-    
-    detect_correct_col<<<dim3(1), dim3(n), 0, stream_colchk>>>(result_ptr, result_ld, E, m*n,
-                                          dC_colchk,      lddc_colchk,    (2*n),
-                                          dC_colchk_r,    lddc_colchk_r,  (2*n), d_batIdx, d_RCIdx);
-    
-    cudaMemcpy(batIdx, d_batIdx, sizeof(int64_t), cudaMemcpyDeviceToHost);
-    cudaMemcpy(RCIdx, d_RCIdx, sizeof(int64_t), cudaMemcpyDeviceToHost);
 
-    if(*RCIdx != (int64_t)-1){
+    detect_correct_col_Gemm<T><<<dim3(128), dim3((n+128-1)/128), 0, stream_colchk>>>(result_ptr, result_ld, E, n,
+                                                                                      dC_colchk, lddc_colchk, 
+                                                                                      dC_colchk_r, lddc_colchk_r,
+                                                                                      d_batIdx, d_RCIdx);
+    
+    // detect_correct_col<<<dim3(1), dim3(n), 0, stream_colchk>>>(result_ptr, result_ld, E, m*n,
+    //                                       dC_colchk,      lddc_colchk,    (2*n),
+    //                                       dC_colchk_r,    lddc_colchk_r,  (2*n), d_batIdx, d_RCIdx);
+    
+    // cudaMemcpyAsync(batIdx, d_batIdx, sizeof(int64_t), cudaMemcpyDeviceToHost, stream_colchk);
+    // cudaMemcpyAsync(RCIdx, d_RCIdx, sizeof(int64_t), cudaMemcpyDeviceToHost, stream_colchk);
+
+    // if(*RCIdx != (int64_t)-1){
       
-      CuBlasLtMatrixLayout Adesc(abcType, 1, k, 1, transpose_mat1);
-      CuBlasLtMatrixLayout Bdesc(abcType, k, n, mat2_ld, transpose_mat2);
-      CuBlasLtMatrixLayout Cdesc(abcType, 1, n, 1);
+    //   CuBlasLtMatrixLayout Adesc(abcType, 1, k, 1, transpose_mat1);
+    //   CuBlasLtMatrixLayout Bdesc(abcType, k, n, mat2_ld, transpose_mat2);
+    //   CuBlasLtMatrixLayout Cdesc(abcType, 1, n, 1);
 
-      cublasLtMatmul(ltHandle, computeDesc.descriptor(), &alpha_val,
-        mat1_ptr+(*RCIdx), Adesc.descriptor(),
-        mat2_ptr, Bdesc.descriptor(), &beta_val,
-        result_ptr+(*RCIdx), Cdesc.descriptor(), 
-        result_ptr+(*RCIdx), Cdesc.descriptor(),
-        &heuristicResult.algo, workspace.mutable_get(), workspaceSize, stream_colchk);
-    }
+    //   cublasLtMatmul(ltHandle, computeDesc.descriptor(), &alpha_val,
+    //     mat1_ptr+(*RCIdx), Adesc.descriptor(),
+    //     mat2_ptr, Bdesc.descriptor(), &beta_val,
+    //     result_ptr+(*RCIdx), Cdesc.descriptor(), 
+    //     result_ptr+(*RCIdx), Cdesc.descriptor(),
+    //     &heuristicResult.algo, workspace.mutable_get(), workspaceSize, stream_colchk);
+    // }
+    cudaStreamSynchronize(stream_colchk);
 
     if (DEBUG)  {
       cudaEventRecord(stop, stream_colchk);
@@ -2856,27 +2952,33 @@ void abftGemmBias(
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
     }
     T E = 1e-2;
-    detect_correct_row<<<dim3(1), dim3(m), 0, stream_rowchk>>>(result_ptr, result_ld, E, m*n,
-                                          dC_rowchk, lddc_rowchk,     (2*m),
-                                          dC_rowchk_r, lddc_rowchk_r, (2*m),  d_batIdx, d_RCIdx);
 
-    cudaMemcpy(batIdx, d_batIdx, sizeof(int64_t), cudaMemcpyDeviceToHost);
-    cudaMemcpy(RCIdx, d_RCIdx, sizeof(int64_t), cudaMemcpyDeviceToHost);
+    detect_correct_row_Gemm<T><<<dim3(128), dim3((m+128-1)/128), 0, stream_rowchk>>>(result_ptr, result_ld, E, m, n,
+                                                                          dC_rowchk, lddc_rowchk,
+                                                                          dC_rowchk_r, lddc_rowchk_r,
+                                                                          d_batIdx, d_RCIdx);
 
-    if(*RCIdx != (int64_t)-1){
+    // detect_correct_row<<<dim3(1), dim3(m), 0, stream_rowchk>>>(result_ptr, result_ld, E, m*n,
+    //                                       dC_rowchk, lddc_rowchk,     (2*m),
+    //                                       dC_rowchk_r, lddc_rowchk_r, (2*m),  d_batIdx, d_RCIdx);
+
+    // cudaMemcpyAsync(batIdx, d_batIdx, sizeof(int64_t), cudaMemcpyDeviceToHost, stream_rowchk);
+    // cudaMemcpyAsync(RCIdx, d_RCIdx, sizeof(int64_t), cudaMemcpyDeviceToHost, stream_rowchk);
+
+    // if(*RCIdx != (int64_t)-1){
       
-      CuBlasLtMatrixLayout Adesc(abcType, m, k, mat1_ld, transpose_mat1);
-      CuBlasLtMatrixLayout Bdesc(abcType, k, 1, mat2_ld, transpose_mat2);
-      CuBlasLtMatrixLayout Cdesc(abcType, m, 1, result_ld);
+    //   CuBlasLtMatrixLayout Adesc(abcType, m, k, mat1_ld, transpose_mat1);
+    //   CuBlasLtMatrixLayout Bdesc(abcType, k, 1, mat2_ld, transpose_mat2);
+    //   CuBlasLtMatrixLayout Cdesc(abcType, m, 1, result_ld);
 
-      cublasLtMatmul(ltHandle, computeDesc.descriptor(), &alpha_val,
-        mat1_ptr, Adesc.descriptor(),
-        mat2_ptr+((*RCIdx)*mat2_ld), Bdesc.descriptor(), &beta_val,
-        result_ptr+((*RCIdx)*result_ld), Cdesc.descriptor(), 
-        result_ptr+((*RCIdx)*result_ld), Cdesc.descriptor(),
-        &heuristicResult.algo, workspace.mutable_get(), workspaceSize, stream_rowchk);
-    }
-
+    //   cublasLtMatmul(ltHandle, computeDesc.descriptor(), &alpha_val,
+    //     mat1_ptr, Adesc.descriptor(),
+    //     mat2_ptr+((*RCIdx)*mat2_ld), Bdesc.descriptor(), &beta_val,
+    //     result_ptr+((*RCIdx)*result_ld), Cdesc.descriptor(), 
+    //     result_ptr+((*RCIdx)*result_ld), Cdesc.descriptor(),
+    //     &heuristicResult.algo, workspace.mutable_get(), workspaceSize, stream_rowchk);
+    // }
+    cudaStreamSynchronize(stream_rowchk);
     if (DEBUG)  {
       cudaEventRecord(stop, stream_rowchk);
       cudaEventSynchronize(stop);
