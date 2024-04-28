@@ -1187,7 +1187,7 @@ template void mybgemm<at::BFloat16>(char transa, char transb, int64_t m, int64_t
               int64_t num_batches);
 
 template<typename T>
-void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<T> alpha,
+void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<T> alpha,
             const T *a, int64_t lda, const T *b, int64_t ldb, at::opmath_type<T> beta,
             T *c, int64_t ldc){
 
@@ -1349,7 +1349,7 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
 
   auto start = high_resolution_clock::now();
   if constexpr (std::is_same<T, float>::value) {
-    abftGemm<float>(transa, transb, m, n, k,
+    abftGemmPassChk<float>(transa, transb, m, n, k,
       alpha, dA_, lda,
       dB_, ldb, beta,
       c, ldc,
@@ -1358,7 +1358,7 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
       COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER,QKV);
   }
   else if constexpr (std::is_same<T, at::Half>::value) {
-    abftGemm<at::Half>(transa, transb, m, n, k,
+    abftGemmPassChk<at::Half>(transa, transb, m, n, k,
       alpha, dA_, lda,
       dB_, ldb, beta,
       c, ldc,
@@ -1388,32 +1388,32 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   cudaFree(chk_v_b);
 }
 
-template void myGemm<float>(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<float> alpha,
+template void myGemmPassChk<float>(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<float> alpha,
             const float *a, int64_t lda, const float *b, int64_t ldb, at::opmath_type<float> beta,
             float *c, int64_t ldc);
 
-template void myGemm<at::Half>(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<at::Half> alpha,
+template void myGemmPassChk<at::Half>(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<at::Half> alpha,
             const at::Half *a, int64_t lda, const at::Half *b, int64_t ldb, at::opmath_type<at::Half> beta,
             at::Half *c, int64_t ldc);
 
-template void myGemm<double>(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<double> alpha,
+template void myGemmPassChk<double>(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<double> alpha,
             const double *a, int64_t lda, const double *b, int64_t ldb, at::opmath_type<double> beta,
             double *c, int64_t ldc);
   
-template void myGemm<c10::complex<double>>(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<c10::complex<double>> alpha,
+template void myGemmPassChk<c10::complex<double>>(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<c10::complex<double>> alpha,
             const c10::complex<double> *a, int64_t lda, const c10::complex<double> *b, int64_t ldb, at::opmath_type<c10::complex<double>> beta,
             c10::complex<double> *c, int64_t ldc);
 
-template void myGemm<c10::complex<float>>(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<c10::complex<float>> alpha,
+template void myGemmPassChk<c10::complex<float>>(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<c10::complex<float>> alpha,
             const c10::complex<float> *a, int64_t lda, const c10::complex<float> *b, int64_t ldb, at::opmath_type<c10::complex<float>> beta,
             c10::complex<float> *c, int64_t ldc);
 
-template void myGemm<at::BFloat16>(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<at::BFloat16> alpha,
+template void myGemmPassChk<at::BFloat16>(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<at::BFloat16> alpha,
             const at::BFloat16 *a, int64_t lda, const at::BFloat16 *b, int64_t ldb, at::opmath_type<at::BFloat16> beta,
             at::BFloat16 *c, int64_t ldc);
 
 template <typename T>
-void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, 
+void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, 
       at::opmath_type<T> alpha, T *a, int64_t lda, 
       T *b, int64_t ldb, at::opmath_type<T> beta,
       T *c, int64_t ldc,
@@ -1771,10 +1771,464 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
     // printf("V_rowchk: \n");
     // outputChk(V_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
   }
+}
 
+template<typename T>
+void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<T> alpha,
+            const T *a, int64_t lda, const T *b, int64_t ldb, at::opmath_type<T> beta,
+            T *c, int64_t ldc){
+
+  printf("m:%d, n:%d, k:%d\n", m, n, k);
+  // printf("%d, %d, %d\n", lda, ldb, ldc);
+
+  T *dA_ = const_cast<T*>(a);
+  T *dB_ = const_cast<T*>(b);
+
+  ldda_colchk = 2;
+  ldda_colchk_r = 2;
+  ldda_rowchk = k;
+  ldda_rowchk_r = k;
+
+  lddb_rowchk = k;
+  lddb_rowchk_r = k;
+  lddb_colchk = 2;
+  lddb_colchk_r = 2;
+
+  lddc_colchk = 2;
+  lddc_colchk_r = 2;
+  lddc_rowchk = m;
+  lddc_rowchk_r = m;
+  int64_t ld_chk_v = 2;
+
+  // T *dA_colchk, *dA_rowchk, *dA_colchk_r, *dA_rowchk_r;
+  // T *dB_colchk, *dB_rowchk, *dB_colchk_r, *dB_rowchk_r;
+  // T *dC_colchk, *dC_rowchk, *dC_colchk_r, *dC_rowchk_r;
+  T *chk_v_a;
+  T *chk_v_b;
+
+  size_t size = 2 * k * sizeof(T);
+  cudaMalloc((void**)&dA_colchk<T>, size);
+  cudaMemset(dA_colchk<T>, 0, size);
+  cudaMalloc((void**)&dA_colchk_r<T>, size);
+  cudaMemset(dA_colchk_r<T>, 0, size);
+
+  cudaMalloc((void**)&dA_rowchk<T>, size);
+  cudaMemset(dA_rowchk<T>, 0, size);
+  cudaMalloc((void**)&dA_rowchk_r<T>, size);
+  cudaMemset(dA_rowchk_r<T>, 0, size);
+  //std::cout << "  finish dA." << std::endl;
+  
+  cudaMalloc((void**)&dB_colchk<T>, size);
+  cudaMemset(dB_colchk<T>, 0, size);
+  cudaMalloc((void**)&dB_colchk_r<T>, size);
+  cudaMemset(dB_colchk_r<T>, 0, size);
+  
+  cudaMalloc((void**)&dB_rowchk<T>, size);
+  cudaMemset(dB_rowchk<T>, 0, size);
+  cudaMalloc((void**)&dB_rowchk_r<T>, size);
+  cudaMemset(dB_rowchk_r<T>, 0, size);
+  //std::cout << "  finish dB." << std::endl;
+
+  size = 2 * n * sizeof(T);
+  cudaMalloc((void**)&dC_colchk<T>, size);
+  cudaMemset(dC_colchk<T>, 0, size);
+  cudaMalloc((void**)&dC_colchk_r<T>, size);
+  cudaMemset(dC_colchk_r<T>, 0, size);
+  
+  size = 2 * m * sizeof(T);
+  cudaMalloc((void**)&dC_rowchk<T>, size);
+  cudaMemset(dC_rowchk<T>, 0, size);
+  cudaMalloc((void**)&dC_rowchk_r<T>, size);
+  cudaMemset(dC_rowchk_r<T>, 0, size);
+
+  int64_t len = m;
+  size = 2 * len * sizeof(T);
+  cudaMalloc((void**)&chk_v_a, size);
+  T *h_matrix;
+  h_matrix = (T *)malloc(size);
+  int idx = 0;
+  for(int i = 0; i < len; i++){
+      idx = i*ld_chk_v;
+      h_matrix[idx] = T(1);
+      h_matrix[idx+1] = T(i+1);
+  }
+  cudaMemcpy(chk_v_a, h_matrix, size, cudaMemcpyHostToDevice);
+  free(h_matrix);
+
+  len = n;
+  size = 2 * len * sizeof(T);
+  cudaMalloc((void**)&chk_v_b, size);
+  h_matrix = (T *)malloc(size);
+  idx = 0;
+  for(int i = 0; i < len; i++){
+      idx = i*ld_chk_v;
+      h_matrix[idx] = T(1);
+      h_matrix[idx+1] = T(i+1);
+  }
+  cudaMemcpy(chk_v_b, h_matrix, size, cudaMemcpyHostToDevice);
+  free(h_matrix);
+  
+  bool COL_FT = true;
+  bool ROW_FT = true;
+  bool DEBUG = true;
+  bool CHECK_BEFORE = true;
+  bool CHECK_AFTER = true;
+
+  char flag;
+  std::ifstream colFile("/home/exouser/control/abftCOL_FT.txt");
+  if (colFile.is_open()){
+    colFile.get(flag);
+    if(flag == 'f'){
+      COL_FT = false;
+    }
+    // printf("%c", flag);
+  }
+  else{
+    printf("COL_FT: Cannot open file, using default setting.\n");
+  }
+  colFile.close();
+    
+  std::ifstream rowFile("/home/exouser/control/abftROW_FT.txt");
+  if (rowFile.is_open()){
+    rowFile.get(flag);
+    if(flag == 'f'){
+      ROW_FT = false;
+    }
+    // printf("%c", flag);
+  }
+  else{
+    printf("ROW_FT: Cannot open file, using default setting.\n");
+  }
+  rowFile.close();
+
+  auto start = high_resolution_clock::now();
+  if constexpr (std::is_same<T, float>::value) {
+    abftGemm<float>(transa, transb, m, n, k,
+      alpha, dA_, lda,
+      dB_, ldb, beta,
+      c, ldc,
+      chk_v_a, chk_v_b, ld_chk_v,
+      COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER);
+  }
+  else if constexpr (std::is_same<T, at::Half>::value) {
+    abftGemm<at::Half>(transa, transb, m, n, k,
+      alpha, dA_, lda,
+      dB_, ldb, beta,
+      c, ldc,
+      chk_v_a, chk_v_b, ld_chk_v,
+      COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER);
+  }
+  cudaDeviceSynchronize();
+  auto stop = high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<microseconds>(stop - start);
+  std::cout << "abftGemm: " << duration.count() / 1000.0 << std::endl;
+  recordTime("/home/exouser/records/time/abftgemm.txt", (duration.count() / 1000.0), DEBUG);
+
+  // cudaFree(dA_colchk);
+  // cudaFree(dA_rowchk);
+  // cudaFree(dA_colchk_r);
+  // cudaFree(dA_rowchk_r);
+  // cudaFree(dB_colchk);
+  // cudaFree(dB_rowchk);
+  // cudaFree(dB_colchk_r);
+  // cudaFree(dB_rowchk_r);
+  // cudaFree(dC_colchk);
+  // cudaFree(dC_rowchk);
+  // cudaFree(dC_colchk_r);
+  // cudaFree(dC_rowchk_r);
+  cudaFree(chk_v_a);
+  cudaFree(chk_v_b);
+}
+
+template void myGemm<float>(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<float> alpha,
+            const float *a, int64_t lda, const float *b, int64_t ldb, at::opmath_type<float> beta,
+            float *c, int64_t ldc);
+
+template void myGemm<at::Half>(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<at::Half> alpha,
+            const at::Half *a, int64_t lda, const at::Half *b, int64_t ldb, at::opmath_type<at::Half> beta,
+            at::Half *c, int64_t ldc);
+
+template void myGemm<double>(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<double> alpha,
+            const double *a, int64_t lda, const double *b, int64_t ldb, at::opmath_type<double> beta,
+            double *c, int64_t ldc);
+  
+template void myGemm<c10::complex<double>>(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<c10::complex<double>> alpha,
+            const c10::complex<double> *a, int64_t lda, const c10::complex<double> *b, int64_t ldb, at::opmath_type<c10::complex<double>> beta,
+            c10::complex<double> *c, int64_t ldc);
+
+template void myGemm<c10::complex<float>>(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<c10::complex<float>> alpha,
+            const c10::complex<float> *a, int64_t lda, const c10::complex<float> *b, int64_t ldb, at::opmath_type<c10::complex<float>> beta,
+            c10::complex<float> *c, int64_t ldc);
+
+template void myGemm<at::BFloat16>(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<at::BFloat16> alpha,
+            const at::BFloat16 *a, int64_t lda, const at::BFloat16 *b, int64_t ldb, at::opmath_type<at::BFloat16> beta,
+            at::BFloat16 *c, int64_t ldc);
+
+template <typename T>
+void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, 
+      at::opmath_type<T> alpha, T *a, int64_t lda, 
+      T *b, int64_t ldb, at::opmath_type<T> beta,
+      T *c, int64_t ldc,
+      T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,                                      
+      bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER){
+  globalContext().alertCuBLASConfigNotDeterministic();
+  cublasHandle_t handle = at::cuda::getCurrentCUDABlasHandle();
+  cublasOperation_t opa = _cublasOpFromChar(transa);
+  cublasOperation_t opb = _cublasOpFromChar(transb);
+  
+  cublasHandle_t handle_colchk;
+  cublasCreate(&handle_colchk);
+  cublasHandle_t handle_rowchk;
+  cublasCreate(&handle_rowchk);
+
+  cudaStream_t stream_main, stream_colchk, stream_rowchk;
+  cudaStreamCreate(&stream_main);
+  cudaStreamCreate(&stream_colchk);
+  cudaStreamCreate(&stream_rowchk);
+  cublasSetStream(handle, stream_main);
+  cublasSetStream(handle_colchk, stream_colchk);
+  cublasSetStream(handle_rowchk, stream_rowchk);
+
+  cudaEvent_t main_compute_done;
+  cudaEventCreate(&main_compute_done);
+
+  cudaEvent_t start, stop;
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
+  float t, t1, t_Achk, t_Bchk;
+
+  float falpha = at::opmath_type<T>(1);
+  float fbeta = at::opmath_type<T>(0);
+
+  printf("m:%d, n:%d, k:%d \n", m,n,k);
+
+  
+  //A check col
+  if (COL_FT){
+    if (DEBUG) std::cout << "dA_colchk" << std::endl;
+    if (DEBUG) cudaEventRecord(start, stream_colchk);
+    if(opa == CUBLAS_OP_N){
+      if constexpr (std::is_same<T, float>::value) {
+        cublasSgemm(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, m, 
+                      &falpha, chk_v_a, ld_chk_v, 
+                      a, lda, &fbeta, 
+                      dA_colchk<T>, ldda_colchk);
+      }
+      else if constexpr(std::is_same<T, at::Half>::value) {
+        cublasGemmEx(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, m,
+                      &falpha, chk_v_a, CUDA_R_16F, ld_chk_v, 
+                      a, CUDA_R_16F, lda,
+                      &fbeta, dA_colchk<T>, CUDA_R_16F, ldda_colchk,
+                      CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+      } 
+    }
+    else{
+      if constexpr (std::is_same<T, float>::value) {
+        cublasSgemm(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, m, 
+                      &falpha, a, lda, 
+                      chk_v_a, ld_chk_v, &fbeta, 
+                      dA_rowchk<T>, ldda_rowchk);
+      }
+      else if constexpr(std::is_same<T, at::Half>::value) {
+        cublasGemmEx(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_T, k,2,m,
+                      &falpha, a, CUDA_R_16F, lda, 
+                      chk_v_a, CUDA_R_16F, ld_chk_v,
+                      &fbeta, dA_rowchk<T>, CUDA_R_16F, ldda_rowchk,
+                      CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+      } 
+    }
+    cudaStreamSynchronize(stream_colchk);
+    if (DEBUG) {
+      cudaEventRecord(stop, stream_colchk);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&t_Achk, start, stop);
+    }
+  }
+
+  // B check row
+  if (ROW_FT){
+    if (DEBUG) std::cout << "dB_rowchk" << std::endl;
+    if (DEBUG) cudaEventRecord(start, stream_rowchk);
+    if (opb == CUBLAS_OP_N){
+      if constexpr (std::is_same<T, float>::value){
+        cublasSgemm(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, n, 
+                    &falpha, b, ldb, 
+                    chk_v_b, ld_chk_v, &fbeta, 
+                    dB_rowchk<T>, lddb_rowchk);
+      }
+      else if constexpr(std::is_same<T, at::Half>::value){
+        cublasGemmEx(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, n,
+                      &falpha, b, CUDA_R_16F, ldb, 
+                      chk_v_b, CUDA_R_16F, ld_chk_v,
+                      &fbeta, dB_rowchk<T>, CUDA_R_16F, lddb_rowchk,
+                      CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+      }
+    } else{
+      if constexpr (std::is_same<T, float>::value){
+          cublasSgemm(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, n, 
+                      &falpha, chk_v_b, ld_chk_v, 
+                      b, ldb, &fbeta, 
+                      dB_colchk<T>, lddb_colchk);
+        }
+        else if constexpr(std::is_same<T, at::Half>::value){
+          cublasGemmEx(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, n,
+                        &falpha, chk_v_b, CUDA_R_16F, ld_chk_v, 
+                        b, CUDA_R_16F, ldb,
+                        &fbeta, dB_colchk<T>, CUDA_R_16F, lddb_colchk,
+                        CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+        }
+    }
+    cudaStreamSynchronize(stream_rowchk);
+    if (DEBUG) {
+      cudaEventRecord(stop, stream_rowchk);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&t_Bchk, start, stop);
+      t_Bchk /= 1.0;
+    }
+  }
+  
+  int64_t mem_row = 0;
+  int64_t mem_col = 0;
+  falpha = alpha;
+  fbeta = beta;
+
+
+  // A * B
+  if (DEBUG)  cudaEventRecord(start, stream_main);
+  if (DEBUG) std::cout<<"A*B=C." << std::endl;
+  if constexpr (std::is_same<T, float>::value) {
+      cublasSgemm(handle, opa, opb, m, n, k, 
+                    &alpha, a, lda, 
+                    b, ldb, &beta, 
+                    c, ldc);
+  } else if constexpr(std::is_same<T, half>::value) {
+      cublasGemmEx(handle, opa, opb, m, n, k,
+        &alpha, a, CUDA_R_16F, lda, 
+        b, CUDA_R_16F, ldb,
+        &beta, c, CUDA_R_16F, ldc,
+        CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+  }
+  cudaStreamSynchronize(stream_main);
+  // std::cout << "Output dC: " << std::endl;
+  // outputMatrix(dC, lddc, stridec, num_batches, m, n);
+  
+  
+  
+  if (DEBUG)  {
+    cudaEventRecord(stop, stream_main);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&t, start, stop);
+    printf("  gemm: %f (%f)(%f)\n", t, (double)1*m*n*k*2/t/1e6, (double)1*(m*k+k*n+m*n)/t/1e6);
+    recordEffeciency("/home/exouser/records/effeciency/abftgemm.txt", t, 1, (double)1*m*n*k*2/t/1e6, (double)1*(m*k+k*n+m*n)/t/1e6);
+    if(COL_FT){
+      printf("dA_chk_gemm: %f (%f)(%f)(%f)\n", t_Achk, t_Achk/t, (double)1*m*2*k*2/t_Achk/1e6, (double)1*(2*k+2*m+k*m)*sizeof(T)/t_Achk/1e6);
+      recordEffeciency("/home/exouser/records/effeciency/abftgemm.txt", t_Achk, t_Achk/t, (double)1*m*2*k*2/t_Achk/1e6, (double)1*(2*k+2*m+k*m)*sizeof(T)/t_Achk/1e6);
+    }
+    if(ROW_FT){
+      printf("dB_chk_gemm: %f (%f)(%f)(%f)\n", t_Bchk, t_Bchk/t, (double)1*2*n*k*2/t_Bchk/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t_Bchk/1e6);
+      recordEffeciency("/home/exouser/records/effeciency/abftgemm.txt", t_Bchk, t_Bchk/t, (double)1*2*n*k*2/t_Bchk/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t_Bchk/1e6);
+    }
+  }
+
+
+  if(COL_FT){
+    if (DEBUG)  cudaEventRecord(start, stream_colchk);
+    //std::cout << "  COL_FT" << std::endl;
+    if (opa == CUBLAS_OP_N) {
+      if (DEBUG) std::cout << "dA_colchk * dB = dC_colchk" << std::endl;
+      // K*4 must be greater then 2 * N
+      if constexpr (std::is_same<T, float>::value){
+        cublasSgemm(handle_colchk, opa, opb, 2, n, k,
+                    &falpha, dA_colchk<T>, ldda_colchk, 
+                    b, ldb, &fbeta, 
+                    dC_colchk<T>, lddc_colchk);
+      }
+      else if constexpr(std::is_same<T, at::Half>::value){
+        cublasGemmEx(handle_colchk, opa, opb, 2, n, k,
+                      &falpha, dA_colchk<T>, CUDA_R_16F, ldda_colchk, 
+                      b, CUDA_R_16F, ldb,
+                      &fbeta, dC_colchk<T>, CUDA_R_16F, lddc_colchk,
+                      CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+      }
+    }
+    else{
+      if (DEBUG) std::cout << "dB * dA_rowchk = dC_colchk" << std::endl;
+      if constexpr (std::is_same<T, float>::value){
+        cublasSgemm(handle_colchk, opa, opb, 2, n, k,
+                    &falpha, dA_rowchk<T>, ldda_rowchk, 
+                    b, ldb, &fbeta, 
+                    dC_colchk<T>, lddc_colchk);
+      }
+      else if constexpr(std::is_same<T, at::Half>::value){
+        cublasGemmEx(handle_colchk, opa, opb, 2, n, k,
+                      &falpha, dA_rowchk<T>, CUDA_R_16F, ldda_rowchk, 
+                      b, CUDA_R_16F, ldb,
+                      &fbeta, dC_colchk<T>, CUDA_R_16F, lddc_colchk,
+                      CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+      }
+    }
+    cudaStreamSynchronize(stream_colchk);
+    // std::cout << "Output dC_colchk: " << std::endl;
+    // outputMatrixChk(dC_colchk, ldda_colchk, n*2, num_batches, 2, n);
+    if (DEBUG)  {
+      cudaEventRecord(stop, stream_colchk);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&t1, start, stop);
+      printf("  gemm-col-ft: %f (%f)(%f)(%f)\n", t1, t1/t, (double)1*2*n*k*2/t1/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t1/1e6);
+      recordEffeciency("/home/exouser/records/effeciency/abftgemm.txt",  t1, t1/t, (double)1*2*n*k*2/t1/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t1/1e6);
+    }
+  }
+
+  if (ROW_FT) {
+    if (DEBUG)  cudaEventRecord(start, stream_rowchk);
+    //std::cout << "  ROW_FT" << std::endl;
+    if (opb == CUBLAS_OP_N) {
+      if (DEBUG) std::cout << "dA * dB_rowchk = dC_rowlchk" << std::endl;
+      //we can further work on this to support trans A
+      if constexpr (std::is_same<T, float>::value){
+        cublasSgemm(handle_rowchk, opa, opb,  m, 2, k,
+                    &alpha, a, lda, 
+                    dB_rowchk<T>, lddb_rowchk, &beta, 
+                    dC_rowchk<T>, lddc_rowchk);
+      }
+      else if constexpr(std::is_same<T, at::Half>::value){
+        cublasGemmEx(handle_rowchk, opa, opb,  m, 2, k,
+                      &falpha, a, CUDA_R_16F, lda, 
+                      dB_rowchk<T>, CUDA_R_16F, lddb_rowchk,
+                      &fbeta, dC_rowchk<T>, CUDA_R_16F, lddc_rowchk,
+                      CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+      }
+    } 
+    else{
+      if (DEBUG) std::cout << "dB_colchk * dA = dC_rowlchk" << std::endl;
+      if constexpr (std::is_same<T, float>::value){
+        cublasSgemm(handle_rowchk, opa, opb,  m, 2, k,
+                    &alpha, a, lda, 
+                    dB_colchk<T>, lddb_colchk, &beta, 
+                    dC_rowchk<T>, lddc_rowchk);
+      }
+      else if constexpr(std::is_same<T, at::Half>::value){
+        cublasGemmEx(handle_rowchk, opa, opb,  m, 2, k,
+                      &falpha, a, CUDA_R_16F, lda, 
+                      dB_colchk<T>, CUDA_R_16F, lddb_colchk,
+                      &fbeta, dC_rowchk<T>, CUDA_R_16F, lddc_rowchk,
+                      CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+      }
+    }
+    cudaStreamSynchronize(stream_rowchk);
+    // std::cout << "Output dC_rowchk: " << std::endl;
+    // outputMatrixChk(dC_rowchk,lddc_rowchk, m*2, num_batches, m, 2);
+    if (DEBUG)  {
+      cudaEventRecord(stop, stream_rowchk);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&t1, start, stop);
+      printf("  gemm-row-ft: %f (%f)(%f)(%f)\n", t1, t1/t, (double)1*m*2*k*2/t1/1e6, (double)1*(m*k+k*2+m*2)*sizeof(T)/t1/1e6);
+      recordEffeciency("/home/exouser/records/effeciency/abftgemm.txt", t1, t1/t, (double)1*m*2*k*2/t1/1e6, (double)1*(m*k+k*2+m*2)*sizeof(T)/t1/1e6);      
+    }
+  }
     
   // --- check check-sum of C---//
-  /*
+
   if (DEBUG) std::cout << "------Check check-sum-------" << std::endl;
   falpha = at::opmath_type<T>(1);
   fbeta = at::opmath_type<T>(0);
@@ -1916,7 +2370,6 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
     free(batIdx1);
     free(RCIdx1);
   }
-  */
 }
 
 template <>

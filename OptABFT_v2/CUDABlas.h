@@ -82,6 +82,21 @@ enum GEMMAndBiasActivationEpilogue {
 // do nothing if passed in that case.
 
 template <typename T>
+void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<T> alpha,
+            const T *a, int64_t lda, const T *b, int64_t ldb, at::opmath_type<T> beta,
+            T *c, int64_t ldc);
+
+template <typename T>
+void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, 
+              at::opmath_type<T> alpha, T *a, int64_t lda, 
+              T *b, int64_t ldb, at::opmath_type<T> beta,
+              T *c, int64_t ldc,
+              T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,
+              int64_t num_batches, int64_t num_head,                                     
+              bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV);
+
+
+template <typename T>
 void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<T> alpha,
             const T *a, int64_t lda, const T *b, int64_t ldb, at::opmath_type<T> beta,
             T *c, int64_t ldc);
@@ -91,9 +106,8 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
               at::opmath_type<T> alpha, T *a, int64_t lda, 
               T *b, int64_t ldb, at::opmath_type<T> beta,
               T *c, int64_t ldc,
-              T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,
-              int64_t num_batches, int64_t num_head,                                     
-              bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV);
+              T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,                      
+              bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER);
 
 template <typename Dtype>
 void myGemmBias(
