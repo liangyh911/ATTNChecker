@@ -91,13 +91,8 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
               at::opmath_type<T> alpha, T *a, int64_t lda, 
               T *b, int64_t ldb, at::opmath_type<T> beta,
               T *c, int64_t ldc,
-              /*T *dA_colchk, int64_t ldda_colchk, T *dA_rowchk, int64_t ldda_rowchk,             
-              T *dA_colchk_r, int64_t ldda_colchk_r, T *dA_rowchk_r, int64_t ldda_rowchk_r,      
-              T *dB_colchk, int64_t lddb_colchk, T *dB_rowchk, int64_t lddb_rowchk,            
-              T *dB_colchk_r, int64_t lddb_colchk_r, T *dB_rowchk_r, int64_t lddb_rowchk_r,      
-              T *dC_colchk, int64_t lddc_colchk, T *dC_rowchk, int64_t lddc_rowchk,           
-              T *dC_colchk_r, int64_t lddc_colchk_r, T *dC_rowchk_r, int64_t lddc_rowchk_r,*/   
-              T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,                                     
+              T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,
+              int64_t num_batches, int64_t num_head,                                     
               bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER);
 
 template <typename Dtype>
@@ -123,12 +118,6 @@ void abftGemmBias(
     Dtype* mat2_ptr, int64_t mat2_ld, Dtype* bias,
     Dtype* result_ptr, int64_t result_ld,
     GEMMAndBiasActivationEpilogue activation,
-    /*Dtype *dA_colchk, int64_t ldda_colchk, Dtype *dA_rowchk, int64_t ldda_rowchk,              
-    Dtype *dA_colchk_r, int64_t ldda_colchk_r, Dtype *dA_rowchk_r, int64_t ldda_rowchk_r,      
-    Dtype *dB_colchk, int64_t lddb_colchk, Dtype *dB_rowchk, int64_t lddb_rowchk,            
-    Dtype *dB_colchk_r, int64_t lddb_colchk_r, Dtype *dB_rowchk_r, int64_t lddb_rowchk_r,      
-    Dtype *dC_colchk, int64_t lddc_colchk, Dtype *dC_rowchk, int64_t lddc_rowchk,           
-    Dtype *dC_colchk_r, int64_t lddc_colchk_r, Dtype *dC_rowchk_r, int64_t lddc_rowchk_r, */   
     Dtype *chk_v_a, Dtype *chk_v_b, int64_t ld_chk_v,   
     Dtype *dBias_colchk, Dtype *dBias_rowchk, Dtype *dBias_colchk_r, Dtype *dBias_rowchk_r,          
     bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER
@@ -220,31 +209,9 @@ void bgemm<at::BFloat16>(CUDABLAS_BGEMM_ARGTYPES(at::BFloat16));
       const Dtype *dB, int64_t lddb, int64_t strideb, at::opmath_type<Dtype> beta,             \
       Dtype *dC, int64_t lddc, int64_t stridec,                                                \
       int64_t num_batches  
-/*                                                                                                                    
-template <typename Dtype>
-inline void mybgemm(CUDABLAS_MYBGEMM_ARGTYPES(Dtype)) {
-  AT_ERROR("at::cuda::blas::mybgemm: not implemented for ", typeid(Dtype).name());
-}
-template <>
-void mybgemm<float>(CUDABLAS_MYBGEMM_ARGTYPES(float));
-*/
+
 template<typename T>
 void mybgemm(CUDABLAS_MYBGEMM_ARGTYPES(T));
-
-// #define CUDABLAS_ABFTGEMM_ARGTYPES(Dtype)                                                       \
-    char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<Dtype> alpha,  \
-    Dtype *dA, int64_t ldda, int64_t stridea,                                           \
-    Dtype *dB, int64_t lddb, int64_t strideb, at::opmath_type<Dtype> beta,             \
-    Dtype *dC, int64_t lddc, int64_t stridec,                                                 \
-    Dtype *dA_colchk, int64_t ldda_colchk, Dtype *dA_rowchk, int64_t ldda_rowchk,              \
-    Dtype *dA_colchk_r, int64_t ldda_colchk_r, Dtype *dA_rowchk_r, int64_t ldda_rowchk_r,      \
-    Dtype *dB_colchk, int64_t lddb_colchk, Dtype *dB_rowchk, int64_t lddb_rowchk,            \
-    Dtype *dB_colchk_r, int64_t lddb_colchk_r, Dtype *dB_rowchk_r, int64_t lddb_rowchk_r,      \
-    Dtype *dC_colchk, int64_t lddc_colchk, Dtype *dC_rowchk, int64_t lddc_rowchk,           \
-    Dtype *dC_colchk_r, int64_t lddc_colchk_r, Dtype *dC_rowchk_r, int64_t lddc_rowchk_r,   \
-    Dtype *chk_v_a, Dtype *chk_v_b, int64_t ld_chk_v,                                      \
-    int64_t num_batches,                                                                    \
-    bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, bool ifPassChk
 
 #define CUDABLAS_ABFTGEMM_ARGTYPES(Dtype)                                                       \
     char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<Dtype> alpha,  \

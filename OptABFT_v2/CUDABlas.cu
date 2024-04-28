@@ -504,8 +504,8 @@ template<typename T> __device__ T* dC_rowchk;
 template<typename T> __device__ T* dC_colchk_r;
 template<typename T> __device__ T* dC_rowchk_r;
 
-// template<typename T> __device__ T* chk_v_a;
-// template<typename T> __device__ T* chk_v_b;
+template<typename T> __device__ T* V_rowchk;
+template<typename T> __device__ T* V_colchk;
 
 __device__ int64_t ldda_colchk;
 __device__ int64_t ldda_colchk_r;
@@ -531,12 +531,6 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
               T *dA, int64_t ldda, int64_t stridea,                                           
               T *dB, int64_t lddb, int64_t strideb, at::opmath_type<T> beta,             
               T *dC, int64_t lddc, int64_t stridec,                                                 
-              /*T *dA_colchk, int64_t ldda_colchk, T *dA_rowchk, int64_t ldda_rowchk,              
-              T *dA_colchk_r, int64_t ldda_colchk_r, T *dA_rowchk_r, int64_t ldda_rowchk_r,      
-              T *dB_colchk, int64_t lddb_colchk, T *dB_rowchk, int64_t lddb_rowchk,            
-              T *dB_colchk_r, int64_t lddb_colchk_r, T *dB_rowchk_r, int64_t lddb_rowchk_r,      
-              T *dC_colchk, int64_t lddc_colchk, T *dC_rowchk, int64_t lddc_rowchk,           
-              T *dC_colchk_r, int64_t lddc_colchk_r, T *dC_rowchk_r, int64_t lddc_rowchk_r,  */  
               T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,                                     
               int64_t num_batches,
               bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, bool ifPassChk){
@@ -588,15 +582,15 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
                     dA, ldda, stridea, 
                     dA_colchk<T>, ldda_colchk, (2*k));
     }
-    else{
-
-      }
-      if (DEBUG) {
-        cudaEventRecord(stop, stream_colchk);
-        cudaEventSynchronize(stop);
-        cudaEventElapsedTime(&t_Achk, start, stop);
-        // printf("dA_chk_gemm: %f (%f)(%f)\n", t, (double)num_batches*m*2*k*2/t/1e6, (double)num_batches*(2*k+2*m+k*m)/t/1e6);
-      }
+    else{}
+    if (DEBUG) {
+      cudaEventRecord(stop, stream_colchk);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&t_Achk, start, stop);
+      // printf("dA_chk_gemm: %f (%f)(%f)\n", t, (double)num_batches*m*2*k*2/t/1e6, (double)num_batches*(2*k+2*m+k*m)/t/1e6);
+    }
+    printf("dA_colchk: \n");
+    outputChk(dA_colchk<T>, num_batches, ldda_colchk, 2*k, 2, k);
   }
   
   //std::cout << "  Get dB_chk: " << std::endl;
@@ -618,6 +612,8 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
       t_Bchk /= 1.0;
       // printf("dB_chk_gemm: %f (%f)(%f)(%f)\n", t1, t1/t, (double)num_batches*2*n*k*2/t1/1e6, (double)num_batches*(2*k+k*n+2*n)/t1/1e6);
     }
+    printf("dB_rowchk: \n");
+    outputChk(dB_rowchk<T>, num_batches, lddb_rowchk, 2*k, k, 2);
   }
 
   falpha = alpha;
@@ -850,7 +846,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   // std::cout << "_B: " << std::endl;
   // outputMatrix(dB_, lddb, strideb, num_batches, m, k);
   // std::cout << "strideb: " << strideb << "; ldb: " << lddb << std::endl;
-  // std::cout << "m: " << m << "; n: " << n << "; k: " << k << std::endl;
+  std::cout << "m: " << m << "; n: " << n << "; k: " << k << std::endl;
   // std::cout << "num_batches: " << num_batches << std::endl;
 
   // std::cout << "leading dimension." << std::endl;
@@ -1004,18 +1000,6 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         alpha, dA_, ldda, stridea,
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
-        /*dA_colchk, ldda_colchk,
-        dA_rowchk, ldda_rowchk,
-        dA_colchk_r, ldda_colchk_r,
-        dA_rowchk_r, ldda_rowchk_r,
-        dB_colchk, lddb_colchk,
-        dB_rowchk, lddb_rowchk,
-        dB_colchk_r, lddb_colchk_r,
-        dB_rowchk_r, lddb_rowchk_r,
-        dC_colchk, lddc_colchk,
-        dC_rowchk, lddc_rowchk,
-        dC_colchk_r, lddc_colchk_r,
-        dC_rowchk_r, lddc_rowchk_r,*/
         chk_v_a, chk_v_b, ld_chk_v,
         num_batches,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk);
@@ -1025,18 +1009,6 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         alpha, dA_, ldda, stridea,
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
-        /*dA_colchk, ldda_colchk,
-        dA_rowchk, ldda_rowchk,
-        dA_colchk_r, ldda_colchk_r,
-        dA_rowchk_r, ldda_rowchk_r,
-        dB_colchk, lddb_colchk,
-        dB_rowchk, lddb_rowchk,
-        dB_colchk_r, lddb_colchk_r,
-        dB_rowchk_r, lddb_rowchk_r,
-        dC_colchk, lddc_colchk,
-        dC_rowchk, lddc_rowchk,
-        dC_colchk_r, lddc_colchk_r,
-        dC_rowchk_r, lddc_rowchk_r,*/
         chk_v_a, chk_v_b, ld_chk_v,
         num_batches,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk);
@@ -1046,18 +1018,6 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         alpha, dA_, ldda, stridea,
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
-        /*dA_colchk, ldda_colchk,
-        dA_rowchk, ldda_rowchk,
-        dA_colchk_r, ldda_colchk_r,
-        dA_rowchk_r, ldda_rowchk_r,
-        dB_colchk, lddb_colchk,
-        dB_rowchk, lddb_rowchk,
-        dB_colchk_r, lddb_colchk_r,
-        dB_rowchk_r, lddb_rowchk_r,
-        dC_colchk, lddc_colchk,
-        dC_rowchk, lddc_rowchk,
-        dC_colchk_r, lddc_colchk_r,
-        dC_rowchk_r, lddc_rowchk_r,*/
         chk_v_a, chk_v_b, ld_chk_v,
         num_batches,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk);
@@ -1067,40 +1027,35 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         alpha, dA_, ldda, stridea,
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
-        /*dA_colchk, ldda_colchk,
-        dA_rowchk, ldda_rowchk,
-        dA_colchk_r, ldda_colchk_r,
-        dA_rowchk_r, ldda_rowchk_r,
-        dB_colchk, lddb_colchk,
-        dB_rowchk, lddb_rowchk,
-        dB_colchk_r, lddb_colchk_r,
-        dB_rowchk_r, lddb_rowchk_r,
-        dC_colchk, lddc_colchk,
-        dC_rowchk, lddc_rowchk,
-        dC_colchk_r, lddc_colchk_r,
-        dC_rowchk_r, lddc_rowchk_r,*/
         chk_v_a, chk_v_b, ld_chk_v,
         num_batches,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk);
-  }
-  } else if constexpr(std::is_same<T, at::Half>::value) {
+    }
+    else if(m == 6 && k == 4){
+      abftbgemm<float, 6, 6, 4>(transa, transb, m, n, k,
+        alpha, dA_, ldda, stridea,
+        dB_, lddb, strideb, beta,
+        dC, lddc, stridec,
+        chk_v_a, chk_v_b, ld_chk_v,
+        num_batches,
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk);
+    }
+    else if(m == 4 && k == 6){
+      abftbgemm<float, 4, 4, 6>(transa, transb, m, n, k,
+        alpha, dA_, ldda, stridea,
+        dB_, lddb, strideb, beta,
+        dC, lddc, stridec,
+        chk_v_a, chk_v_b, ld_chk_v,
+        num_batches,
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk);
+    }
+  } 
+  else if constexpr(std::is_same<T, at::Half>::value) {
       if (m == 72 && k == 64){
         abftbgemm<at::Half, 72, 72, 64>(transa, transb, m, n, k,
           alpha, dA_, ldda, stridea,
           dB_, lddb, strideb, beta,
           dC, lddc, stridec,
-          /*dA_colchk, ldda_colchk,
-          dA_rowchk, ldda_rowchk,
-          dA_colchk_r, ldda_colchk_r,
-          dA_rowchk_r, ldda_rowchk_r,
-          dB_colchk, lddb_colchk,
-          dB_rowchk, lddb_rowchk,
-          dB_colchk_r, lddb_colchk_r,
-          dB_rowchk_r, lddb_rowchk_r,
-          dC_colchk, lddc_colchk,
-          dC_rowchk, lddc_rowchk,
-          dC_colchk_r, lddc_colchk_r,
-          dC_rowchk_r, lddc_rowchk_r,*/
           chk_v_a, chk_v_b, ld_chk_v,
           num_batches,
           COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk);
@@ -1110,18 +1065,6 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
           alpha, dA_, ldda, stridea,
           dB_, lddb, strideb, beta,
           dC, lddc, stridec,
-          /*dA_colchk, ldda_colchk,
-          dA_rowchk, ldda_rowchk,
-          dA_colchk_r, ldda_colchk_r,
-          dA_rowchk_r, ldda_rowchk_r,
-          dB_colchk, lddb_colchk,
-          dB_rowchk, lddb_rowchk,
-          dB_colchk_r, lddb_colchk_r,
-          dB_rowchk_r, lddb_rowchk_r,
-          dC_colchk, lddc_colchk,
-          dC_rowchk, lddc_rowchk,
-          dC_colchk_r, lddc_colchk_r,
-          dC_rowchk_r, lddc_rowchk_r,*/
           chk_v_a, chk_v_b, ld_chk_v,
           num_batches,
           COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk);
@@ -1131,18 +1074,6 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
           alpha, dA_, ldda, stridea,
           dB_, lddb, strideb, beta,
           dC, lddc, stridec,
-          /*dA_colchk, ldda_colchk,
-          dA_rowchk, ldda_rowchk,
-          dA_colchk_r, ldda_colchk_r,
-          dA_rowchk_r, ldda_rowchk_r,
-          dB_colchk, lddb_colchk,
-          dB_rowchk, lddb_rowchk,
-          dB_colchk_r, lddb_colchk_r,
-          dB_rowchk_r, lddb_rowchk_r,
-          dC_colchk, lddc_colchk,
-          dC_rowchk, lddc_rowchk,
-          dC_colchk_r, lddc_colchk_r,
-          dC_rowchk_r, lddc_rowchk_r,*/
           chk_v_a, chk_v_b, ld_chk_v,
           num_batches,
           COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk);
@@ -1152,18 +1083,6 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
           alpha, dA_, ldda, stridea,
           dB_, lddb, strideb, beta,
           dC, lddc, stridec,
-          /*dA_colchk, ldda_colchk,
-          dA_rowchk, ldda_rowchk,
-          dA_colchk_r, ldda_colchk_r,
-          dA_rowchk_r, ldda_rowchk_r,
-          dB_colchk, lddb_colchk,
-          dB_rowchk, lddb_rowchk,
-          dB_colchk_r, lddb_colchk_r,
-          dB_rowchk_r, lddb_rowchk_r,
-          dC_colchk, lddc_colchk,
-          dC_rowchk, lddc_rowchk,
-          dC_colchk_r, lddc_colchk_r,
-          dC_rowchk_r, lddc_rowchk_r,*/
           chk_v_a, chk_v_b, ld_chk_v,
           num_batches,
           COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk);
@@ -1236,11 +1155,14 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   printf("m:%d, n:%d, k:%d\n", m, n, k);
   // printf("%d, %d, %d\n", lda, ldb, ldc);
 
+  int64_t num_batches = 2;
+  int64_t num_head = 2;
+
   T *dA_ = const_cast<T*>(a);
   T *dB_ = const_cast<T*>(b);
 
-  ldda_colchk = 2;
-  ldda_colchk_r = 2;
+  ldda_colchk = 2*num_head;
+  ldda_colchk_r = 2*num_head;
   ldda_rowchk = k;
   ldda_rowchk_r = k;
 
@@ -1249,8 +1171,8 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   lddb_colchk = 2;
   lddb_colchk_r = 2;
 
-  lddc_colchk = 2;
-  lddc_colchk_r = 2;
+  lddc_colchk = 2*num_head;
+  lddc_colchk_r = 2*num_head;
   lddc_rowchk = m;
   lddc_rowchk_r = m;
   int64_t ld_chk_v = 2;
@@ -1261,7 +1183,7 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   T *chk_v_a;
   T *chk_v_b;
 
-  size_t size = 2 * k * sizeof(T);
+  size_t size = num_head * 2 * k * sizeof(T);
   cudaMalloc((void**)&dA_colchk<T>, size);
   cudaMemset(dA_colchk<T>, 0, size);
   cudaMalloc((void**)&dA_colchk_r<T>, size);
@@ -1273,6 +1195,7 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   cudaMemset(dA_rowchk_r<T>, 0, size);
   //std::cout << "  finish dA." << std::endl;
   
+  size = num_batches * 2 * k * sizeof(T);
   cudaMalloc((void**)&dB_colchk<T>, size);
   cudaMemset(dB_colchk<T>, 0, size);
   cudaMalloc((void**)&dB_colchk_r<T>, size);
@@ -1284,19 +1207,23 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   cudaMemset(dB_rowchk_r<T>, 0, size);
   //std::cout << "  finish dB." << std::endl;
 
-  size = 2 * n * sizeof(T);
+  size = num_head * 2 * n * sizeof(T);
   cudaMalloc((void**)&dC_colchk<T>, size);
   cudaMemset(dC_colchk<T>, 0, size);
   cudaMalloc((void**)&dC_colchk_r<T>, size);
   cudaMemset(dC_colchk_r<T>, 0, size);
+  cudaMalloc((void**)&V_colchk<T>, size);
+  cudaMemset(V_colchk<T>, 0, size);
   
-  size = 2 * m * sizeof(T);
+  size = num_batches * 2 * m * sizeof(T);
   cudaMalloc((void**)&dC_rowchk<T>, size);
   cudaMemset(dC_rowchk<T>, 0, size);
   cudaMalloc((void**)&dC_rowchk_r<T>, size);
   cudaMemset(dC_rowchk_r<T>, 0, size);
+  cudaMalloc((void**)&V_rowchk<T>, size);
+  cudaMemset(V_rowchk<T>, 0, size);
 
-  int64_t len = m;
+  int64_t len = m / num_head;
   size = 2 * len * sizeof(T);
   cudaMalloc((void**)&chk_v_a, size);
   T *h_matrix;
@@ -1310,7 +1237,7 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   cudaMemcpy(chk_v_a, h_matrix, size, cudaMemcpyHostToDevice);
   free(h_matrix);
 
-  len = n;
+  len = n / num_batches;
   size = 2 * len * sizeof(T);
   cudaMalloc((void**)&chk_v_b, size);
   h_matrix = (T *)malloc(size);
@@ -1362,19 +1289,8 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
       alpha, dA_, lda,
       dB_, ldb, beta,
       c, ldc,
-      /*dA_colchk, ldda_colchk,
-      dA_rowchk, ldda_rowchk,
-      dA_colchk_r, ldda_colchk_r,
-      dA_rowchk_r, ldda_rowchk_r,
-      dB_colchk, lddb_colchk,
-      dB_rowchk, lddb_rowchk,
-      dB_colchk_r, lddb_colchk_r,
-      dB_rowchk_r, lddb_rowchk_r,
-      dC_colchk, lddc_colchk,
-      dC_rowchk, lddc_rowchk,
-      dC_colchk_r, lddc_colchk_r,
-      dC_rowchk_r, lddc_rowchk_r,*/
       chk_v_a, chk_v_b, ld_chk_v,
+      num_batches, num_head,
       COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER);
   }
   else if constexpr (std::is_same<T, at::Half>::value) {
@@ -1382,19 +1298,8 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
       alpha, dA_, lda,
       dB_, ldb, beta,
       c, ldc,
-      /*dA_colchk, ldda_colchk,
-      dA_rowchk, ldda_rowchk,
-      dA_colchk_r, ldda_colchk_r,
-      dA_rowchk_r, ldda_rowchk_r,
-      dB_colchk, lddb_colchk,
-      dB_rowchk, lddb_rowchk,
-      dB_colchk_r, lddb_colchk_r,
-      dB_rowchk_r, lddb_rowchk_r,
-      dC_colchk, lddc_colchk,
-      dC_rowchk, lddc_rowchk,
-      dC_colchk_r, lddc_colchk_r,
-      dC_rowchk_r, lddc_rowchk_r,*/
       chk_v_a, chk_v_b, ld_chk_v,
+      num_batches, num_head,
       COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER);
   }
   cudaDeviceSynchronize();
@@ -1453,24 +1358,13 @@ template void myGemm<at::BFloat16>(char transa, char transb, int64_t m, int64_t 
             const at::BFloat16 *a, int64_t lda, const at::BFloat16 *b, int64_t ldb, at::opmath_type<at::BFloat16> beta,
             at::BFloat16 *c, int64_t ldc);
 
-// template <typename T> 
-// __device__ T* colchk_Gptr, *rowchk_Gptr;
-
-// template <typename T> 
-// __device__ T* rowchk_Gptr;
-
 template <typename T>
 void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, 
       at::opmath_type<T> alpha, T *a, int64_t lda, 
       T *b, int64_t ldb, at::opmath_type<T> beta,
       T *c, int64_t ldc,
-      /*T *dA_colchk, int64_t ldda_colchk, T *dA_rowchk, int64_t ldda_rowchk,             
-      T *dA_colchk_r, int64_t ldda_colchk_r, T *dA_rowchk_r, int64_t ldda_rowchk_r,      
-      T *dB_colchk, int64_t lddb_colchk, T *dB_rowchk, int64_t lddb_rowchk,            
-      T *dB_colchk_r, int64_t lddb_colchk_r, T *dB_rowchk_r, int64_t lddb_rowchk_r,      
-      T *dC_colchk, int64_t lddc_colchk, T *dC_rowchk, int64_t lddc_rowchk,           
-      T *dC_colchk_r, int64_t lddc_colchk_r, T *dC_rowchk_r, int64_t lddc_rowchk_r,*/   
-      T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,                                      
+      T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,
+      int64_t num_batches, int64_t num_head,                                      
       bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER){
   globalContext().alertCuBLASConfigNotDeterministic();
   cublasHandle_t handle = at::cuda::getCurrentCUDABlasHandle();
@@ -1503,40 +1397,78 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
 
   printf("m:%d, n:%d, k:%d \n", m,n,k);
 
+  printf("A: \n");
+  outputChk(a, 1, lda, 0, k, m);
+
+  printf("B: \n");
+  outputChk(b, 1, ldb, 0, k, n);
+
+  int64_t nb = 0;
   
   //A check col
   if (COL_FT){
     if (DEBUG) std::cout << "dA_colchk" << std::endl;
     if (DEBUG) cudaEventRecord(start, stream_colchk);
+    nb = m / num_head;
     if(opa == CUBLAS_OP_N){
       if constexpr (std::is_same<T, float>::value) {
-        cublasSgemm(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, m, 
+        // cublasSgemm(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, m, 
+        //               &falpha, chk_v_a, ld_chk_v, 
+        //               a, lda, &fbeta, 
+        //               dA_colchk<T>, ldda_colchk);
+        for(int i=0; i<m; i+=nb){
+          cublasSgemm(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, nb, 
                       &falpha, chk_v_a, ld_chk_v, 
-                      a, lda, &fbeta, 
-                      dA_colchk<T>, ldda_colchk);
+                      a + i, lda, &fbeta, 
+                      dA_colchk<T>+(i/nb)*2, ldda_colchk);
+        }
       }
       else if constexpr(std::is_same<T, at::Half>::value) {
-        cublasGemmEx(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, m,
+        // cublasGemmEx(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, m,
+        //               &falpha, chk_v_a, CUDA_R_16F, ld_chk_v, 
+        //               a, CUDA_R_16F, lda,
+        //               &fbeta, dA_colchk<T>, CUDA_R_16F, ldda_colchk,
+        //               CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+        for(int i=0; i<m; i+=nb){
+          cublasGemmEx(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, nb,
                       &falpha, chk_v_a, CUDA_R_16F, ld_chk_v, 
-                      a, CUDA_R_16F, lda,
-                      &fbeta, dA_colchk<T>, CUDA_R_16F, ldda_colchk,
+                      a+i, CUDA_R_16F, lda,
+                      &fbeta, dA_colchk<T>+(i/nb)*2, CUDA_R_16F, ldda_colchk,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-      } 
+        }
+      }
+      printf("dA_colchk: \n");
+      outputChk(dA_colchk<T>, 1, ldda_colchk, 0, 2*num_head, k);
     }
     else{
       if constexpr (std::is_same<T, float>::value) {
-        cublasSgemm(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, m, 
-                      &falpha, a, lda, 
+        // cublasSgemm(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, m, 
+        //               &falpha, a, lda, 
+        //               chk_v_a, ld_chk_v, &fbeta, 
+        //               dA_rowchk<T>, ldda_rowchk);
+        for(int i=0; i<m; i+=nb){
+          cublasSgemm(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, nb, 
+                      &falpha, a+i*lda, lda, 
                       chk_v_a, ld_chk_v, &fbeta, 
-                      dA_rowchk<T>, ldda_rowchk);
+                      dA_rowchk<T>+((i/nb)*2)*ldda_rowchk, ldda_rowchk);
+        }
       }
       else if constexpr(std::is_same<T, at::Half>::value) {
-        cublasGemmEx(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_T, k,2,m,
-                      &falpha, a, CUDA_R_16F, lda, 
-                      chk_v_a, CUDA_R_16F, ld_chk_v,
-                      &fbeta, dA_rowchk<T>, CUDA_R_16F, ldda_rowchk,
+        // cublasGemmEx(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, m,
+        //               &falpha, a, CUDA_R_16F, lda, 
+        //               chk_v_a, CUDA_R_16F, ld_chk_v,
+        //               &fbeta, dA_rowchk<T>, CUDA_R_16F, ldda_rowchk,
+        //               CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+        for(int i=0; i<m; i+=nb){
+          cublasGemmEx(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, nb, 
+                      &falpha, a+i*lda, CUDA_R_16F, lda, 
+                      chk_v_a, CUDA_R_16F, ld_chk_v, &fbeta, 
+                      dA_rowchk<T>+((i/nb)*2)*ldda_rowchk, CUDA_R_16F, ldda_rowchk,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-      } 
+        }
+      }
+      printf("dA_rowchk: \n");
+      outputChk(dA_rowchk<T>, 1, ldda_rowchk, 0, k, 2*num_head);  
     }
     cudaStreamSynchronize(stream_colchk);
     if (DEBUG) {
@@ -1549,35 +1481,68 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
   // B check row
   if (ROW_FT){
     if (DEBUG) std::cout << "dB_rowchk" << std::endl;
+    nb = n / num_batches;
     if (DEBUG) cudaEventRecord(start, stream_rowchk);
     if (opb == CUBLAS_OP_N){
       if constexpr (std::is_same<T, float>::value){
-        cublasSgemm(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, n, 
-                    &falpha, b, ldb, 
-                    chk_v_b, ld_chk_v, &fbeta, 
-                    dB_rowchk<T>, lddb_rowchk);
+        // cublasSgemm(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, n, 
+        //             &falpha, b, ldb, 
+        //             chk_v_b, ld_chk_v, &fbeta, 
+        //             dB_rowchk<T>, lddb_rowchk);
+        for(int i=0; i<n; i+=nb){
+          cublasSgemm(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, nb, 
+                      &falpha, b+i*ldb, ldb, 
+                      chk_v_b, ld_chk_v, &fbeta, 
+                      dB_rowchk<T>+((i/nb)*2)*lddb_rowchk, lddb_rowchk);
+        }
+
       }
       else if constexpr(std::is_same<T, at::Half>::value){
-        cublasGemmEx(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, n,
-                      &falpha, b, CUDA_R_16F, ldb, 
+        // cublasGemmEx(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, n,
+        //               &falpha, b, CUDA_R_16F, ldb, 
+        //               chk_v_b, CUDA_R_16F, ld_chk_v,
+        //               &fbeta, dB_rowchk<T>, CUDA_R_16F, lddb_rowchk,
+        //               CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+        for(int i=0; i<n; i+=nb){
+          cublasGemmEx(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, nb,
+                      &falpha, b+i*ldb, CUDA_R_16F, ldb, 
                       chk_v_b, CUDA_R_16F, ld_chk_v,
-                      &fbeta, dB_rowchk<T>, CUDA_R_16F, lddb_rowchk,
+                      &fbeta, dB_rowchk<T>+((i/nb)*2)*lddb_rowchk, CUDA_R_16F, lddb_rowchk,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+        }
       }
-    } else{
+      printf("dB_rowchk: \n");
+      outputChk(dB_rowchk<T>, 1, lddb_rowchk, 0, k, 2*num_batches);  
+    } 
+    else{
       if constexpr (std::is_same<T, float>::value){
-          cublasSgemm(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, n, 
-                      &falpha, chk_v_b, ld_chk_v, 
-                      b, ldb, &fbeta, 
-                      dB_colchk<T>, lddb_colchk);
+          // cublasSgemm(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, n, 
+          //             &falpha, chk_v_b, ld_chk_v, 
+          //             b, ldb, &fbeta, 
+          //             dB_colchk<T>, lddb_colchk);
+          for(int i=0; i<n; i+=nb){
+            cublasSgemm(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, nb, 
+                        &falpha, chk_v_b, ld_chk_v, 
+                        b+i, ldb, &fbeta, 
+                        dB_colchk<T>+(i/nb)*2, lddb_colchk);
+          }
+      }
+      else if constexpr(std::is_same<T, at::Half>::value){
+        // cublasGemmEx(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, n,
+        //               &falpha, chk_v_b, CUDA_R_16F, ld_chk_v, 
+        //               b, CUDA_R_16F, ldb,
+        //               &fbeta, dB_colchk<T>, CUDA_R_16F, lddb_colchk,
+        //               CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+        for(int i=0; i<n; i+=nb){
+          cublasGemmEx(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, nb,
+                      &falpha, chk_v_b, CUDA_R_16F, ld_chk_v, 
+                      b+i, CUDA_R_16F, ldb,
+                      &fbeta, dB_colchk<T>+(i/nb)*2, CUDA_R_16F, lddb_colchk,
+                      CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
         }
-        else if constexpr(std::is_same<T, at::Half>::value){
-          cublasGemmEx(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, n,
-                        &falpha, chk_v_b, CUDA_R_16F, ld_chk_v, 
-                        b, CUDA_R_16F, ldb,
-                        &fbeta, dB_colchk<T>, CUDA_R_16F, lddb_colchk,
-                        CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-        }
+      }
+      printf("dB_colchk: \n");
+      outputChk(dB_colchk<T>, 1, lddb_colchk, 0, 2*num_batches, k);  
     }
     cudaStreamSynchronize(stream_rowchk);
     if (DEBUG) {
@@ -1587,7 +1552,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
       t_Bchk /= 1.0;
     }
   }
-  
+
   int64_t mem_row = 0;
   int64_t mem_col = 0;
   falpha = alpha;
@@ -1613,7 +1578,8 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
   // std::cout << "Output dC: " << std::endl;
   // outputMatrix(dC, lddc, stridec, num_batches, m, n);
   
-  
+  printf("C: \n");
+  outputChk(c, 1, ldc, 0, m, n);
   
   if (DEBUG)  {
     cudaEventRecord(stop, stream_main);
@@ -1639,13 +1605,13 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
       if (DEBUG) std::cout << "dA_colchk * dB = dC_colchk" << std::endl;
       // K*4 must be greater then 2 * N
       if constexpr (std::is_same<T, float>::value){
-        cublasSgemm(handle_colchk, opa, opb, 2, n, k,
+        cublasSgemm(handle_colchk, opa, opb, 2*num_head, n, k,
                     &falpha, dA_colchk<T>, ldda_colchk, 
                     b, ldb, &fbeta, 
                     dC_colchk<T>, lddc_colchk);
       }
       else if constexpr(std::is_same<T, at::Half>::value){
-        cublasGemmEx(handle_colchk, opa, opb, 2, n, k,
+        cublasGemmEx(handle_colchk, opa, opb, 2*num_head, n, k,
                       &falpha, dA_colchk<T>, CUDA_R_16F, ldda_colchk, 
                       b, CUDA_R_16F, ldb,
                       &fbeta, dC_colchk<T>, CUDA_R_16F, lddc_colchk,
@@ -1655,13 +1621,13 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
     else{
       if (DEBUG) std::cout << "dB * dA_rowchk = dC_colchk" << std::endl;
       if constexpr (std::is_same<T, float>::value){
-        cublasSgemm(handle_colchk, opa, opb, 2, n, k,
+        cublasSgemm(handle_colchk, opa, opb, 2*num_head, n, k,
                     &falpha, dA_rowchk<T>, ldda_rowchk, 
                     b, ldb, &fbeta, 
                     dC_colchk<T>, lddc_colchk);
       }
       else if constexpr(std::is_same<T, at::Half>::value){
-        cublasGemmEx(handle_colchk, opa, opb, 2, n, k,
+        cublasGemmEx(handle_colchk, opa, opb, 2*num_head, n, k,
                       &falpha, dA_rowchk<T>, CUDA_R_16F, ldda_rowchk, 
                       b, CUDA_R_16F, ldb,
                       &fbeta, dC_colchk<T>, CUDA_R_16F, lddc_colchk,
@@ -1687,13 +1653,13 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
       if (DEBUG) std::cout << "dA * dB_rowchk = dC_rowlchk" << std::endl;
       //we can further work on this to support trans A
       if constexpr (std::is_same<T, float>::value){
-        cublasSgemm(handle_rowchk, opa, opb,  m, 2, k,
+        cublasSgemm(handle_rowchk, opa, opb,  m, 2*num_batches, k,
                     &alpha, a, lda, 
                     dB_rowchk<T>, lddb_rowchk, &beta, 
                     dC_rowchk<T>, lddc_rowchk);
       }
       else if constexpr(std::is_same<T, at::Half>::value){
-        cublasGemmEx(handle_rowchk, opa, opb,  m, 2, k,
+        cublasGemmEx(handle_rowchk, opa, opb,  m, 2*num_batches, k,
                       &falpha, a, CUDA_R_16F, lda, 
                       dB_rowchk<T>, CUDA_R_16F, lddb_rowchk,
                       &fbeta, dC_rowchk<T>, CUDA_R_16F, lddc_rowchk,
@@ -1703,13 +1669,13 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
     else{
       if (DEBUG) std::cout << "dB_colchk * dA = dC_rowlchk" << std::endl;
       if constexpr (std::is_same<T, float>::value){
-        cublasSgemm(handle_rowchk, opa, opb,  m, 2, k,
+        cublasSgemm(handle_rowchk, opa, opb,  m, 2*num_batches, k,
                     &alpha, a, lda, 
                     dB_colchk<T>, lddb_colchk, &beta, 
                     dC_rowchk<T>, lddc_rowchk);
       }
       else if constexpr(std::is_same<T, at::Half>::value){
-        cublasGemmEx(handle_rowchk, opa, opb,  m, 2, k,
+        cublasGemmEx(handle_rowchk, opa, opb,  m, 2*num_batches, k,
                       &falpha, a, CUDA_R_16F, lda, 
                       dB_colchk<T>, CUDA_R_16F, lddb_colchk,
                       &fbeta, dC_rowchk<T>, CUDA_R_16F, lddc_rowchk,
@@ -1727,9 +1693,23 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
       recordEffeciency("/home/exouser/records/effeciency/abftgemm.txt", t1, t1/t, (double)1*m*2*k*2/t1/1e6, (double)1*(m*k+k*2+m*2)*sizeof(T)/t1/1e6);      
     }
   }
+
+  printf("dC_colchk: \n");
+  outputChk(dC_colchk<T>, 1, lddc_colchk, 0, 2*num_head, n);
+  printf("dC_rowchk: \n");
+  outputChk(dC_rowchk<T>, 1, lddc_rowchk, 0, m, 2*num_batches);
+
+  MatrixSplit<<<1, dim3(num_head, num_batches)>>>(dC_colchk<T>, V_colchk<T>, 2, n/num_batches, lddc_colchk, num_head);
+  MatrixSplit<<<1, dim3(num_head, num_batches)>>>(dC_rowchk<T>, V_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
+
+  printf("V_colchk: \n");
+  outputChk(V_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
+  printf("V_rowchk: \n");
+  outputChk(V_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
+
     
   // --- check check-sum of C---//
-
+  /*
   if (DEBUG) std::cout << "------Check check-sum-------" << std::endl;
   falpha = at::opmath_type<T>(1);
   fbeta = at::opmath_type<T>(0);
@@ -1871,6 +1851,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
     free(batIdx1);
     free(RCIdx1);
   }
+  */
 }
 
 template <>

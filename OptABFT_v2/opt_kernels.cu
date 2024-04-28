@@ -514,3 +514,22 @@ __global__ void getBiasMatrix(T *biasVector, T *biasMatrix, int64_t row){
 		biasMatrix[colIdx * row + r] = biasVector[r];
 	}
 }
+
+template<typename T>
+__global__ void MatrixSplit(T *inpMatrix, T *outMatrix, int64_t row, int64_t col, int64_t ld, int64_t R_Offset){
+	int batchId = threadIdx.y + R_Offset * threadIdx.x;
+	int startRow = threadIdx.y * row;
+	int startCol = threadIdx.x * col;
+	int stride = row * col;
+
+	// printf("%d, %d, %d, %d, %d\n", batchId, blockIdx.x, blockIdx.y, blockDim.x, blockDim.y);
+	
+	for(int c = 0; c < col; c++){
+		for(int r = 0; r < row; r++){
+			int inpIdx = (startRow+startCol*ld) + (r + c * ld);
+			int outIdx = batchId * stride + r + c * row;
+			// printf("%d\n", outIdx);
+			outMatrix[outIdx] = inpMatrix[inpIdx];
+		}
+	}
+}
