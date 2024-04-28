@@ -504,6 +504,8 @@ template<typename T> __device__ T* dC_rowchk;
 template<typename T> __device__ T* dC_colchk_r;
 template<typename T> __device__ T* dC_rowchk_r;
 
+template<typename T> __device__ T* Q_rowchk;
+template<typename T> __device__ T* K_colchk;
 template<typename T> __device__ T* V_rowchk;
 template<typename T> __device__ T* V_colchk;
 
@@ -533,7 +535,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
               T *dC, int64_t lddc, int64_t stridec,                                                 
               T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,                                     
               int64_t num_batches,
-              bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, bool ifPassChk){
+              bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, bool ifPassChk, char QKV){
   std::cout << "Using abftbgemm-T function." << std::endl;
   // See Note [Writing Nondeterministic Operations]
   // std::cout << "globalContext. \n";
@@ -574,37 +576,63 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   cudaEventCreate(&stop);
   float t, t1, t_Achk, t_Bchk;
 
-  if (COL_FT && (!ifPassChk)){
+  if (COL_FT){
     if (DEBUG) std::cout << "dA Col Chk." << std::endl;
     if (DEBUG) cudaEventRecord(start, stream_colchk);
-    if(transA == CUBLAS_OP_N){
-      encode_col_v5<T, M, K, 4><<<num_batches, dim3(M*4, 1), (M+1)*K*sizeof(T), stream_colchk>>>(num_batches,
-                    dA, ldda, stridea, 
-                    dA_colchk<T>, ldda_colchk, (2*k));
+    if (!ifPassChk){
+      if (DEBUG) std::cout << "Navie Calulatation." << std::endl;
+      if(transA == CUBLAS_OP_N){
+        encode_col_v5<T, M, K, 4><<<num_batches, dim3(M*4, 1), (M+1)*K*sizeof(T), stream_colchk>>>(num_batches,
+                      dA, ldda, stridea, 
+                      dA_colchk<T>, ldda_colchk, (2*k));
+      }
+      else{}
     }
-    else{}
+    else{
+      if (DEBUG) std::cout << "Pass Chk." << std::endl;
+      if(QKV == 'k'){
+        dA_colchk<T> = K_colchk<T>;
+      }
+      else if(QKV == 'v'){
+        dA_colchk<T> = V_colchk<T>;
+      }
+    }
     if (DEBUG) {
       cudaEventRecord(stop, stream_colchk);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t_Achk, start, stop);
       // printf("dA_chk_gemm: %f (%f)(%f)\n", t, (double)num_batches*m*2*k*2/t/1e6, (double)num_batches*(2*k+2*m+k*m)/t/1e6);
     }
-    printf("dA_colchk: \n");
-    outputChk(dA_colchk<T>, num_batches, ldda_colchk, 2*k, 2, k);
+    // printf("dA_colchk: \n");
+    // outputChk(dA_colchk<T>, num_batches, ldda_colchk, 2*k, 2, k);
   }
   
+  // printf("Q_rowchk: \n");
+  // outputChk(Q_rowchk<T>, num_batches, lddb_rowchk, 2*k, k, 2);
+
   //std::cout << "  Get dB_chk: " << std::endl;
-  if (ROW_FT && (!ifPassChk)){
+  if (ROW_FT){
     if (DEBUG) std::cout << "dB Row Chk." << std::endl;
     if (DEBUG) cudaEventRecord(start, stream_rowchk);
-    if (transB == CUBLAS_OP_N){
-      encode_row_v5<T, K, N><<<num_batches, dim3(K*2, 1, 1), 0, stream_rowchk>>>(num_batches,
-                    dB, lddb, strideb, 
-                    dB_rowchk<T>, lddb_rowchk, (2*k));
+    if(!ifPassChk){
+      if (DEBUG) std::cout << "Navie Calulatation." << std::endl;
+      if (transB == CUBLAS_OP_N){
+        encode_row_v5<T, K, N><<<num_batches, dim3(K*2, 1, 1), 0, stream_rowchk>>>(num_batches,
+                      dB, lddb, strideb, 
+                      dB_rowchk<T>, lddb_rowchk, (2*k));
+      }
+      else{}
     }
     else{
-
+      if (DEBUG) std::cout << "Pass Chk." << std::endl;
+      if(QKV == 'q'){
+        dB_rowchk<T> = Q_rowchk<T>;
+      }
+      else if(QKV == 'v'){
+        dB_rowchk<T> = V_rowchk<T>;
+      }
     }
+    
     if (DEBUG) {
       cudaEventRecord(stop, stream_rowchk);
       cudaEventSynchronize(stop);
@@ -612,8 +640,8 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
       t_Bchk /= 1.0;
       // printf("dB_chk_gemm: %f (%f)(%f)(%f)\n", t1, t1/t, (double)num_batches*2*n*k*2/t1/1e6, (double)num_batches*(2*k+k*n+2*n)/t1/1e6);
     }
-    printf("dB_rowchk: \n");
-    outputChk(dB_rowchk<T>, num_batches, lddb_rowchk, 2*k, k, 2);
+    // printf("dB_rowchk: \n");
+    // outputChk(dB_rowchk<T>, num_batches, lddb_rowchk, 2*k, k, 2);
   }
 
   falpha = alpha;
@@ -926,7 +954,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
     h_matrix[idx+1] = T(i+1);
   }
   cudaMemcpy(chk_v_a, h_matrix, size, cudaMemcpyHostToDevice);
-  // outputMatrixChk(chk_v_a, ld_chk_v, 0, 1, 2, len);
+  // outputChk(chk_v_a, 1, ld_chk_v, 2*len, 2, len);
   free(h_matrix);
 
   len = n;
@@ -941,7 +969,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
     h_matrix[idx+1] = T(i+1);
   }
   cudaMemcpy(chk_v_b, h_matrix, size, cudaMemcpyHostToDevice);
-  // outputMatrixChk(chk_v_b, ld_chk_v, 0, 1, 2, len);
+  // outputChk(chk_v_b, 1, ld_chk_v, 2*len, 2, len);
   free(h_matrix);
   //std::cout << "  finish chk_v." << std::endl;
 
@@ -983,12 +1011,23 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   if(PassFile.is_open()){
     PassFile.get(flag);
     if(flag == 't'){
-      COL_FT = true;
+      ifPassChk = true;
     }
   }
   else{
     printf("PassChksum: Cannot open file, using default setting.\n");
   }
+  PassFile.close();
+
+  char QKV;
+  std::ifstream qkvFile("/home/exouser/control/QKV.txt");
+  if(qkvFile.is_open()){
+    qkvFile.get(QKV);
+  }
+  else{
+    printf("QKV: Cannot open file, using default setting.\n");
+  }
+  qkvFile.close();
 
 
   // std::cout << "Calling abftgemm-T function." << std::endl;
@@ -1002,7 +1041,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
         num_batches,
-        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk);
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV);
     }
     else if(m == 64 && k == 72){
       abftbgemm<float, 64, 72, 72>(transa, transb, m, n, k,
@@ -1011,7 +1050,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
         num_batches,
-        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk);
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV);
     }
     else if(m == 71 && k == 64){
       abftbgemm<float, 71, 71, 64>(transa, transb, m, n, k,
@@ -1020,7 +1059,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
         num_batches,
-        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk);
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV);
     }
     else if(m == 64 && k == 71){
       abftbgemm<float, 64, 71, 71>(transa, transb, m, n, k,
@@ -1029,25 +1068,25 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
         num_batches,
-        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk);
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV);
     }
-    else if(m == 6 && k == 4){
-      abftbgemm<float, 6, 6, 4>(transa, transb, m, n, k,
+    else if(m == 2 && k == 6){
+      abftbgemm<float, 2, 4, 6>(transa, transb, m, n, k,
         alpha, dA_, ldda, stridea,
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
         num_batches,
-        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk);
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV);
     }
-    else if(m == 4 && k == 6){
-      abftbgemm<float, 4, 4, 6>(transa, transb, m, n, k,
+    else if(m == 6 && k == 2){
+      abftbgemm<float, 6, 6, 2>(transa, transb, m, n, k,
         alpha, dA_, ldda, stridea,
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
         num_batches,
-        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk);
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV);
     }
   } 
   else if constexpr(std::is_same<T, at::Half>::value) {
@@ -1058,7 +1097,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
           dC, lddc, stridec,
           chk_v_a, chk_v_b, ld_chk_v,
           num_batches,
-          COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk);
+          COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV);
       }
       else if(m == 64 && k == 72){
         abftbgemm<at::Half, 64, 72, 72>(transa, transb, m, n, k,
@@ -1067,7 +1106,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
           dC, lddc, stridec,
           chk_v_a, chk_v_b, ld_chk_v,
           num_batches,
-          COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk);
+          COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV);
       }
       else if(m == 71 && k == 64){
         abftbgemm<at::Half, 71, 71, 64>(transa, transb, m, n, k,
@@ -1076,7 +1115,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
           dC, lddc, stridec,
           chk_v_a, chk_v_b, ld_chk_v,
           num_batches,
-          COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk);
+          COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV);
       }
       else if(m == 64 && k == 71){
         abftbgemm<at::Half, 64, 71, 71>(transa, transb, m, n, k,
@@ -1085,7 +1124,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
           dC, lddc, stridec,
           chk_v_a, chk_v_b, ld_chk_v,
           num_batches,
-          COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk);
+          COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV);
       }
   }
   cudaDeviceSynchronize();
@@ -1155,6 +1194,16 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   printf("m:%d, n:%d, k:%d\n", m, n, k);
   // printf("%d, %d, %d\n", lda, ldb, ldc);
 
+  char QKV;
+  std::ifstream qkvFile("/home/exouser/control/QKV.txt");
+  if (qkvFile.is_open()){
+    qkvFile.get(QKV);
+  }
+  else{
+    printf("QKV: Cannot open file, using default setting.\n");
+  }
+  qkvFile.close();
+
   int64_t num_batches = 2;
   int64_t num_head = 2;
 
@@ -1212,16 +1261,30 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   cudaMemset(dC_colchk<T>, 0, size);
   cudaMalloc((void**)&dC_colchk_r<T>, size);
   cudaMemset(dC_colchk_r<T>, 0, size);
-  cudaMalloc((void**)&V_colchk<T>, size);
-  cudaMemset(V_colchk<T>, 0, size);
+  
+  if(QKV == 'k'){
+    cudaMalloc((void**)&K_colchk<T>, size);
+    cudaMemset(K_colchk<T>, 0, size);
+  }
+  else{
+    cudaMalloc((void**)&V_colchk<T>, size);
+    cudaMemset(V_colchk<T>, 0, size);
+  }
   
   size = num_batches * 2 * m * sizeof(T);
   cudaMalloc((void**)&dC_rowchk<T>, size);
   cudaMemset(dC_rowchk<T>, 0, size);
   cudaMalloc((void**)&dC_rowchk_r<T>, size);
   cudaMemset(dC_rowchk_r<T>, 0, size);
-  cudaMalloc((void**)&V_rowchk<T>, size);
-  cudaMemset(V_rowchk<T>, 0, size);
+  
+  if(QKV == 'q'){
+    cudaMalloc((void**)&Q_rowchk<T>, size);
+    cudaMemset(Q_rowchk<T>, 0, size);
+  }
+  else{
+    cudaMalloc((void**)&V_rowchk<T>, size);
+    cudaMemset(V_rowchk<T>, 0, size);
+  }
 
   int64_t len = m / num_head;
   size = 2 * len * sizeof(T);
@@ -1283,6 +1346,7 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   }
   rowFile.close();
 
+
   auto start = high_resolution_clock::now();
   if constexpr (std::is_same<T, float>::value) {
     abftGemm<float>(transa, transb, m, n, k,
@@ -1291,7 +1355,7 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
       c, ldc,
       chk_v_a, chk_v_b, ld_chk_v,
       num_batches, num_head,
-      COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER);
+      COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER,QKV);
   }
   else if constexpr (std::is_same<T, at::Half>::value) {
     abftGemm<at::Half>(transa, transb, m, n, k,
@@ -1300,23 +1364,13 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
       c, ldc,
       chk_v_a, chk_v_b, ld_chk_v,
       num_batches, num_head,
-      COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER);
+      COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER,QKV);
   }
   cudaDeviceSynchronize();
   auto stop = high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<microseconds>(stop - start);
   std::cout << "abftGemm: " << duration.count() / 1000.0 << std::endl;
   recordTime("/home/exouser/records/time/abftgemm.txt", (duration.count() / 1000.0), DEBUG);
-
-  // std::ifstream myfile("/home/exouser/control/IFPassChk.txt");
-  // if (myfile.is_open()){
-  //   char flag;
-  //   myfile.get(flag);
-  //   myfile.close();
-  //   if(flag == 't'){
-
-  //   }
-  // }
 
   // cudaFree(dA_colchk);
   // cudaFree(dA_rowchk);
@@ -1365,7 +1419,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
       T *c, int64_t ldc,
       T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,
       int64_t num_batches, int64_t num_head,                                      
-      bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER){
+      bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV){
   globalContext().alertCuBLASConfigNotDeterministic();
   cublasHandle_t handle = at::cuda::getCurrentCUDABlasHandle();
   cublasOperation_t opa = _cublasOpFromChar(transa);
@@ -1397,11 +1451,11 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
 
   printf("m:%d, n:%d, k:%d \n", m,n,k);
 
-  printf("A: \n");
-  outputChk(a, 1, lda, 0, k, m);
+  // printf("A: \n");
+  // outputChk(a, 1, lda, 0, k, m);
 
-  printf("B: \n");
-  outputChk(b, 1, ldb, 0, k, n);
+  // printf("B: \n");
+  // outputChk(b, 1, ldb, 0, k, n);
 
   int64_t nb = 0;
   
@@ -1437,8 +1491,8 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
         }
       }
-      printf("dA_colchk: \n");
-      outputChk(dA_colchk<T>, 1, ldda_colchk, 0, 2*num_head, k);
+      // printf("dA_colchk: \n");
+      // outputChk(dA_colchk<T>, 1, ldda_colchk, 0, 2*num_head, k);
     }
     else{
       if constexpr (std::is_same<T, float>::value) {
@@ -1467,8 +1521,8 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
         }
       }
-      printf("dA_rowchk: \n");
-      outputChk(dA_rowchk<T>, 1, ldda_rowchk, 0, k, 2*num_head);  
+      // printf("dA_rowchk: \n");
+      // outputChk(dA_rowchk<T>, 1, ldda_rowchk, 0, k, 2*num_head);  
     }
     cudaStreamSynchronize(stream_colchk);
     if (DEBUG) {
@@ -1511,8 +1565,8 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
         }
       }
-      printf("dB_rowchk: \n");
-      outputChk(dB_rowchk<T>, 1, lddb_rowchk, 0, k, 2*num_batches);  
+      // printf("dB_rowchk: \n");
+      // outputChk(dB_rowchk<T>, 1, lddb_rowchk, 0, k, 2*num_batches);  
     } 
     else{
       if constexpr (std::is_same<T, float>::value){
@@ -1541,8 +1595,8 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
         }
       }
-      printf("dB_colchk: \n");
-      outputChk(dB_colchk<T>, 1, lddb_colchk, 0, 2*num_batches, k);  
+      // printf("dB_colchk: \n");
+      // outputChk(dB_colchk<T>, 1, lddb_colchk, 0, 2*num_batches, k);  
     }
     cudaStreamSynchronize(stream_rowchk);
     if (DEBUG) {
@@ -1578,8 +1632,8 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
   // std::cout << "Output dC: " << std::endl;
   // outputMatrix(dC, lddc, stridec, num_batches, m, n);
   
-  printf("C: \n");
-  outputChk(c, 1, ldc, 0, m, n);
+  // printf("C: \n");
+  // outputChk(c, 1, ldc, 0, m, n);
   
   if (DEBUG)  {
     cudaEventRecord(stop, stream_main);
@@ -1694,18 +1748,29 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
     }
   }
 
-  printf("dC_colchk: \n");
-  outputChk(dC_colchk<T>, 1, lddc_colchk, 0, 2*num_head, n);
-  printf("dC_rowchk: \n");
-  outputChk(dC_rowchk<T>, 1, lddc_rowchk, 0, m, 2*num_batches);
+  // printf("dC_colchk: \n");
+  // outputChk(dC_colchk<T>, 1, lddc_colchk, 0, 2*num_head, n);
+  // printf("dC_rowchk: \n");
+  // outputChk(dC_rowchk<T>, 1, lddc_rowchk, 0, m, 2*num_batches);
 
-  MatrixSplit<<<1, dim3(num_head, num_batches)>>>(dC_colchk<T>, V_colchk<T>, 2, n/num_batches, lddc_colchk, num_head);
-  MatrixSplit<<<1, dim3(num_head, num_batches)>>>(dC_rowchk<T>, V_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
-
-  printf("V_colchk: \n");
-  outputChk(V_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
-  printf("V_rowchk: \n");
-  outputChk(V_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
+  if(QKV == 'q'){
+    MatrixSplit<<<1, dim3(num_head, num_batches)>>>(dC_rowchk<T>, Q_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
+    // printf("Q_rowchk: \n");
+    // outputChk(Q_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
+  }
+  else if(QKV == 'k'){
+    MatrixSplit<<<1, dim3(num_head, num_batches)>>>(dC_colchk<T>, K_colchk<T>, 2, n/num_batches, lddc_colchk, num_head);
+    // printf("K_colchk: \n");
+    // outputChk(K_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
+  }
+  else{
+    MatrixSplit<<<1, dim3(num_head, num_batches)>>>(dC_colchk<T>, V_colchk<T>, 2, n/num_batches, lddc_colchk, num_head);
+    MatrixSplit<<<1, dim3(num_head, num_batches)>>>(dC_rowchk<T>, V_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
+    // printf("V_colchk: \n");
+    // outputChk(V_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
+    // printf("V_rowchk: \n");
+    // outputChk(V_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
+  }
 
     
   // --- check check-sum of C---//
