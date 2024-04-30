@@ -522,7 +522,7 @@ __global__ void MatrixSplit(T *inpMatrix, T *outMatrix, int64_t row, int64_t col
 	int startCol = threadIdx.x * col;
 	int stride = row * col;
 
-	// printf("%d, %d, %d, %d, %d\n", batchId, blockIdx.x, blockIdx.y, blockDim.x, blockDim.y);
+	// printf("%d, %d, %d, %d\n", batchId, threadIdx.x, threadIdx.y, R_Offset);
 	
 	for(int c = 0; c < col; c++){
 		for(int r = 0; r < row; r++){

@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <fstream>
 #include <cmath>
+#include <vector>
 
 #include <ATen/ATen.h>
 #include <ATen/cuda/CUDABlas.h>
@@ -1079,8 +1080,8 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         num_batches,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV);
     }
-    else if(m == 6 && k == 2){
-      abftbgemm<float, 6, 6, 2>(transa, transb, m, n, k,
+    else if(m == 6 && k == 3){
+      abftbgemm<float, 6, 6, 3>(transa, transb, m, n, k,
         alpha, dA_, ldda, stridea,
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
@@ -1204,8 +1205,23 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   }
   qkvFile.close();
 
-  int64_t num_batches = 2;
-  int64_t num_head = 2;
+  std::vector<string> tokens;
+  string line, token;
+  std::ifstream batchFile("/home/exouser/control/Batch.txt");
+  while (std::getline(batchFile, line)) {
+      std::istringstream iss(line);
+
+      // Tokenize the line by space
+      while (iss >> token) {
+          tokens.push_back(token);
+      }
+  }
+  batchFile.close();
+  
+  int64_t num_batches = std::stoll(tokens[0]);
+  int64_t num_head = std::stoll(tokens[1]);
+
+  printf("num_batch: %d, num_head: %d\n", num_batches, num_head);
 
   T *dA_ = const_cast<T*>(a);
   T *dB_ = const_cast<T*>(b);
@@ -1718,18 +1734,19 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   // outputChk(dC_rowchk<T>, 1, lddc_rowchk, 0, m, 2*num_batches);
 
   if(QKV == 'q'){
-    MatrixSplit<<<1, dim3(num_head, num_batches)>>>(dC_rowchk<T>, Q_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
+    MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_rowchk<T>, Q_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
     // printf("Q_rowchk: \n");
     // outputChk(Q_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
   }
   else if(QKV == 'k'){
-    MatrixSplit<<<1, dim3(num_head, num_batches)>>>(dC_colchk<T>, K_colchk<T>, 2, n/num_batches, lddc_colchk, num_head);
+    MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_colchk<T>, K_colchk<T>, 2, n/num_batches, lddc_colchk, num_head);
     // printf("K_colchk: \n");
     // outputChk(K_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
   }
   else{
-    MatrixSplit<<<1, dim3(num_head, num_batches)>>>(dC_colchk<T>, V_colchk<T>, 2, n/num_batches, lddc_colchk, num_head);
-    MatrixSplit<<<1, dim3(num_head, num_batches)>>>(dC_rowchk<T>, V_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
+    MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_colchk<T>, V_colchk<T>, 2, n/num_batches, lddc_colchk, num_head);
+    // printf("--------\n");
+    MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_rowchk<T>, V_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
     // printf("V_colchk: \n");
     // outputChk(V_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
     // printf("V_rowchk: \n");
@@ -2692,8 +2709,23 @@ void myGemmBiasPassChk (
     }
     qkvFile.close();
 
-    int64_t num_head = 2;
-    int64_t num_batches = 2;
+    std::vector<string> tokens;
+    string line, token;
+    std::ifstream batchFile("/home/exouser/control/Batch.txt");
+    while (std::getline(batchFile, line)) {
+        std::istringstream iss(line);
+
+        // Tokenize the line by space
+        while (iss >> token) {
+            tokens.push_back(token);
+        }
+    }
+    batchFile.close();
+    
+    int64_t num_batches = std::stoll(tokens[0]);
+    int64_t num_head = std::stoll(tokens[1]);
+
+    printf("num_batch: %d, num_head: %d\n", num_batches, num_head);
 
     // printf("m:%d, n:%d, k:%d\n", m, n, k);
     // printf("%d, %d, %d\n", mat1_ld, mat2_ld, result_ld);
@@ -3414,18 +3446,18 @@ void abftGemmBiasPassChk(
   // outputChk(dC_rowchk<T>, 1, lddc_rowchk, 0, m, 2*num_batches);
 
   if(QKV == 'q'){
-    MatrixSplit<<<1, dim3(num_head, num_batches)>>>(dC_rowchk<T>, Q_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
+    MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_rowchk<T>, Q_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
     // printf("Q_rowchk: \n");
     // outputChk(Q_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
   }
   else if(QKV == 'k'){
-    MatrixSplit<<<1, dim3(num_head, num_batches)>>>(dC_colchk<T>, K_colchk<T>, 2, n/num_batches, lddc_colchk, num_head);
+    MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_colchk<T>, K_colchk<T>, 2, n/num_batches, lddc_colchk, num_head);
     // printf("K_colchk: \n");
     // outputChk(K_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
   }
   else{
-    MatrixSplit<<<1, dim3(num_head, num_batches)>>>(dC_colchk<T>, V_colchk<T>, 2, n/num_batches, lddc_colchk, num_head);
-    MatrixSplit<<<1, dim3(num_head, num_batches)>>>(dC_rowchk<T>, V_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
+    MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_colchk<T>, V_colchk<T>, 2, n/num_batches, lddc_colchk, num_head);
+    MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_rowchk<T>, V_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
     // printf("V_colchk: \n");
     // outputChk(V_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
     // printf("V_rowchk: \n");
