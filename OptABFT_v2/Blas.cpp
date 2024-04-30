@@ -374,39 +374,80 @@ Tensor& addmm_out_cuda_impl(Tensor& result, const Tensor& self, const Tensor& ma
             myfile.get(flag);
             myfile.close();
             if(flag == 't'){
-                std::cout << "my_gemm_bias" << std::endl;
-                at::cuda::blas::myGemmBias<scalar_t>(
-                args.transa == 't',
-                args.transb == 't',
-                args.m,
-                args.n,
-                args.k,
-                alpha.to<at::opmath_type<scalar_t>>(),
-                args.mata->data_ptr<scalar_t>(),
-                args.lda,
-                args.matb->data_ptr<scalar_t>(),
-                args.ldb,
-  #if defined(USE_ROCM)
-                // This condition is needed for mm case on ROCm for hipblasLt path.
-                // Passing the bias ptr as null to avoid accuracy issues for mm case.
-                (&result != &self) ? self.const_data_ptr<scalar_t>() : nullptr,
-  #else
-                self.const_data_ptr<scalar_t>(),
-  #endif
-                args.result->data_ptr<scalar_t>(),
-                args.result_ld,
-  #if (defined(CUDA_VERSION) && CUDA_VERSION >= 11080) || defined(USE_ROCM)
-                activation_to_gemm_and_blas_arg(activation)
-  #else
-                // GELU is not supported (and does not compile!) prior
-                // to CUDA 11.4. Have observed accuracy issues with
-                // GELU epilogue in 11.4; disabling the GELU epilogue
-                // path for CUDA version < 11.8.
-                activation != Activation::GELU
-                ? activation_to_gemm_and_blas_arg(activation)
-                : cuda::blas::GEMMAndBiasActivationEpilogue::None
-  #endif
-            );  
+                flag = 'f';
+                std::ifstream isPassChkFile("/home/exouser/control/IFPassChk.txt");
+                isPassChkFile.get(flag);
+                isPassChkFile.close();
+                if(flag == 't'){
+                  std::cout << "my_gemm_biasPassChk" << std::endl;
+                  at::cuda::blas::myGemmBiasPassChk<scalar_t>(
+                    args.transa == 't',
+                    args.transb == 't',
+                    args.m,
+                    args.n,
+                    args.k,
+                    alpha.to<at::opmath_type<scalar_t>>(),
+                    args.mata->data_ptr<scalar_t>(),
+                    args.lda,
+                    args.matb->data_ptr<scalar_t>(),
+                    args.ldb,
+      #if defined(USE_ROCM)
+                    // This condition is needed for mm case on ROCm for hipblasLt path.
+                    // Passing the bias ptr as null to avoid accuracy issues for mm case.
+                    (&result != &self) ? self.const_data_ptr<scalar_t>() : nullptr,
+      #else
+                    self.const_data_ptr<scalar_t>(),
+      #endif
+                    args.result->data_ptr<scalar_t>(),
+                    args.result_ld,
+      #if (defined(CUDA_VERSION) && CUDA_VERSION >= 11080) || defined(USE_ROCM)
+                    activation_to_gemm_and_blas_arg(activation)
+      #else
+                    // GELU is not supported (and does not compile!) prior
+                    // to CUDA 11.4. Have observed accuracy issues with
+                    // GELU epilogue in 11.4; disabling the GELU epilogue
+                    // path for CUDA version < 11.8.
+                    activation != Activation::GELU
+                    ? activation_to_gemm_and_blas_arg(activation)
+                    : cuda::blas::GEMMAndBiasActivationEpilogue::None
+      #endif
+                  );
+                }
+                else{
+                  std::cout << "my_gemm_bias" << std::endl;
+                  at::cuda::blas::myGemmBias<scalar_t>(
+                    args.transa == 't',
+                    args.transb == 't',
+                    args.m,
+                    args.n,
+                    args.k,
+                    alpha.to<at::opmath_type<scalar_t>>(),
+                    args.mata->data_ptr<scalar_t>(),
+                    args.lda,
+                    args.matb->data_ptr<scalar_t>(),
+                    args.ldb,
+      #if defined(USE_ROCM)
+                    // This condition is needed for mm case on ROCm for hipblasLt path.
+                    // Passing the bias ptr as null to avoid accuracy issues for mm case.
+                    (&result != &self) ? self.const_data_ptr<scalar_t>() : nullptr,
+      #else
+                    self.const_data_ptr<scalar_t>(),
+      #endif
+                    args.result->data_ptr<scalar_t>(),
+                    args.result_ld,
+      #if (defined(CUDA_VERSION) && CUDA_VERSION >= 11080) || defined(USE_ROCM)
+                    activation_to_gemm_and_blas_arg(activation)
+      #else
+                    // GELU is not supported (and does not compile!) prior
+                    // to CUDA 11.4. Have observed accuracy issues with
+                    // GELU epilogue in 11.4; disabling the GELU epilogue
+                    // path for CUDA version < 11.8.
+                    activation != Activation::GELU
+                    ? activation_to_gemm_and_blas_arg(activation)
+                    : cuda::blas::GEMMAndBiasActivationEpilogue::None
+      #endif
+                  );  
+                }  
             }
             else{
                 std::cout << "gemm_bias" << std::endl;

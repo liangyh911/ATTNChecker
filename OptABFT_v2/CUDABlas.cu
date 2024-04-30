@@ -1466,10 +1466,6 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     nb = m / num_head;
     if(opa == CUBLAS_OP_N){
       if constexpr (std::is_same<T, float>::value) {
-        // cublasSgemm(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, m, 
-        //               &falpha, chk_v_a, ld_chk_v, 
-        //               a, lda, &fbeta, 
-        //               dA_colchk<T>, ldda_colchk);
         for(int i=0; i<m; i+=nb){
           cublasSgemm(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, nb, 
                       &falpha, chk_v_a, ld_chk_v, 
@@ -1478,11 +1474,6 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
         }
       }
       else if constexpr(std::is_same<T, at::Half>::value) {
-        // cublasGemmEx(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, m,
-        //               &falpha, chk_v_a, CUDA_R_16F, ld_chk_v, 
-        //               a, CUDA_R_16F, lda,
-        //               &fbeta, dA_colchk<T>, CUDA_R_16F, ldda_colchk,
-        //               CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
         for(int i=0; i<m; i+=nb){
           cublasGemmEx(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, nb,
                       &falpha, chk_v_a, CUDA_R_16F, ld_chk_v, 
@@ -1496,10 +1487,6 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     }
     else{
       if constexpr (std::is_same<T, float>::value) {
-        // cublasSgemm(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, m, 
-        //               &falpha, a, lda, 
-        //               chk_v_a, ld_chk_v, &fbeta, 
-        //               dA_rowchk<T>, ldda_rowchk);
         for(int i=0; i<m; i+=nb){
           cublasSgemm(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, nb, 
                       &falpha, a+i*lda, lda, 
@@ -1508,11 +1495,6 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
         }
       }
       else if constexpr(std::is_same<T, at::Half>::value) {
-        // cublasGemmEx(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, m,
-        //               &falpha, a, CUDA_R_16F, lda, 
-        //               chk_v_a, CUDA_R_16F, ld_chk_v,
-        //               &fbeta, dA_rowchk<T>, CUDA_R_16F, ldda_rowchk,
-        //               CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
         for(int i=0; i<m; i+=nb){
           cublasGemmEx(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, nb, 
                       &falpha, a+i*lda, CUDA_R_16F, lda, 
@@ -1539,10 +1521,6 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     if (DEBUG) cudaEventRecord(start, stream_rowchk);
     if (opb == CUBLAS_OP_N){
       if constexpr (std::is_same<T, float>::value){
-        // cublasSgemm(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, n, 
-        //             &falpha, b, ldb, 
-        //             chk_v_b, ld_chk_v, &fbeta, 
-        //             dB_rowchk<T>, lddb_rowchk);
         for(int i=0; i<n; i+=nb){
           cublasSgemm(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, nb, 
                       &falpha, b+i*ldb, ldb, 
@@ -1552,11 +1530,6 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
 
       }
       else if constexpr(std::is_same<T, at::Half>::value){
-        // cublasGemmEx(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, n,
-        //               &falpha, b, CUDA_R_16F, ldb, 
-        //               chk_v_b, CUDA_R_16F, ld_chk_v,
-        //               &fbeta, dB_rowchk<T>, CUDA_R_16F, lddb_rowchk,
-        //               CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
         for(int i=0; i<n; i+=nb){
           cublasGemmEx(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, nb,
                       &falpha, b+i*ldb, CUDA_R_16F, ldb, 
@@ -1570,10 +1543,6 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     } 
     else{
       if constexpr (std::is_same<T, float>::value){
-          // cublasSgemm(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, n, 
-          //             &falpha, chk_v_b, ld_chk_v, 
-          //             b, ldb, &fbeta, 
-          //             dB_colchk<T>, lddb_colchk);
           for(int i=0; i<n; i+=nb){
             cublasSgemm(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, nb, 
                         &falpha, chk_v_b, ld_chk_v, 
@@ -1582,11 +1551,6 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
           }
       }
       else if constexpr(std::is_same<T, at::Half>::value){
-        // cublasGemmEx(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, n,
-        //               &falpha, chk_v_b, CUDA_R_16F, ld_chk_v, 
-        //               b, CUDA_R_16F, ldb,
-        //               &fbeta, dB_colchk<T>, CUDA_R_16F, lddb_colchk,
-        //               CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
         for(int i=0; i<n; i+=nb){
           cublasGemmEx(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, nb,
                       &falpha, chk_v_b, CUDA_R_16F, ld_chk_v, 
@@ -2701,6 +2665,775 @@ class CuBlasLtMatmulPreference : public CuBlasLtDescriptor<
 } // namespace
 
 template <typename T>
+void myGemmBiasPassChk (
+  bool transpose_mat1, bool transpose_mat2,
+  int64_t m, int64_t n, int64_t k,
+  at::opmath_type<T> alpha_val,
+  const T* mat1_ptr,
+  int64_t mat1_ld,
+  const T* mat2_ptr,
+  int64_t mat2_ld,
+  const T* bias,
+  T* result_ptr,
+  int64_t result_ld,
+  GEMMAndBiasActivationEpilogue activation){
+
+    T *mat1_ptr_ = const_cast<T*>(mat1_ptr);
+    T *mat2_ptr_ = const_cast<T*>(mat2_ptr);
+    T *bias_ = const_cast<T*>(bias);
+
+    char QKV;
+    std::ifstream qkvFile("/home/exouser/control/QKV.txt");
+    if (qkvFile.is_open()){
+      qkvFile.get(QKV);
+    }
+    else{
+      printf("QKV: Cannot open file, using default setting.\n");
+    }
+    qkvFile.close();
+
+    int64_t num_head = 2;
+    int64_t num_batches = 2;
+
+    // printf("m:%d, n:%d, k:%d\n", m, n, k);
+    // printf("%d, %d, %d\n", mat1_ld, mat2_ld, result_ld);
+
+    ldda_colchk = 2*num_head;
+    ldda_colchk_r = 2*num_head;
+    ldda_rowchk = k;
+    ldda_rowchk_r = k;
+
+    lddb_rowchk = k;
+    lddb_rowchk_r = k;
+    lddb_colchk = 2;
+    lddb_colchk_r = 2;
+
+    lddc_colchk = 2*num_head;
+    lddc_colchk_r = 2*num_head;
+    lddc_rowchk = m;
+    lddc_rowchk_r = m;
+    int64_t ld_chk_v = 2;
+
+    // T *dA_colchk, *dA_rowchk, *dA_colchk_r, *dA_rowchk_r;
+    // T *dB_colchk, *dB_rowchk, *dB_colchk_r, *dB_rowchk_r;
+    // T *dC_colchk, *dC_rowchk, *dC_colchk_r, *dC_rowchk_r;
+    T *dBias_colchk, *dBias_rowchk, *dBias_colchk_r,*dBias_rowchk_r;
+    T *chk_v_a;
+    T *chk_v_b;
+  
+    size_t size = num_head * 2 * k * sizeof(T);
+    cudaMalloc((void**)&dA_colchk<T>, size);
+    cudaMemset(dA_colchk<T>, 0, size);
+    cudaMalloc((void**)&dA_colchk_r<T>, size);
+    cudaMemset(dA_colchk_r<T>, 0, size);
+
+    cudaMalloc((void**)&dA_rowchk<T>, size);
+    cudaMemset(dA_rowchk<T>, 0, size);
+    cudaMalloc((void**)&dA_rowchk_r<T>, size);
+    cudaMemset(dA_rowchk_r<T>, 0, size);
+    //std::cout << "  finish dA." << std::endl;
+    
+    size = num_batches * 2 * k * sizeof(T);
+    cudaMalloc((void**)&dB_colchk<T>, size);
+    cudaMemset(dB_colchk<T>, 0, size);
+    cudaMalloc((void**)&dB_colchk_r<T>, size);
+    cudaMemset(dB_colchk_r<T>, 0, size);
+    
+    cudaMalloc((void**)&dB_rowchk<T>, size);
+    cudaMemset(dB_rowchk<T>, 0, size);
+    cudaMalloc((void**)&dB_rowchk_r<T>, size);
+    cudaMemset(dB_rowchk_r<T>, 0, size);
+    //std::cout << "  finish dB." << std::endl;
+
+    size = num_head * 2 * n * sizeof(T);
+    cudaMalloc((void**)&dC_colchk<T>, size);
+    cudaMemset(dC_colchk<T>, 0, size);
+    cudaMalloc((void**)&dC_colchk_r<T>, size);
+    cudaMemset(dC_colchk_r<T>, 0, size);
+
+    cudaMalloc((void**)&dBias_colchk, size);
+    cudaMemset(dBias_colchk, 0, size);
+    cudaMalloc((void**)&dBias_colchk_r, size);
+    cudaMemset(dBias_colchk_r, 0, size);
+
+    if(QKV == 'k'){
+      cudaMalloc((void**)&K_colchk<T>, size);
+      cudaMemset(K_colchk<T>, 0, size);
+    }
+    else{
+      cudaMalloc((void**)&V_colchk<T>, size);
+      cudaMemset(V_colchk<T>, 0, size);
+    }
+    
+    size = num_batches * 2 * m * sizeof(T);
+    cudaMalloc((void**)&dC_rowchk<T>, size);
+    cudaMemset(dC_rowchk<T>, 0, size);
+    cudaMalloc((void**)&dC_rowchk_r<T>, size);
+    cudaMemset(dC_rowchk_r<T>, 0, size);
+
+    cudaMalloc((void**)&dBias_rowchk, size);
+    cudaMemset(dBias_rowchk, 0, size);
+    cudaMalloc((void**)&dBias_rowchk_r, size);
+    cudaMemset(dBias_rowchk_r, 0, size);
+
+    if(QKV == 'q'){
+      cudaMalloc((void**)&Q_rowchk<T>, size);
+      cudaMemset(Q_rowchk<T>, 0, size);
+    }
+    else{
+      cudaMalloc((void**)&V_rowchk<T>, size);
+      cudaMemset(V_rowchk<T>, 0, size);
+    }
+
+    int64_t len = m / num_head;
+    size = 2 * len * sizeof(T);
+    cudaMalloc((void**)&chk_v_a, size);
+    // std::cout << "  assign values to chk_v_a." << std::endl;
+    T *h_matrix;
+    h_matrix = (T *)malloc(size);
+    int idx = 0;
+    for(int i = 0; i < len; i++){
+        idx = i*ld_chk_v;
+        h_matrix[idx] = T(1);
+        h_matrix[idx+1] = T(i+1);
+    }
+    cudaMemcpy(chk_v_a, h_matrix, size, cudaMemcpyHostToDevice);
+    // std::cout << "chk_v_a: " << std::endl;
+    // outputChk(chk_v_a, 1, ld_chk_v, 0, 2, m);
+    free(h_matrix);
+
+    len = n / num_batches;
+    size = 2 * len * sizeof(T);
+    cudaMalloc((void**)&chk_v_b, size);
+    // std::cout << "  assign values to chk_v_b." << std::endl;
+    h_matrix = (T *)malloc(size);
+    idx = 0;
+    for(int i = 0; i < len; i++){
+        idx = i*ld_chk_v;
+        h_matrix[idx] = T(1);
+        h_matrix[idx+1] = T(i+1);
+    }
+    cudaMemcpy(chk_v_b, h_matrix, size, cudaMemcpyHostToDevice);
+    // std::cout << "chk_v_b: " << std::endl;
+    // outputChk(chk_v_a, 1, ld_chk_v, 0, 2, len);
+    free(h_matrix);
+    //std::cout << "  finish chk_v." << std::endl;
+
+    bool COL_FT = true;
+    bool ROW_FT = true;
+    bool DEBUG = true;
+    bool CHECK_BEFORE = true;
+    bool CHECK_AFTER = true;
+    
+    char flag;
+    std::ifstream colFile("/home/exouser/control/abftCOL_FT.txt");
+    if (colFile.is_open()){
+      colFile.get(flag);
+      if(flag == 'f'){
+        COL_FT = false;
+      }
+      // printf("%c", flag);
+    }
+    else{
+      printf("COL_FT: Cannot open file, using default setting.\n");
+    }
+    colFile.close();
+    
+    std::ifstream rowFile("/home/exouser/control/abftROW_FT.txt");
+    if (rowFile.is_open()){
+      rowFile.get(flag);
+      if(flag == 'f'){
+        ROW_FT = false;
+      }
+      // printf("%c", flag);
+    }
+    else{
+      printf("ROW_FT: Cannot open file, using default setting.\n");
+    }
+    rowFile.close();
+
+    auto start = high_resolution_clock::now();
+    if constexpr (std::is_same<T, float>::value) {
+      abftGemmBiasPassChk<float>(transpose_mat1, transpose_mat2, m, n, k,
+        alpha_val, mat1_ptr_, mat1_ld,
+        mat2_ptr_, mat2_ld, bias_, 
+        result_ptr, result_ld,
+        activation,
+        chk_v_a, chk_v_b, ld_chk_v,
+        dBias_colchk, dBias_rowchk, dBias_colchk_r, dBias_rowchk_r,
+        num_batches, num_head,
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, QKV);
+    }
+    else if constexpr (std::is_same<T, at::Half>::value) {
+      abftGemmBiasPassChk<at::Half>(transpose_mat1, transpose_mat2, m, n, k,
+        alpha_val, mat1_ptr_, mat1_ld,
+        mat2_ptr_, mat2_ld, bias_, 
+        result_ptr, result_ld,
+        activation,
+        chk_v_a, chk_v_b, ld_chk_v,
+        dBias_colchk, dBias_rowchk, dBias_colchk_r, dBias_rowchk_r,
+        num_batches, num_head,
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, QKV);
+    }
+    cudaDeviceSynchronize();
+    auto stop = high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<microseconds>(stop - start);
+    std::cout << "abftGemmBias: " << duration.count() / 1000.0 << std::endl;
+    recordTime("/home/exouser/records/time/abftBias.txt", (duration.count() / 1000.0), DEBUG);
+
+    // cudaFree(dA_colchk);
+    // cudaFree(dA_rowchk);
+    // cudaFree(dA_colchk_r);
+    // cudaFree(dA_rowchk_r);
+    // cudaFree(dB_colchk);
+    // cudaFree(dB_rowchk);
+    // cudaFree(dB_colchk_r);
+    // cudaFree(dB_rowchk_r);
+    // cudaFree(dC_colchk);
+    // cudaFree(dC_rowchk);
+    // cudaFree(dC_colchk_r);
+    // cudaFree(dC_rowchk_r);
+    // cudaFree(chk_v_a);
+    // cudaFree(chk_v_b);
+    cudaFree(dBias_colchk);
+    cudaFree(dBias_rowchk);
+    cudaFree(dBias_colchk_r);
+    cudaFree(dBias_rowchk_r);
+
+    // printf("Bias Test\n");
+}
+
+template void myGemmBiasPassChk<float>( bool transpose_mat1, bool transpose_mat2, int64_t m, int64_t n, int64_t k, at::opmath_type<float> alpha_val,
+  const float* mat1_ptr, int64_t mat1_ld,
+  const float* mat2_ptr, int64_t mat2_ld,  const float* bias,
+  float* result_ptr, int64_t result_ld, GEMMAndBiasActivationEpilogue activation);
+
+template void myGemmBiasPassChk<at::Half>( bool transpose_mat1, bool transpose_mat2, int64_t m, int64_t n, int64_t k, at::opmath_type<at::Half> alpha_val,
+  const at::Half* mat1_ptr, int64_t mat1_ld,
+  const at::Half* mat2_ptr, int64_t mat2_ld,  const at::Half* bias,
+  at::Half* result_ptr, int64_t result_ld, GEMMAndBiasActivationEpilogue activation);
+
+template void myGemmBiasPassChk<double>( bool transpose_mat1, bool transpose_mat2, int64_t m, int64_t n, int64_t k, at::opmath_type<double> alpha_val,
+  const double* mat1_ptr, int64_t mat1_ld,
+  const double* mat2_ptr, int64_t mat2_ld,  const double* bias,
+  double* result_ptr, int64_t result_ld, GEMMAndBiasActivationEpilogue activation);
+
+template void myGemmBiasPassChk<at::BFloat16>( bool transpose_mat1, bool transpose_mat2, int64_t m, int64_t n, int64_t k, at::opmath_type<at::BFloat16> alpha_val,
+  const at::BFloat16* mat1_ptr, int64_t mat1_ld,
+  const at::BFloat16* mat2_ptr, int64_t mat2_ld,  const at::BFloat16* bias,
+  at::BFloat16* result_ptr, int64_t result_ld, GEMMAndBiasActivationEpilogue activation);
+
+template <typename T>
+void abftGemmBiasPassChk(
+    bool transpose_mat1, bool transpose_mat2,
+    int64_t m, int64_t n, int64_t k,
+    at::opmath_type<T> alpha_val, T* mat1_ptr, int64_t mat1_ld,
+    T* mat2_ptr, int64_t mat2_ld, T* bias,
+    T* result_ptr, int64_t result_ld,
+    GEMMAndBiasActivationEpilogue activation,
+    T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,
+    T *dBias_colchk, T *dBias_rowchk, T *dBias_colchk_r, T *dBias_rowchk_r,
+    int64_t num_batches, int64_t num_head,                             
+    bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV) {
+  
+  // std::cout << "Using gemm_and_bias." << std::endl;
+  using opmath_t = at::opmath_type<T>;
+  opmath_t beta_val = 0; // bias is added in epilogue
+
+  cudaDataType_t abcType = CUDA_R_32F;
+  cublasComputeType_t computeType = CUBLAS_COMPUTE_32F;
+  cudaDataType_t scaleType = CUDA_R_32F;
+  if constexpr (std::is_same_v<T, double>) {
+#if !defined(USE_ROCM) || (defined(USE_ROCM) && ROCM_VERSION >= 60000)
+    abcType = CUDA_R_64F;
+    computeType = CUBLAS_COMPUTE_64F;
+    scaleType = CUDA_R_64F;
+#else
+    TORCH_CHECK(false, "gemm_and_bias is only supported for double type on ROCm 6.0 and above");
+#endif
+  } else if constexpr (std::is_same_v<T, float>) {
+#ifndef USE_ROCM
+    if (at::globalContext().allowTF32CuBLAS()) {
+      computeType = CUBLAS_COMPUTE_32F_FAST_TF32;
+    }
+#endif
+    abcType = CUDA_R_32F;
+  } else if constexpr (std::is_same_v<T, at::Half>) {
+    abcType = CUDA_R_16F;
+  } else if constexpr (std::is_same_v<T, at::BFloat16>) {
+    abcType = CUDA_R_16BF;
+  }
+
+  CuBlasLtMatmulDescriptor computeDesc(computeType, scaleType);
+  cublasOperation_t transa = transpose_mat1 ? CUBLAS_OP_T : CUBLAS_OP_N;
+  computeDesc.setAttribute(CUBLASLT_MATMUL_DESC_TRANSA, transa);
+  cublasOperation_t transb = transpose_mat2 ? CUBLAS_OP_T : CUBLAS_OP_N;
+  computeDesc.setAttribute(CUBLASLT_MATMUL_DESC_TRANSB, transb);
+  cublasLtEpilogue_t epilogue = CUBLASLT_EPILOGUE_BIAS;
+  if (activation == GEMMAndBiasActivationEpilogue::RELU) {
+    epilogue = CUBLASLT_EPILOGUE_RELU_BIAS;
+  } else if (activation == GEMMAndBiasActivationEpilogue::GELU) {
+#if CUDA_VERSION >= 11040 || defined(USE_ROCM)
+    epilogue = CUBLASLT_EPILOGUE_GELU_BIAS;
+#endif
+  }
+
+  if (bias != nullptr) {
+    computeDesc.setAttribute(CUBLASLT_MATMUL_DESC_EPILOGUE, epilogue);
+    computeDesc.setAttribute(CUBLASLT_MATMUL_DESC_BIAS_POINTER, bias);
+  }
+
+  CuBlasLtMatrixLayout Adesc(abcType, m, k, mat1_ld, transpose_mat1);
+  CuBlasLtMatrixLayout Bdesc(abcType, k, n, mat2_ld, transpose_mat2);
+  CuBlasLtMatrixLayout Cdesc(abcType, m, n, result_ld);
+
+  CuBlasLtMatmulPreference preference;
+  // See https://github.com/pytorch/pytorch/issues/73328 for reasoning behind
+  // setting this to 1M.
+  size_t workspaceSize = _getWorkspaceSize();
+  preference.setAttribute(CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES, workspaceSize);
+
+#ifndef USE_ROCM
+  uint32_t a_alignment = _getAlignment(reinterpret_cast<uintptr_t>(mat1_ptr));
+  uint32_t b_alignment = _getAlignment(reinterpret_cast<uintptr_t>(mat2_ptr));
+  uint32_t c_alignment = _getAlignment(reinterpret_cast<uintptr_t>(result_ptr));
+  uint32_t d_alignment = _getAlignment(reinterpret_cast<uintptr_t>(bias));
+  preference.setAttribute(CUBLASLT_MATMUL_PREF_MIN_ALIGNMENT_A_BYTES, a_alignment);
+  preference.setAttribute(CUBLASLT_MATMUL_PREF_MIN_ALIGNMENT_B_BYTES, b_alignment);
+  preference.setAttribute(CUBLASLT_MATMUL_PREF_MIN_ALIGNMENT_C_BYTES, c_alignment);
+  preference.setAttribute(CUBLASLT_MATMUL_PREF_MIN_ALIGNMENT_D_BYTES, d_alignment);
+#endif
+
+  auto& allocator = *::c10::cuda::CUDACachingAllocator::get();
+  auto workspace = allocator.allocate(workspaceSize);
+
+  cublasLtMatmulHeuristicResult_t heuristicResult = {};
+  int returnedResult = 0;
+  cublasLtHandle_t ltHandle = at::cuda::getCurrentCUDABlasLtHandle();
+
+  TORCH_CUDABLAS_CHECK(cublasLtMatmulAlgoGetHeuristic(
+      ltHandle,
+      computeDesc.descriptor(),
+      Adesc.descriptor(),
+      Bdesc.descriptor(),
+      Cdesc.descriptor(),
+      Cdesc.descriptor(),
+      preference.descriptor(),
+      1,
+      &heuristicResult,
+      &returnedResult));
+  if (returnedResult == 0) {
+    TORCH_CUDABLAS_CHECK(CUBLAS_STATUS_NOT_SUPPORTED);
+  }
+
+  //
+  cublasHandle_t handle_colchk;
+  cublasCreate(&handle_colchk);
+  cublasHandle_t handle_rowchk;
+  cublasCreate(&handle_rowchk);
+
+  cudaStream_t stream_main, stream_colchk, stream_rowchk;
+  cudaStreamCreate(&stream_main);
+  cudaStreamCreate(&stream_colchk);
+  cudaStreamCreate(&stream_rowchk);
+
+  cublasSetStream(handle_colchk, stream_colchk);
+  cublasSetStream(handle_rowchk, stream_rowchk);
+
+
+  cudaEvent_t main_compute_done;
+  cudaEventCreate(&main_compute_done);
+
+  cudaEvent_t start, stop;
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
+  float t, t1, t_Achk, t_Bchk, t_Biasrowchk, t_Biascolchk;
+  int64_t nb = 0;
+
+  float falpha = at::opmath_type<T>(1);
+  float fbeta = at::opmath_type<T>(0);
+  printf("m:%d, n:%d, k:%d\n ", m, n, k);
+
+  // printf("alpha: %f, beta: %f \n", alpha_val, beta_val);
+
+  // printf("mat1: \n");
+  // outputChk(mat1_ptr, 1, mat1_ld, m*k, m, k);
+  // printf("mat2:\n");
+  // outputChk(mat2_ptr,1, mat2_ld, k*n, k, n);
+
+  // A chk
+  if(COL_FT){
+    if (DEBUG) std::cout << "dA_checksum" << std::endl;
+    if (DEBUG) cudaEventRecord(start, stream_colchk);
+    nb = m / num_head;
+    if(transa == CUBLAS_OP_N){
+      if constexpr (std::is_same<T, float>::value) {
+        for(int i=0; i<m; i+=nb){
+          cublasSgemm(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, nb, 
+                      &falpha, chk_v_a, ld_chk_v, 
+                      mat1_ptr + i, mat1_ld, &fbeta, 
+                      dA_colchk<T>+(i/nb)*2, ldda_colchk);
+        }
+      }
+      else if constexpr(std::is_same<T, at::Half>::value) {
+        for(int i=0; i<m; i+=nb){
+          cublasGemmEx(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, nb,
+                      &falpha, chk_v_a, CUDA_R_16F, ld_chk_v, 
+                      mat1_ptr+i, CUDA_R_16F, mat1_ld,
+                      &fbeta, dA_colchk<T>+(i/nb)*2, CUDA_R_16F, ldda_colchk,
+                      CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+        }
+      } 
+    }
+    else{
+      if constexpr (std::is_same<T, float>::value) {
+        for(int i=0; i<m; i+=nb){
+          cublasSgemm(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, nb, 
+                      &falpha, mat1_ptr+i*mat1_ld, mat1_ld, 
+                      chk_v_a, ld_chk_v, &fbeta, 
+                      dA_rowchk<T>+((i/nb)*2)*ldda_rowchk, ldda_rowchk);
+        }
+      }
+      else if constexpr(std::is_same<T, at::Half>::value) {
+        for(int i=0; i<m; i+=nb){
+          cublasGemmEx(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, nb, 
+                      &falpha, mat1_ptr+i*mat1_ld, CUDA_R_16F, mat1_ld, 
+                      chk_v_a, CUDA_R_16F, ld_chk_v, &fbeta, 
+                      dA_rowchk<T>+((i/nb)*2)*ldda_rowchk, CUDA_R_16F, ldda_rowchk,
+                      CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+        }
+      } 
+    }
+    cudaStreamSynchronize(stream_colchk);
+    if (DEBUG) {
+        cudaEventRecord(stop, stream_colchk);
+        cudaEventSynchronize(stop);
+        cudaEventElapsedTime(&t_Achk, start, stop);
+    }
+  }
+
+  // B chk
+  if (ROW_FT){
+    if (DEBUG) std::cout << "dB_checksum" << std::endl;
+    if (DEBUG) cudaEventRecord(start, stream_rowchk);
+    nb = n / num_batches;
+    if (transb == CUBLAS_OP_N){
+      if constexpr (std::is_same<T, float>::value){
+        for(int i=0; i<n; i+=nb){
+          cublasSgemm(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, nb, 
+                      &falpha, mat2_ptr+i*mat2_ld, mat2_ld, 
+                      chk_v_b, ld_chk_v, &fbeta, 
+                      dB_rowchk<T>+((i/nb)*2)*lddb_rowchk, lddb_rowchk);
+        }
+      }
+      else if constexpr(std::is_same<T, at::Half>::value){
+        for(int i=0; i<n; i+=nb){
+          cublasGemmEx(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, nb,
+                      &falpha, mat2_ptr+i*mat2_ld, CUDA_R_16F, mat2_ld, 
+                      chk_v_b, CUDA_R_16F, ld_chk_v,
+                      &fbeta, dB_rowchk<T>+((i/nb)*2)*lddb_rowchk, CUDA_R_16F, lddb_rowchk,
+                      CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+        }
+      }
+    }
+    else{
+      if constexpr (std::is_same<T, float>::value){
+          for(int i=0; i<n; i+=nb){
+            cublasSgemm(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, nb, 
+                        &falpha, chk_v_b, ld_chk_v, 
+                        mat2_ptr+i, mat2_ld, &fbeta, 
+                        dB_colchk<T>+(i/nb)*2, lddb_colchk);
+          }
+        }
+        else if constexpr(std::is_same<T, at::Half>::value){
+          for(int i=0; i<n; i+=nb){
+            cublasGemmEx(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, nb,
+                        &falpha, chk_v_b, CUDA_R_16F, ld_chk_v, 
+                        mat2_ptr+i, CUDA_R_16F, mat2_ld,
+                        &fbeta, dB_colchk<T>+(i/nb)*2, CUDA_R_16F, lddb_colchk,
+                        CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+          }
+        }
+    }
+    cudaStreamSynchronize(stream_rowchk);
+    if (DEBUG) {
+      cudaEventRecord(stop, stream_rowchk);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&t_Bchk, start, stop);
+      t_Bchk /= 1.0;
+    }
+  }
+  
+  T *biasMatrix;
+  size_t size =  m * n * sizeof(T);
+  cudaMalloc((void**)&biasMatrix, size);
+  getBiasMatrix<<<dim3(128), dim3((n+128-1)/128)>>>(bias, biasMatrix, m);
+  
+  // printf("bias:\n");
+  // outputChk(biasMatrix, 1, result_ld, m*n, m, n);
+  
+  // Bias col chk
+  if (COL_FT){
+    if (DEBUG) std::cout << "bias_check_col_sum" << std::endl;
+    if (DEBUG) cudaEventRecord(start, stream_colchk);
+    nb = m / num_head;
+    if constexpr (std::is_same<T, float>::value) {
+      for(int i=0; i<m; i+=nb){
+          cublasSgemm(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, n, nb, 
+                      &falpha, chk_v_a, ld_chk_v, 
+                      biasMatrix + i, result_ld, &fbeta, 
+                      dBias_colchk+(i/nb)*2, lddc_colchk);
+      }
+    }
+    else if constexpr(std::is_same<T, at::Half>::value) {
+        for(int i=0; i<m; i+=nb){
+          cublasGemmEx(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, n, nb,
+                      &falpha, chk_v_a, CUDA_R_16F, ld_chk_v, 
+                      mat1_ptr+i, CUDA_R_16F, mat1_ld,
+                      &fbeta, dBias_colchk+(i/nb)*2, CUDA_R_16F, lddc_colchk,
+                      CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+        }
+    }
+    cudaStreamSynchronize(stream_colchk); 
+    if (DEBUG) {
+        cudaEventRecord(stop, stream_rowchk);
+        cudaEventSynchronize(stop);
+        cudaEventElapsedTime(&t_Biascolchk, start, stop);
+        t_Biascolchk /= 1.0;
+    }
+    // printf("bias colchk:\n");
+    // outputMatrixChk(dBias_colchk, lddc_colchk, num_head*2*m, 1, num_head*2, n);
+  }
+  
+  // Bias row chk
+  if (ROW_FT){
+    if (DEBUG) std::cout << "bias_check_row_sum" << std::endl;
+    if (DEBUG) cudaEventRecord(start, stream_rowchk);
+    nb = n / num_batches;
+    if constexpr (std::is_same<T, float>::value){
+      for(int i=0; i<n; i+=nb){
+          cublasSgemm(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, m, 2, nb, 
+                      &falpha, biasMatrix+i*result_ld, result_ld, 
+                      chk_v_b, ld_chk_v, &fbeta, 
+                      dBias_rowchk+((i/nb)*2)*lddc_rowchk, lddc_rowchk);
+        }
+    }
+    else if constexpr(std::is_same<T, at::Half>::value){
+      for(int i=0; i<n; i+=nb){
+          cublasGemmEx(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_T, m, 2, nb,
+                      &falpha, biasMatrix+i*result_ld, CUDA_R_16F, result_ld, 
+                      chk_v_b, CUDA_R_16F, ld_chk_v,
+                      &fbeta, dBias_rowchk+((i/nb)*2)*lddc_rowchk, CUDA_R_16F, lddc_rowchk,
+                      CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+      }
+    }
+    cudaStreamSynchronize(stream_rowchk);
+    if (DEBUG) {
+        cudaEventRecord(stop, stream_rowchk);
+        cudaEventSynchronize(stop);
+        cudaEventElapsedTime(&t_Biasrowchk, start, stop);
+        t_Biasrowchk /= 1.0;
+    }
+  // printf("bias rowchk:\n");
+  // outputMatrixChk(dBias_rowchk, lddc_rowchk, num_batches*2*n, 1, m, 2*num_batches);
+  }
+  
+  int64_t mem_row = 0;
+  int64_t mem_col = 0;
+
+  // falpha = alpha_val;
+  // fbeta = beta_val;
+
+  if (DEBUG) std::cout<<"A*B=C." << std::endl;
+  if (DEBUG)  cudaEventRecord(start, stream_main);
+  // std::cout << "cublasLtMatmul" << std::endl;
+  cublasLtMatmul(ltHandle, computeDesc.descriptor(), &alpha_val,
+      mat1_ptr, Adesc.descriptor(),
+      mat2_ptr, Bdesc.descriptor(), &beta_val,
+      result_ptr, Cdesc.descriptor(), 
+      result_ptr, Cdesc.descriptor(),
+      &heuristicResult.algo, workspace.mutable_get(), workspaceSize, stream_main);
+  cudaStreamSynchronize(stream_main);
+
+  // printf("result:\n");
+  // outputMatrix(result_ptr,result_ld, m*n, 1, m, n);
+  
+  if (DEBUG) {
+      cudaEventRecord(stop, stream_main);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&t, start, stop);
+      printf("  gemm: %f (%f)(%f)\n", t, (double)1*m*n*k*2/t/1e6, (double)1*(m*k+k*n+m*n)/t/1e6);
+      recordEffeciency("/home/exouser/records/effeciency/abftBias.txt",  t, 1, (double)1*m*n*k*2/t/1e6, (double)1*(m*k+k*n+m*n)/t/1e6);
+      if(COL_FT){
+        printf("dA_chk_gemm: %f (%f)(%f)(%f)\n", t_Achk, t_Achk/t, (double)1*m*2*k*2/t_Achk/1e6, (double)1*(2*k+2*m+k*m)*sizeof(T)/t_Achk/1e6);
+        recordEffeciency("/home/exouser/records/effeciency/abftBias.txt",  t_Achk, t_Achk/t, 
+                                        (double)1*m*2*k*2/t_Achk/1e6, (double)1*(2*k+2*m+k*m)*sizeof(T)/t_Achk/1e6);
+        printf("dBias_colchk_gemm: %f (%f)(%f)(%f)\n", t_Biascolchk, t_Biascolchk/t, (double)1*m*2*n*2/t_Biascolchk/1e6, (double)1*(2*n+2*m+n*m)*sizeof(T)/t_Biascolchk/1e6);
+        recordEffeciency("/home/exouser/records/effeciency/abftBias.txt",  t_Biascolchk, t_Biascolchk/t, 
+                                        (double)1*m*2*n*2/t_Biascolchk/1e6, (double)1*(2*n+2*m+n*m)*sizeof(T)/t_Biascolchk/1e6);      
+      }
+      if(ROW_FT){
+        printf("dB_chk_gemm: %f (%f)(%f)(%f)\n", t_Bchk, t_Bchk/t, (double)1*2*n*k*2/t_Bchk/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t_Bchk/1e6);
+        recordEffeciency("/home/exouser/records/effeciency/abftBias.txt",  t_Bchk, t_Bchk/t, (double)1*2*n*k*2/t_Bchk/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t_Bchk/1e6);
+        printf("dBias_rowchk_gemm: %f (%f)(%f)(%f)\n", t_Biasrowchk, t_Biascolchk/t, (double)1*2*n*m*2/t_Biascolchk/1e6, (double)1*(2*m+m*n+2*n)*sizeof(T)/t_Biascolchk/1e6);
+        recordEffeciency("/home/exouser/records/effeciency/abftBias.txt",  t_Biasrowchk, t_Biascolchk/t, (double)1*2*n*m*2/t_Biascolchk/1e6, (double)1*(2*m+m*n+2*n)*sizeof(T)/t_Biascolchk/1e6);
+      }
+  }
+
+  if (COL_FT){
+    //std::cout << "  COL_FT" << std::endl;
+    if (DEBUG)  cudaEventRecord(start, stream_colchk);
+    if (transa == CUBLAS_OP_N) {
+      if (DEBUG) std::cout << "dA_colchk * dB = dC_colchk" << std::endl;
+      // K*4 must be greater then 2 * N
+      if constexpr (std::is_same<T, float>::value){
+        cublasSgemm(handle_colchk, transa, transb, 2*num_head, n, k,
+                    &falpha, dA_colchk<T>, ldda_colchk, 
+                    mat2_ptr, mat2_ld, &fbeta, 
+                    dC_colchk<T>, lddc_colchk);
+      }
+      else if constexpr(std::is_same<T, half>::value){
+        cublasGemmEx(handle_colchk, transa, transb, 2*num_head, n, k,
+                      &falpha, dA_colchk<T>, CUDA_R_16F, ldda_colchk, 
+                      mat2_ptr, CUDA_R_16F, mat2_ptr,
+                      &fbeta, dC_colchk<T>, CUDA_R_16F, lddc_colchk,
+                      CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+      }
+    }
+    else{
+      if (DEBUG) std::cout << "dB * dA_rowchk = dC_colchk" << std::endl;
+      if constexpr (std::is_same<T, float>::value){
+        cublasSgemm(handle_colchk, transa, transb, 2*num_head, n, k,
+                    &falpha, dA_rowchk<T>, ldda_rowchk, 
+                    mat2_ptr, mat2_ld, &fbeta, 
+                    dC_colchk<T>, lddc_colchk);
+      }
+      else if constexpr(std::is_same<T, at::Half>::value){
+        cublasGemmEx(handle_colchk, transa, transb, 2*num_head, n, k,
+                      &falpha, dA_rowchk<T>, CUDA_R_16F, ldda_rowchk, 
+                      mat2_ptr, CUDA_R_16F, mat2_ld,
+                      &fbeta, dC_colchk<T>, CUDA_R_16F, lddc_colchk,
+                      CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+      }
+    }
+    // std::cout << "Output org dC_colchk: " << std::endl;
+    // outputMatrixChk(dC_colchk, lddc_colchk, n*2, 1, 2, n);
+    
+    // dC_colchk + dBias_colchk
+    if constexpr (std::is_same<T, float>::value){
+      cublasSgeam(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2*num_head, n,
+                    &falpha, dBias_colchk, lddc_colchk, &falpha,
+                    dC_colchk<T>, lddc_colchk,
+                    dC_colchk<T>, lddc_colchk);
+    }
+    else if constexpr (std::is_same<T, at::Half>::value){
+      dim3 blockSize(16, 16);
+      dim3 gridSize((n + blockSize.x - 1) / blockSize.x, (2 + blockSize.y - 1) / blockSize.y);
+      addVector<T><<<blockSize, gridSize, (2*num_head*n)*sizeof(T), stream_colchk>>>(dC_colchk<T>, dBias_colchk, 2*num_head, n); 
+    }
+    // std::cout << "Output dC_colchk: " << std::endl;
+    // outputMatrixChk(dC_colchk, lddc_colchk, n*2, 1, 2, n);
+    
+    if (DEBUG)  {
+      cudaEventRecord(stop, stream_colchk);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&t1, start, stop);
+      printf("  gemm-col-ft: %f (%f)(%f)(%f)\n", t1, t1/t, (double)1*2*n*k*2/t1/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t1/1e6);
+      recordEffeciency("/home/exouser/records/effeciency/abftBias.txt",  t1, t1/t, (double)1*2*n*k*2/t1/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t1/1e6);     
+    }
+  }
+
+  if (ROW_FT) {
+      //std::cout << "  ROW_FT" << std::endl;
+      if (DEBUG)  cudaEventRecord(start, stream_rowchk);
+      if (transb == CUBLAS_OP_N) {
+        if (DEBUG) std::cout << "dA * dB_rowchk = dC_rowlchk" << std::endl;
+        //we can further work on this to support trans A
+        if constexpr (std::is_same<T, float>::value){
+          cublasSgemm(handle_rowchk, transa, transb,  m, 2*num_batches, k,
+                      &falpha, mat1_ptr, mat1_ld, 
+                      dB_rowchk<T>, lddb_rowchk, &fbeta, 
+                      dC_rowchk<T>, lddc_rowchk);
+        }
+        else if constexpr(std::is_same<T, at::Half>::value){
+          cublasGemmEx(handle_rowchk, transa, transb,  m, 2*num_batches, k,
+                        &falpha, mat1_ptr, CUDA_R_16F, mat1_ld, 
+                        dB_rowchk<T>, CUDA_R_16F, lddb_rowchk,
+                        &fbeta, dC_rowchk<T>, CUDA_R_16F, lddc_rowchk,
+                        CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+        }
+      } else{
+        if (DEBUG) std::cout << "dB_colchk * dA = dC_rowlchk" << std::endl;
+          if constexpr (std::is_same<T, float>::value){
+            cublasSgemm(handle_rowchk, transa, transb,  m, 2*num_batches, k,
+                        &falpha, mat1_ptr, mat1_ld, 
+                        dB_colchk<T>, lddb_colchk, &fbeta, 
+                        dC_rowchk<T>, lddc_rowchk);
+          }
+          else if constexpr(std::is_same<T, at::Half>::value){
+            cublasGemmEx(handle_rowchk, transa, transb,  m, 2*num_batches, k,
+                          &falpha, mat1_ptr, CUDA_R_16F, mat1_ld, 
+                          dB_colchk<T>, CUDA_R_16F, lddb_colchk,
+                          &fbeta, dC_rowchk<T>, CUDA_R_16F, lddc_rowchk,
+                          CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+          }
+          // dC_rowchk + dBias_rowchk
+          
+      }
+      // dC_rowchk + dBias_rowchk
+      // std::cout << "Output org dC_colchk: " << std::endl;
+      // outputMatrixChk(dC_rowchk, lddc_rowchk, m*2, 1, m, 2);
+      // dC_colchk + dBias_colchk
+
+      if constexpr (std::is_same<T, float>::value){ 
+        cublasSgeam(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_N, m, 2*num_batches,
+                  &falpha, dBias_rowchk, lddc_rowchk, &falpha,
+                  dC_rowchk<T>, lddc_rowchk,
+                  dC_rowchk<T>, lddc_rowchk);
+      }
+      else if constexpr (std::is_same<T,at::Half >::value){
+        dim3 blockSize(16, 16);
+        dim3 gridSize((2 + blockSize.x - 1) / blockSize.x, (m + blockSize.y - 1) / blockSize.y);
+        addVector<T><<<blockSize, gridSize, (m*num_batches*2)*sizeof(T),stream_rowchk>>>(dC_rowchk<T>, dBias_rowchk, m, 2*num_batches);
+      }
+      // std::cout << "Output dC_rowchk: " << std::endl;
+      // outputMatrixChk(dC_rowchk, lddc_rowchk, m*2, 1, m, 2);
+      // outputMatrixChk(dC_rowchk,lddc_rowchk, m*2, num_batches, m, 2);
+  }
+  if (DEBUG)  {
+    cudaEventRecord(stop, stream_rowchk);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&t1, start, stop);
+    printf("  gemm-row-ft: %f (%f)(%f)(%f)\n", t1, t1/t, (double)1*m*2*k*2/t1/1e6, (double)1*(m*k+k*2+m*2)*sizeof(T)/t1/1e6);
+    recordEffeciency("/home/exouser/records/effeciency/abftBias.txt",  t1, t1/t, (double)1*m*2*k*2/t1/1e6, (double)1*(m*k+k*2+m*2)*sizeof(T)/t1/1e6);
+  }
+
+  // printf("dC_colchk: \n");
+  // outputChk(dC_colchk<T>, 1, lddc_colchk, 0, 2*num_head, n);
+  // printf("dC_rowchk: \n");
+  // outputChk(dC_rowchk<T>, 1, lddc_rowchk, 0, m, 2*num_batches);
+
+  if(QKV == 'q'){
+    MatrixSplit<<<1, dim3(num_head, num_batches)>>>(dC_rowchk<T>, Q_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
+    // printf("Q_rowchk: \n");
+    // outputChk(Q_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
+  }
+  else if(QKV == 'k'){
+    MatrixSplit<<<1, dim3(num_head, num_batches)>>>(dC_colchk<T>, K_colchk<T>, 2, n/num_batches, lddc_colchk, num_head);
+    // printf("K_colchk: \n");
+    // outputChk(K_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
+  }
+  else{
+    MatrixSplit<<<1, dim3(num_head, num_batches)>>>(dC_colchk<T>, V_colchk<T>, 2, n/num_batches, lddc_colchk, num_head);
+    MatrixSplit<<<1, dim3(num_head, num_batches)>>>(dC_rowchk<T>, V_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
+    // printf("V_colchk: \n");
+    // outputChk(V_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
+    // printf("V_rowchk: \n");
+    // outputChk(V_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
+  }
+}
+
+template <typename T>
 void myGemmBias (
   bool transpose_mat1, bool transpose_mat2,
   int64_t m, int64_t n, int64_t k,
@@ -2863,18 +3596,6 @@ void myGemmBias (
         mat2_ptr_, mat2_ld, bias_, 
         result_ptr, result_ld,
         activation,
-        /*dA_colchk, ldda_colchk,
-        dA_rowchk, ldda_rowchk,
-        dA_colchk_r, ldda_colchk_r,
-        dA_rowchk_r, ldda_rowchk_r,
-        dB_colchk, lddb_colchk,
-        dB_rowchk, lddb_rowchk,
-        dB_colchk_r, lddb_colchk_r,
-        dB_rowchk_r, lddb_rowchk_r,
-        dC_colchk, lddc_colchk,
-        dC_rowchk, lddc_rowchk,
-        dC_colchk_r, lddc_colchk_r,
-        dC_rowchk_r, lddc_rowchk_r,*/
         chk_v_a, chk_v_b, ld_chk_v,
         dBias_colchk, dBias_rowchk, dBias_colchk_r, dBias_rowchk_r,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER);
@@ -2885,18 +3606,6 @@ void myGemmBias (
         mat2_ptr_, mat2_ld, bias_, 
         result_ptr, result_ld,
         activation,
-        /*dA_colchk, ldda_colchk,
-        dA_rowchk, ldda_rowchk,
-        dA_colchk_r, ldda_colchk_r,
-        dA_rowchk_r, ldda_rowchk_r,
-        dB_colchk, lddb_colchk,
-        dB_rowchk, lddb_rowchk,
-        dB_colchk_r, lddb_colchk_r,
-        dB_rowchk_r, lddb_rowchk_r,
-        dC_colchk, lddc_colchk,
-        dC_rowchk, lddc_rowchk,
-        dC_colchk_r, lddc_colchk_r,
-        dC_rowchk_r, lddc_rowchk_r,*/
         chk_v_a, chk_v_b, ld_chk_v,
         dBias_colchk, dBias_rowchk, dBias_colchk_r, dBias_rowchk_r,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER);
@@ -2957,12 +3666,6 @@ void abftGemmBias(
     T* mat2_ptr, int64_t mat2_ld, T* bias,
     T* result_ptr, int64_t result_ld,
     GEMMAndBiasActivationEpilogue activation,
-    /*T *dA_colchk, int64_t ldda_colchk, T *dA_rowchk, int64_t ldda_rowchk,              
-    T *dA_colchk_r, int64_t ldda_colchk_r, T *dA_rowchk_r, int64_t ldda_rowchk_r,      
-    T *dB_colchk, int64_t lddb_colchk, T *dB_rowchk, int64_t lddb_rowchk,            
-    T *dB_colchk_r, int64_t lddb_colchk_r, T *dB_rowchk_r, int64_t lddb_rowchk_r,     
-    T *dC_colchk, int64_t lddc_colchk, T *dC_rowchk, int64_t lddc_rowchk,           
-    T *dC_colchk_r, int64_t lddc_colchk_r, T *dC_rowchk_r, int64_t lddc_rowchk_r,  */ 
     T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,
     T *dBias_colchk, T *dBias_rowchk, T *dBias_colchk_r, T *dBias_rowchk_r,                             
     bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER) {
@@ -3175,35 +3878,6 @@ void abftGemmBias(
       t_Bchk /= 1.0;
     }
   }
-
-  // Bias checksum
-  /*
-  if(COL_FT){
-    if constexpr (std::is_same<T, float>::value) {
-      cublasSgemmStridedBatched(
-          handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, 1, m,
-          &falpha, chk_v_b, ld_chk_v, 2*m,
-          bias, m, m, &fbeta,
-          dBias_colchk, 2, 2,
-          n);
-    } else if constexpr(std::is_same<T, at::Half>::value) {
-      cublasGemmStridedBatchedEx(
-        handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, 1, m,
-        &falpha, chk_v_b, CUDA_R_16F, ld_chk_vchk, 2*m,
-        bias, CUDA_R_16F, m, m, &fbeta,
-        dBias_colchk, CUDA_R_16F, 2, 2,
-        n, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-    }
-    // printf("bias colchk:\n");
-    // outputMatrixChk(dBias_colchk, lddc_colchk, 2*m, 1, 2, n);
-  }
-
-  if(ROW_FT){
-    T *bias_Colchk;
-    *bias_Colchk = (T*)malloc(sizeof(2*T));
-
-  }
-  */
   
   T *biasMatrix;
   size_t size =  m * n * sizeof(T);
@@ -3559,10 +4233,10 @@ void abftGemmBias(
       cudaEventElapsedTime(&t1, start, stop);
       printf("gemm-row-chk: %f (%f)(%f)(%f)\n", t1, t1/t, (double)(1)*m*2*n*2/t1/1e6, (double)1*(m*n+2*n+2*m)*sizeof(T)/t1/1e6);
       recordEffeciency("/home/exouser/records/effeciency/abftBias.txt",  t1, t1/t, (double)(1)*m*2*n*2/t1/1e6, (double)1*(m*n+2*n+2*m)*sizeof(T)/t1/1e6);
-  }
-
+    }
   }
 }
+
 
 template <typename Dtype>
 void gemm_and_bias(

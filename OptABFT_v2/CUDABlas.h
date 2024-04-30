@@ -110,6 +110,35 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
               bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER);
 
 template <typename Dtype>
+void myGemmBiasPassChk(
+  bool transpose_mat1, bool transpose_mat2,
+  int64_t m, int64_t n, int64_t k,
+  at::opmath_type<Dtype> alpha_val,
+  const Dtype* mat1_ptr,
+  int64_t mat1_ld,
+  const Dtype* mat2_ptr,
+  int64_t mat2_ld,
+  const Dtype* bias,
+  Dtype* result_ptr,
+  int64_t result_ld,
+  GEMMAndBiasActivationEpilogue activation
+);
+
+template <typename Dtype, int64_t M, int64_t N, int64_t K>
+void abftGemmBiasPassChk(
+    bool transpose_mat1, bool transpose_mat2,
+    int64_t m, int64_t n, int64_t k,
+    at::opmath_type<Dtype> alpha_val, Dtype* mat1_ptr, int64_t mat1_ld,
+    Dtype* mat2_ptr, int64_t mat2_ld, Dtype* bias,
+    Dtype* result_ptr, int64_t result_ld,
+    GEMMAndBiasActivationEpilogue activation,
+    Dtype *chk_v_a, Dtype *chk_v_b, int64_t ld_chk_v,   
+    Dtype *dBias_colchk, Dtype *dBias_rowchk, Dtype *dBias_colchk_r, Dtype *dBias_rowchk_r,
+    int64_t num_batches, int64_t num_head,          
+    bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV
+);
+
+template <typename Dtype>
 void myGemmBias(
   bool transpose_mat1, bool transpose_mat2,
   int64_t m, int64_t n, int64_t k,
@@ -133,7 +162,8 @@ void abftGemmBias(
     Dtype* result_ptr, int64_t result_ld,
     GEMMAndBiasActivationEpilogue activation,
     Dtype *chk_v_a, Dtype *chk_v_b, int64_t ld_chk_v,   
-    Dtype *dBias_colchk, Dtype *dBias_rowchk, Dtype *dBias_colchk_r, Dtype *dBias_rowchk_r,          
+    Dtype *dBias_colchk, Dtype *dBias_rowchk, Dtype *dBias_colchk_r, Dtype *dBias_rowchk_r,
+    int64_t num_batches, int64_t num_head,          
     bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER
 );
 
