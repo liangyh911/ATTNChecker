@@ -592,7 +592,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     }
     else{
       if (DEBUG) std::cout << "Pass Chk." << std::endl;
-      if(QKV == 'k'){
+      if(QKV == 's'){
         dA_colchk<T> = K_colchk<T>;
       }
       else if(QKV == 'v'){
@@ -627,7 +627,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     }
     else{
       if (DEBUG) std::cout << "Pass Chk." << std::endl;
-      if(QKV == 'q'){
+      if(QKV == 's'){
         dB_rowchk<T> = Q_rowchk<T>;
       }
     }
