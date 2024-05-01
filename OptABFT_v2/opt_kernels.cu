@@ -533,3 +533,20 @@ __global__ void MatrixSplit(T *inpMatrix, T *outMatrix, int64_t row, int64_t col
 		}
 	}
 }
+
+template<typename T>
+__global__ void MatrixTranspose(T *inpMatrix, T *outMatrix, int64_t iRow, int64_t iCol){
+	// int batchId = threadIdx.y + iRow * threadIdx.x;
+	int stride = iRow * iCol;
+	int idx = threadIdx.x * stride;
+	
+	// printf("%d, %d, %d, %d\n", batchId, threadIdx.x, threadIdx.y, R_Offset);
+	
+	for(int c = 0; c < iCol; c++){
+		for(int r = 0; r < iRow; r++){
+			int inpIdx = idx + (r + c * iRow);
+			int outIdx = idx + (c + r * iCol);
+			outMatrix[outIdx] = inpMatrix[inpIdx];
+		}
+	}
+}

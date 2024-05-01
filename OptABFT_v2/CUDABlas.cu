@@ -507,6 +507,7 @@ template<typename T> __device__ T* dC_rowchk_r;
 
 template<typename T> __device__ T* Q_rowchk;
 template<typename T> __device__ T* K_colchk;
+template<typename T> __device__ T* K_rowchk;
 template<typename T> __device__ T* V_rowchk;
 template<typename T> __device__ T* V_colchk;
 
@@ -628,9 +629,6 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
       if (DEBUG) std::cout << "Pass Chk." << std::endl;
       if(QKV == 'q'){
         dB_rowchk<T> = Q_rowchk<T>;
-      }
-      else if(QKV == 'v'){
-        dB_rowchk<T> = V_rowchk<T>;
       }
     }
     
@@ -1071,8 +1069,8 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         num_batches,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV);
     }
-    else if(m == 2 && k == 6){
-      abftbgemm<float, 2, 4, 6>(transa, transb, m, n, k,
+    else if(m == 3 && k == 6){
+      abftbgemm<float, 3, 3, 6>(transa, transb, m, n, k,
         alpha, dA_, ldda, stridea,
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
@@ -1282,7 +1280,7 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
     cudaMalloc((void**)&K_colchk<T>, size);
     cudaMemset(K_colchk<T>, 0, size);
   }
-  else{
+  else if (QKV == 'v'){
     cudaMalloc((void**)&V_colchk<T>, size);
     cudaMemset(V_colchk<T>, 0, size);
   }
@@ -1297,9 +1295,13 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
     cudaMalloc((void**)&Q_rowchk<T>, size);
     cudaMemset(Q_rowchk<T>, 0, size);
   }
+  else if(QKV == 'k'){
+    cudaMalloc((void**)&K_rowchk<T>, size);
+    cudaMemset(K_rowchk<T>, 0, size);
+  }
   else{
-    cudaMalloc((void**)&V_rowchk<T>, size);
-    cudaMemset(V_rowchk<T>, 0, size);
+    // cudaMalloc((void**)&V_rowchk<T>, size);
+    // cudaMemset(V_rowchk<T>, 0, size);
   }
 
   int64_t len = m / num_head;
@@ -1739,14 +1741,19 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     // outputChk(Q_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
   }
   else if(QKV == 'k'){
-    MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_colchk<T>, K_colchk<T>, 2, n/num_batches, lddc_colchk, num_head);
+    // MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_colchk<T>, K_colchk<T>, 2, n/num_batches, lddc_colchk, num_head);
+    MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_rowchk<T>, K_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
+    // printf("K_rowchk: \n");
+    // outputChk(K_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
+    
+    MatrixTranspose<<<1, num_head*num_batches>>>(K_rowchk<T>, K_colchk<T>, m/num_head, 2);
     // printf("K_colchk: \n");
-    // outputChk(K_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
+    // outputChk(K_colchk<T>, num_head*num_batches, 2, 2*m/num_head, 2,  m/num_head);
   }
   else{
     MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_colchk<T>, V_colchk<T>, 2, n/num_batches, lddc_colchk, num_head);
     // printf("--------\n");
-    MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_rowchk<T>, V_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
+    // MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_rowchk<T>, V_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
     // printf("V_colchk: \n");
     // outputChk(V_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
     // printf("V_rowchk: \n");
@@ -2812,10 +2819,11 @@ void myGemmBiasPassChk (
       cudaMalloc((void**)&Q_rowchk<T>, size);
       cudaMemset(Q_rowchk<T>, 0, size);
     }
-    else{
-      cudaMalloc((void**)&V_rowchk<T>, size);
-      cudaMemset(V_rowchk<T>, 0, size);
+    else if(QKV == 'k'){
+      cudaMalloc((void**)&K_rowchk<T>, size);
+      cudaMemset(K_rowchk<T>, 0, size);
     }
+    else{}
 
     int64_t len = m / num_head;
     size = 2 * len * sizeof(T);
@@ -3451,13 +3459,14 @@ void abftGemmBiasPassChk(
     // outputChk(Q_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
   }
   else if(QKV == 'k'){
-    MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_colchk<T>, K_colchk<T>, 2, n/num_batches, lddc_colchk, num_head);
+    MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_rowchk<T>, K_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
     // printf("K_colchk: \n");
     // outputChk(K_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
+    MatrixTranspose<<<1, num_head*num_batches>>>(K_rowchk<T>, K_colchk<T>, m/num_head, 2);
   }
   else{
     MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_colchk<T>, V_colchk<T>, 2, n/num_batches, lddc_colchk, num_head);
-    MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_rowchk<T>, V_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
+    // MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_rowchk<T>, V_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
     // printf("V_colchk: \n");
     // outputChk(V_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
     // printf("V_rowchk: \n");
