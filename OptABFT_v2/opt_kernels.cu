@@ -550,3 +550,37 @@ __global__ void MatrixTranspose(T *inpMatrix, T *outMatrix, int64_t iRow, int64_
 		}
 	}
 }
+
+template<typename T>
+__global__ void ChkSumScale(T *chksum, int64_t row, int64_t scaleUnit, int64_t stride, int nb){
+	int tid = threadIdx.x;
+	int idx = threadIdx.x * stride;
+
+	for(int r = 0; r < row; r++){
+		int i1 = idx + r;
+		int i2 = i1 + row;
+		chksum[i2] += chksum[i1] * scaleUnit * (tid / nb);
+		// if((idx % nb) == 1){
+		// 	printf("%f, %f\n", chksum[i1], chksum[i2]);
+		// }
+	}
+}
+
+template<typename T>
+__global__ void MatrixMerge(T *inpMatrix, T *outMatrix, int64_t iRow, int64_t iCol, int64_t oRow, int64_t oCol, int64_t R_Offset){
+	int batchId = threadIdx.y + R_Offset * threadIdx.x;
+	int startRow = threadIdx.y * iRow;
+	int startCol = threadIdx.x * iCol;
+	int stride = iCol * iRow;
+
+	// printf("%d, %d, %d, %d\n", batchId, threadIdx.x, threadIdx.y, startRow, startCol);
+
+	for(int c = 0; c < iCol; c++){
+		for(int r = 0; r < iRow; r++){
+			int outIdx = (startRow + startCol * oRow) + (r + c * oRow);
+			int inpIdx = batchId * stride + r + c * iRow;
+			// printf("%d\n", outIdx);
+			outMatrix[outIdx] = inpMatrix[inpIdx];
+		}
+	}
+}
