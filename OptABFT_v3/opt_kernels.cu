@@ -490,12 +490,12 @@ detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea, int64_t col,
 				// C1,j != INF
 				MAX = 0;
 				for(int i = 0; i < col; i++) {
-					if((*dA+i) > MAX){
+					if((*dA + i * ldda) > MAX){
 						MAX = *(dA+i*ldda);
 					}
 				}
 				for(int i = 0; i < col; i++) {
-					if (*(dA+i*ldda) == MAX) {
+					if (*(dA + i * ldda) == MAX) {
 						loc = i;
 						break;
 					}
@@ -585,7 +585,7 @@ detect_correct_col_Gemm(T * dA, int64_t ldda, T E, int64_t num_col,
 				loc = round(d2 / d1) - 1;
 				printf("[col check]error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
 				//correction
-				*(dA+loc) += d1;
+				*(dA + loc) += d1;
 			}
 			else{
 				if(isinf(*(dA_colchk + 1))){
@@ -609,7 +609,7 @@ detect_correct_col_Gemm(T * dA, int64_t ldda, T E, int64_t num_col,
 					}
 					printf("[col check]chk inf error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
 					//correction
-					*(dA+loc) += d1;
+					*(dA + loc) += d1;
 				}
 			}	
 		}
@@ -680,9 +680,10 @@ detect_correct_row_Gemm(T * dA, int64_t ldda, T E, int64_t num_row, int64_t num_
 			//correct the error
 			*(dA + loc * ldda) = *dA_rowchk - sum;
 		}
-		if(abs_d1 > E && isinf(abs_d1) && isnan(abs_d1)) {
+		if(abs_d1 > E && !isinf(abs_d1) && !isnan(abs_d1)) {
 			if(!isinf(d2)){
 				loc = round(d2 / d1) - 1;
+				printf("[row check]chk inf error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
 				*(dA + loc * ldda) += d1;
 			}
 			else{
@@ -811,4 +812,27 @@ __global__ void MatrixMerge(T *inpMatrix, T *outMatrix, int64_t iRow, int64_t iC
 			outMatrix[outIdx] = inpMatrix[inpIdx];
 		}
 	}
+}
+
+template <typename T>
+__global__ void bitflip(T *dA, int64_t row, int64_t col, int64_t lda, int64_t batch){
+	int stride = row * col;
+	int idx = batch * stride + row + col * lda;
+	int64_t flipBit = 0;
+	// T value = INFINITY;
+	// T value = NAN;
+	// T value = (T)2e10;
+	float orgValue = (float)*(dA + idx);
+	if(fabs(orgValue) >= 2){
+		flipBit = 29;
+	}
+	else{
+		flipBit = 30;
+	}
+	
+	uint32_t* intValue = reinterpret_cast<uint32_t*>(&orgValue);
+
+    *intValue ^= (1u << flipBit);
+
+	*(dA + idx) = (T) *reinterpret_cast<float*>(intValue);
 }

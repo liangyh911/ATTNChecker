@@ -13,6 +13,8 @@
 #include <fstream>
 #include <cmath>
 #include <vector>
+#include <cmath>
+const float INF = INFINITY;
 
 #include <ATen/ATen.h>
 #include <ATen/cuda/CUDABlas.h>
@@ -689,6 +691,17 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   cudaStreamSynchronize(stream_main);
   // std::cout << "Output dC: " << std::endl;
   // outputChk(dC, num_batches, lddc, m*n, m, n);
+
+  printf("Before injection C: \n");
+  outputChk(dC, 1, lddc, 0, m, n);
+
+  printf("Injection.\n");
+  if(QKV == 'q'){
+    bitflip<<<1, 1, 0, stream_main>>>(dC, 1, 0, lddc, 0);
+  }
+  
+  printf("After injection C: \n");
+  outputChk(dC, 1, lddc, 0, m, n);
   
   if (DEBUG) {
     cudaEventRecord(stop, stream_main);
@@ -808,6 +821,9 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
       recordEffeciency("/home/exouser/records/effeciency/abftbgemm.txt",t1, t1/t, (double)(num_batches)*m*2*n*2/t1/1e6, (double)num_batches*(m*n+2*n+2*m)/t1/1e6);
     }
   }
+
+  printf("Final C: \n");
+  outputChk(dC, 1, lddc, 0, m, n);
 
   // printf("dC_colchk:\n");
   // outputChk(dC_colchk<T>, num_batches, lddc_colchk_r, 2*n, 2, n);
@@ -1647,11 +1663,17 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
         CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
   }
   cudaStreamSynchronize(stream_main);
-  // std::cout << "Output dC: " << std::endl;
-  // outputMatrix(dC, lddc, stridec, num_batches, m, n);
+
+  printf("Before injection C: \n");
+  outputChk(c, 1, ldc, 0, m, n);
+
+  printf("Injection.\n");
+  if(QKV == 'q'){
+    bitflip<<<1, 1, 0, stream_main>>>(c, 1, 0, ldc, 0);
+  }
   
-  // printf("C: \n");
-  // outputChk(c, 1, ldc, 0, m, n);
+  printf("After injection C: \n");
+  outputChk(c, 1, ldc, 0, m, n);
   
   if (DEBUG)  {
     cudaEventRecord(stop, stream_main);
@@ -2171,9 +2193,17 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
         CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
   }
   cudaStreamSynchronize(stream_main);
-  // std::cout << "Output dC: " << std::endl;
-  // outputMatrix(dC, lddc, stridec, num_batches, m, n);
   
+  printf("Before injection C: \n");
+  outputChk(c, 1, ldc, 0, m, n);
+
+  printf("Injection.\n");
+  if(QKV == 'q'){
+    bitflip<<<1, 1, 0, stream_main>>>(c, 1, 0, ldc, 0);
+  }
+
+  printf("After injection C: \n");
+  outputChk(c, 1, ldc, 0, m, n);
   
   
   if (DEBUG)  {
@@ -2366,6 +2396,8 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
       recordEffeciency("/home/exouser/records/effeciency/abftgemm.txt",  t1, t1/t, (double)(1)*m*2*n*2/t1/1e6, (double)1*(m*n+2*n+2*m)*sizeof(T)/t1/1e6);      
     }
   }
+  printf("Final C: \n");
+  outputChk(c, 1, ldc, 0, m, n);
 }
 
 template <>
