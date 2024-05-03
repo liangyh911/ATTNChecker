@@ -540,7 +540,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
               T *dC, int64_t lddc, int64_t stridec,                                                 
               T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,                                     
               int64_t num_batches,
-              bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, bool ifPassChk, char QKV, int64_t num_head){
+              bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, bool ifPassChk, char QKV, int64_t num_head, bool INJECTION){
   std::cout << "Using abftbgemm-T function." << std::endl;
   // See Note [Writing Nondeterministic Operations]
   // std::cout << "globalContext. \n";
@@ -692,16 +692,16 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   // std::cout << "Output dC: " << std::endl;
   // outputChk(dC, num_batches, lddc, m*n, m, n);
 
-  printf("Before injection C: \n");
-  outputChk(dC, 1, lddc, 0, m, n);
+  // printf("Before injection C: \n");
+  // outputChk(dC, 1, lddc, 0, m, n);
 
-  printf("Injection.\n");
-  if(QKV == 'q'){
-    bitflip<<<1, 1, 0, stream_main>>>(dC, 1, 0, lddc, 0);
+  if(INJECTION){
+    if(DEBUG) printf("Injection.\n");
+    bitflip<<<1, 1, 0, stream_main>>>(dC, 0, 0, lddc, 0);
   }
   
-  printf("After injection C: \n");
-  outputChk(dC, 1, lddc, 0, m, n);
+  // printf("After injection C: \n");
+  // outputChk(dC, 1, lddc, 0, m, n);
   
   if (DEBUG) {
     cudaEventRecord(stop, stream_main);
@@ -822,8 +822,8 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     }
   }
 
-  printf("Final C: \n");
-  outputChk(dC, 1, lddc, 0, m, n);
+  // printf("Final C: \n");
+  // outputChk(dC, 1, lddc, 0, m, n);
 
   // printf("dC_colchk:\n");
   // outputChk(dC_colchk<T>, num_batches, lddc_colchk_r, 2*n, 2, n);
@@ -1021,6 +1021,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   bool CHECK_BEFORE = true;
   bool CHECK_AFTER = true;
   bool ifPassChk = false;
+  bool INJECTION = false;
 
   char flag;
   std::ifstream colFile("/home/exouser/control/abftCOL_FT.txt");
@@ -1061,6 +1062,19 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   }
   PassFile.close();
 
+  std::ifstream injFile("/home/exouser/control/Injection.txt");
+  if (injFile.is_open()){
+    injFile.get(flag);
+    if(flag == 't'){
+      INJECTION = true;
+    }
+    // printf("%c", flag);
+  }
+  else{
+    printf("Injection: Cannot open file, using default setting.\n");
+  }
+  injFile.close();
+
   // std::cout << "Calling abftgemm-T function." << std::endl;
 
   auto start = high_resolution_clock::now();
@@ -1072,7 +1086,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
         num_batches,
-        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head);
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
     }
     else if(m == 64 && k == 72){
       abftbgemm<float, 64, 72, 72>(transa, transb, m, n, k,
@@ -1081,7 +1095,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
         num_batches,
-        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head);
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
     }
     else if(m == 71 && k == 64){
       abftbgemm<float, 71, 71, 64>(transa, transb, m, n, k,
@@ -1090,7 +1104,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
         num_batches,
-        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head);
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
     }
     else if(m == 64 && k == 71){
       abftbgemm<float, 64, 71, 71>(transa, transb, m, n, k,
@@ -1099,26 +1113,26 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
         num_batches,
-        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head);
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
     }
-    else if(m == 3 && k == 6){
-      abftbgemm<float, 3, 3, 6>(transa, transb, m, n, k,
-        alpha, dA_, ldda, stridea,
-        dB_, lddb, strideb, beta,
-        dC, lddc, stridec,
-        chk_v_a, chk_v_b, ld_chk_v,
-        num_batches,
-        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head);
-    }
-    else if(m == 6 && k == 3){
-      abftbgemm<float, 6, 6, 3>(transa, transb, m, n, k,
-        alpha, dA_, ldda, stridea,
-        dB_, lddb, strideb, beta,
-        dC, lddc, stridec,
-        chk_v_a, chk_v_b, ld_chk_v,
-        num_batches,
-        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head);
-    }
+    // else if(m == 3 && k == 6){
+    //   abftbgemm<float, 3, 3, 6>(transa, transb, m, n, k,
+    //     alpha, dA_, ldda, stridea,
+    //     dB_, lddb, strideb, beta,
+    //     dC, lddc, stridec,
+    //     chk_v_a, chk_v_b, ld_chk_v,
+    //     num_batches,
+    //     COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head);
+    // }
+    // else if(m == 6 && k == 3){
+    //   abftbgemm<float, 6, 6, 3>(transa, transb, m, n, k,
+    //     alpha, dA_, ldda, stridea,
+    //     dB_, lddb, strideb, beta,
+    //     dC, lddc, stridec,
+    //     chk_v_a, chk_v_b, ld_chk_v,
+    //     num_batches,
+    //     COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head);
+    // }
   } 
   else if constexpr(std::is_same<T, at::Half>::value) {
       if (m == 72 && k == 64){
@@ -1128,7 +1142,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
           dC, lddc, stridec,
           chk_v_a, chk_v_b, ld_chk_v,
           num_batches,
-          COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head);
+          COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
       }
       else if(m == 64 && k == 72){
         abftbgemm<at::Half, 64, 72, 72>(transa, transb, m, n, k,
@@ -1137,7 +1151,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
           dC, lddc, stridec,
           chk_v_a, chk_v_b, ld_chk_v,
           num_batches,
-          COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head);
+          COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
       }
       else if(m == 71 && k == 64){
         abftbgemm<at::Half, 71, 71, 64>(transa, transb, m, n, k,
@@ -1146,7 +1160,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
           dC, lddc, stridec,
           chk_v_a, chk_v_b, ld_chk_v,
           num_batches,
-          COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head);
+          COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
       }
       else if(m == 64 && k == 71){
         abftbgemm<at::Half, 64, 71, 71>(transa, transb, m, n, k,
@@ -1155,26 +1169,26 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
           dC, lddc, stridec,
           chk_v_a, chk_v_b, ld_chk_v,
           num_batches,
-          COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head);
+          COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
       }
-      else if(m == 3 && k == 6){
-      abftbgemm<at::Half, 3, 3, 6>(transa, transb, m, n, k,
-        alpha, dA_, ldda, stridea,
-        dB_, lddb, strideb, beta,
-        dC, lddc, stridec,
-        chk_v_a, chk_v_b, ld_chk_v,
-        num_batches,
-        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head);
-    }
-    else if(m == 6 && k == 3){
-      abftbgemm<at::Half, 6, 6, 3>(transa, transb, m, n, k,
-        alpha, dA_, ldda, stridea,
-        dB_, lddb, strideb, beta,
-        dC, lddc, stridec,
-        chk_v_a, chk_v_b, ld_chk_v,
-        num_batches,
-        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head);
-    }
+    //   else if(m == 3 && k == 6){
+    //   abftbgemm<at::Half, 3, 3, 6>(transa, transb, m, n, k,
+    //     alpha, dA_, ldda, stridea,
+    //     dB_, lddb, strideb, beta,
+    //     dC, lddc, stridec,
+    //     chk_v_a, chk_v_b, ld_chk_v,
+    //     num_batches,
+    //     COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
+    // }
+    // else if(m == 6 && k == 3){
+    //   abftbgemm<at::Half, 6, 6, 3>(transa, transb, m, n, k,
+    //     alpha, dA_, ldda, stridea,
+    //     dB_, lddb, strideb, beta,
+    //     dC, lddc, stridec,
+    //     chk_v_a, chk_v_b, ld_chk_v,
+    //     num_batches,
+    //     COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
+    // }
   }
   cudaDeviceSynchronize();
   auto stop = high_resolution_clock::now();
@@ -1388,6 +1402,7 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   bool DEBUG = true;
   bool CHECK_BEFORE = true;
   bool CHECK_AFTER = true;
+  bool INJECTION = false;
 
   char flag;
   std::ifstream colFile("/home/exouser/control/abftCOL_FT.txt");
@@ -1416,6 +1431,19 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   }
   rowFile.close();
 
+  std::ifstream injFile("/home/exouser/control/Injection.txt");
+  if (injFile.is_open()){
+    injFile.get(flag);
+    if(flag == 't'){
+      INJECTION = true;
+    }
+    // printf("%c", flag);
+  }
+  else{
+    printf("Injection: Cannot open file, using default setting.\n");
+  }
+  injFile.close();
+
 
   auto start = high_resolution_clock::now();
   if constexpr (std::is_same<T, float>::value) {
@@ -1425,7 +1453,7 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
       c, ldc,
       chk_v_a, chk_v_b, ld_chk_v,
       num_batches, num_head,
-      COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER,QKV);
+      COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER,QKV,INJECTION);
   }
   else if constexpr (std::is_same<T, at::Half>::value) {
     abftGemmPassChk<at::Half>(transa, transb, m, n, k,
@@ -1434,7 +1462,7 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
       c, ldc,
       chk_v_a, chk_v_b, ld_chk_v,
       num_batches, num_head,
-      COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER,QKV);
+      COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER,QKV, INJECTION);
   }
   cudaDeviceSynchronize();
   auto stop = high_resolution_clock::now();
@@ -1489,7 +1517,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       T *c, int64_t ldc,
       T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,
       int64_t num_batches, int64_t num_head,                                      
-      bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV){
+      bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV, bool INJECTION){
   globalContext().alertCuBLASConfigNotDeterministic();
   cublasHandle_t handle = at::cuda::getCurrentCUDABlasHandle();
   cublasOperation_t opa = _cublasOpFromChar(transa);
@@ -1664,16 +1692,20 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   }
   cudaStreamSynchronize(stream_main);
 
-  printf("Before injection C: \n");
-  outputChk(c, 1, ldc, 0, m, n);
+  
 
-  printf("Injection.\n");
-  if(QKV == 'q'){
-    bitflip<<<1, 1, 0, stream_main>>>(c, 1, 0, ldc, 0);
+  if(INJECTION){
+    // printf("Before injection C: \n");
+    // outputChk(c, 1, ldc, 0, m, n);
+
+    if(DEBUG) printf("Injection.\n");
+    bitflip<<<1, 1, 0, stream_main>>>(c, 0, 0, ldc, 0);
+    
+    // printf("After injection C: \n");
+    // outputChk(c, 1, ldc, 0, m, n);
   }
   
-  printf("After injection C: \n");
-  outputChk(c, 1, ldc, 0, m, n);
+  
   
   if (DEBUG)  {
     cudaEventRecord(stop, stream_main);
@@ -2194,16 +2226,16 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
   }
   cudaStreamSynchronize(stream_main);
   
-  printf("Before injection C: \n");
-  outputChk(c, 1, ldc, 0, m, n);
+  // printf("Before injection C: \n");
+  // outputChk(c, 1, ldc, 0, m, n);
 
-  printf("Injection.\n");
-  if(QKV == 'q'){
-    bitflip<<<1, 1, 0, stream_main>>>(c, 1, 0, ldc, 0);
-  }
+  // printf("Injection.\n");
+  // if(QKV == 'q'){
+  //   bitflip<<<1, 1, 0, stream_main>>>(c, 1, 0, ldc, 0);
+  // }
 
-  printf("After injection C: \n");
-  outputChk(c, 1, ldc, 0, m, n);
+  // printf("After injection C: \n");
+  // outputChk(c, 1, ldc, 0, m, n);
   
   
   if (DEBUG)  {
@@ -2396,8 +2428,8 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
       recordEffeciency("/home/exouser/records/effeciency/abftgemm.txt",  t1, t1/t, (double)(1)*m*2*n*2/t1/1e6, (double)1*(m*n+2*n+2*m)*sizeof(T)/t1/1e6);      
     }
   }
-  printf("Final C: \n");
-  outputChk(c, 1, ldc, 0, m, n);
+  // printf("Final C: \n");
+  // outputChk(c, 1, ldc, 0, m, n);
 }
 
 template <>
@@ -2904,6 +2936,7 @@ void myGemmBiasPassChk (
     bool DEBUG = true;
     bool CHECK_BEFORE = true;
     bool CHECK_AFTER = true;
+    bool INJECTION = false;
     
     char flag;
     std::ifstream colFile("/home/exouser/control/abftCOL_FT.txt");
@@ -2932,6 +2965,20 @@ void myGemmBiasPassChk (
     }
     rowFile.close();
 
+    std::ifstream injFile("/home/exouser/control/Injection.txt");
+    if (injFile.is_open()){
+      injFile.get(flag);
+      if(flag == 't'){
+        INJECTION = true;
+      }
+      // printf("%c", flag);
+    }
+    else{
+      printf("Injection: Cannot open file, using default setting.\n");
+    }
+    injFile.close();
+
+
     auto start = high_resolution_clock::now();
     if constexpr (std::is_same<T, float>::value) {
       abftGemmBiasPassChk<float>(transpose_mat1, transpose_mat2, m, n, k,
@@ -2942,7 +2989,7 @@ void myGemmBiasPassChk (
         chk_v_a, chk_v_b, ld_chk_v,
         dBias_colchk, dBias_rowchk, dBias_colchk_r, dBias_rowchk_r,
         num_batches, num_head,
-        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, QKV);
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, QKV, INJECTION);
     }
     else if constexpr (std::is_same<T, at::Half>::value) {
       abftGemmBiasPassChk<at::Half>(transpose_mat1, transpose_mat2, m, n, k,
@@ -2953,7 +3000,7 @@ void myGemmBiasPassChk (
         chk_v_a, chk_v_b, ld_chk_v,
         dBias_colchk, dBias_rowchk, dBias_colchk_r, dBias_rowchk_r,
         num_batches, num_head,
-        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, QKV);
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, QKV, INJECTION);
     }
     cudaDeviceSynchronize();
     auto stop = high_resolution_clock::now();
@@ -3014,7 +3061,7 @@ void abftGemmBiasPassChk(
     T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,
     T *dBias_colchk, T *dBias_rowchk, T *dBias_colchk_r, T *dBias_rowchk_r,
     int64_t num_batches, int64_t num_head,                             
-    bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV) {
+    bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV, bool INJECTION) {
   
   // std::cout << "Using gemm_and_bias." << std::endl;
   using opmath_t = at::opmath_type<T>;
@@ -3338,6 +3385,17 @@ void abftGemmBiasPassChk(
   // printf("result:\n");
   // outputMatrix(result_ptr,result_ld, m*n, 1, m, n);
   
+  // printf("Before injection C: \n");
+  // outputChk(result_ptr, 1, result_ld, 0, m, n);
+
+  if(INJECTION){
+    if(DEBUG) printf("Injection.\n");
+    bitflip<<<1, 1, 0, stream_main>>>(result_ptr, 1, 0, result_ld, 0);
+  }
+  
+  // printf("After injection C: \n");
+  // outputChk(result_ptr, 1, result_ld, 0, m, n);
+
   if (DEBUG) {
       cudaEventRecord(stop, stream_main);
       cudaEventSynchronize(stop);

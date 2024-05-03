@@ -93,7 +93,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
               T *c, int64_t ldc,
               T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,
               int64_t num_batches, int64_t num_head,                                     
-              bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV);
+              bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV, bool INJECTION);
 
 
 template <typename T>
@@ -135,7 +135,7 @@ void abftGemmBiasPassChk(
     Dtype *chk_v_a, Dtype *chk_v_b, int64_t ld_chk_v,   
     Dtype *dBias_colchk, Dtype *dBias_rowchk, Dtype *dBias_colchk_r, Dtype *dBias_rowchk_r,
     int64_t num_batches, int64_t num_head,          
-    bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV
+    bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV, bool INJECTION
 );
 
 template <typename Dtype>
@@ -263,7 +263,8 @@ void mybgemm(CUDABLAS_MYBGEMM_ARGTYPES(T));
     Dtype *dB, int64_t lddb, int64_t strideb, at::opmath_type<Dtype> beta,             \
     Dtype *dC, int64_t lddc, int64_t stridec,                                                 \
     int64_t num_batches,                                                                    \
-    bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, bool ifPassChk, char QKV, int64_t num_head
+    bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, bool ifPassChk, \
+    char QKV, int64_t num_head, bool INJECTION
 
 template <typename T, int64_t M, int64_t N, int64_t K>
 void abftbgemm(CUDABLAS_ABFTGEMM_ARGTYPES(T));

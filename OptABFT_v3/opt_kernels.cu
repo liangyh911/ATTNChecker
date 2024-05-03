@@ -322,12 +322,87 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 	int loc;
 	T MAX;
 
-	// abs == inf
+	// E < abs d1 < INF
+	if(abs_d1 > E && !isinf(abs_d1) && !isnan(abs_d1)) {
+		if(!isinf(d2)){
+			// d2 != INF
+			//locate the error
+			loc = round(d2 / d1) - 1;
+			printf("[col check]error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
+			//correction
+			// *(dA+loc) += d1;
+			if(abs_d1 > (float)1e5){
+				// printf("d1 > threshold.\n");
+				T sum = 0.0;
+				for(int i = 0; i < ldda; i++) {
+					if (i != loc) {
+						sum +=	*(dA + i); 
+					}
+				}
+				//correct the error
+				*(dA + loc) = *dA_colchk - sum;
+			}
+			else{
+				// printf("d1 =< threshold.\n");
+				*(dA + loc) += d1;
+			} 
+		}
+		else{
+			if(isinf(*(dA_colchk + 1))){
+				// C1,j == INF
+				printf("Error detected in INPUTS.\n");
+				return;
+			}
+			else{
+				// C1,j != INF
+				MAX = 0;
+				for(int i = 0; i < ldda; i++) {
+					if((*(dA+i)) > MAX){
+						MAX = *(dA+i);
+					}
+				}
+				for(int i = 0; i < ldda; i++) {
+					if (*(dA+i) == MAX) {
+						loc = i;
+						break;
+					}
+				}
+				printf("[col check]chk inf error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
+				//correction
+				// *(dA+loc) += d1;
+				if(abs_d1 > (float)1e5){
+					// printf("d1 > threshold.\n");
+					T sum = 0.0;
+					for(int i = 0; i < ldda; i++) {
+						if (i != loc) {
+							sum +=	*(dA + i); 
+						}
+					}
+					//correct the error
+					*(dA + loc) = *dA_colchk - sum;
+				}
+				else{
+					// printf("d1 =< threshold.\n");
+					*(dA + loc) += d1;
+				} 
+			}
+		}
+		return;
+	}
+	// abs = inf
 	if(isinf(abs_d1)){
 		MAX = 0;
+		int64_t counter = 0;
 		for(int i = 0; i < ldda; i++) {
-			if((*dA+i) > MAX){
+			if(*(dA+i) > MAX){
 				MAX = *(dA+i);
+			}
+			if(isinf(*(dA+i))){
+				counter++;
+				if(counter > 1){
+					printf("[col check]Multi INFs detected in one column.\n");
+					return;
+				}
 			}
 		}
 		for(int i = 0; i < ldda; i++) {
@@ -346,16 +421,27 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 		}
 		//correct the error
 		*(dA + loc) = *dA_colchk - sum;
+		return;
 	}
 	// abs == nan
 	if(isnan(abs_d1)){
+		int64_t counter = 0;
 		for(int i = 0; i < ldda; i++) {
 			if (isnan(*(dA+i))) {
 				loc = i;
-				break;
+				counter++;
+			}
+			if(isinf(*(dA+i))){
+				counter++;
+			}
+			if(counter > 1){
+				printf("[col check]Multi INF or NAN detected in one column. \n");
+				return;
 			}
 		}
-		printf("[col check]NAN detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
+
+		printf("[col check]NAN detected (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",  
+											blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
 		//the sum of the rest correct number except the error one
 		T sum = 0.0;
 		for(int i = 0; i < ldda; i++) {
@@ -365,41 +451,7 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 		}
 		//correct the error
 		*(dA + loc) = *dA_colchk - sum;
-	}
-	if(abs_d1 > E && !isinf(abs_d1) && !isnan(abs_d1)) {
-		if(!isinf(d2)){
-			// d2 != INF
-			//locate the error
-			int loc = round(d2 / d1) - 1;
-			printf("[col check]error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
-			//correction
-			*(dA+loc) += d1;
-		}
-		else{
-			if(isinf(*(dA_colchk + 1))){
-				// C1,j == INF
-				printf("Error detected in INPUTS.\n");
-				return;
-			}
-			else{
-				// C1,j != INF
-				MAX = 0;
-				for(int i = 0; i < ldda; i++) {
-					if((*dA+i) > MAX){
-						MAX = *(dA+i);
-					}
-				}
-				for(int i = 0; i < ldda; i++) {
-					if (*(dA+i) == MAX) {
-						loc = i;
-						break;
-					}
-				}
-				printf("[col check]chk inf error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
-				//correction
-				*(dA+loc) += d1;
-			}
-		}
+		return;
 	}
 }
 
@@ -427,58 +479,28 @@ detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea, int64_t col,
 	int loc;
 	T MAX;
 
-	if(isinf(abs_d1)){
-		// abs == inf
-		MAX = 0;
-		for(int i = 0; i < col; i++) {
-			if((*dA + i * ldda) > MAX){
-				MAX = *(dA + i * ldda);
-			}
-		}
-		for(int i = 0; i < col; i++) {
-			if (*(dA + i * ldda) == MAX || isinf(*(dA + i * ldda))) {
-				loc = i;
-				break;
-			}
-		}
-		printf("[row check]INF detected (idx = (%d, %d), d1 = %.6f, d2 = %.6f, loc = %d) \n", 
-								 (blockIdx.x),(threadIdx.x),  (float)d1, (float)d2, loc);
-		//the sum of the rest correct number except the error one
-		T sum = 0.0;
-		for (int i = 0; i < col; i++) {
-			if (i != loc) {
-				sum +=	*(dA + i * ldda); 
-			}
-		}
-		*(dA + loc * ldda) = *dA_rowchk - sum;
-	}
-	if(isnan(abs_d1)){
-		// abs == nan
-		for(int i = 0; i < col; i++) {
-			if (isnan(*(dA + i * ldda))) {
-				loc = i;
-				break;
-			}
-		}
-		printf("[row check]NAN detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
-		//the sum of the rest correct number except the error one
-		T sum = 0.0;
-		for(int i = 0; i < col; i++) {
-			if (i != loc) {
-				sum +=	*(dA + i * ldda); 
-			}
-		}
-		//correct the error
-		*(dA + loc * ldda) = *dA_rowchk - sum;
-	}
-	if(fabs(d1) > E && !isinf(abs_d1) && !isnan(abs_d1)) {
+	if(abs_d1 > E && !isinf(abs_d1) && !isnan(abs_d1)) {
 		if(!isinf(d2)){
 			// d2 != INF
 			//locate the error
-			int loc = round(d2 / d1) - 1;
+			loc = round(d2 / d1) - 1;
 			printf("[row check]error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
 			//correction
-			*(dA + loc * ldda) += d1;
+			// *(dA + loc * ldda) += d1;
+			if(abs_d1 > (float)1e5){
+				// printf("d1 > threshold.\n");
+				T sum = 0.0;
+				for (int i = 0; i < col; i++) {
+					if (i != loc) {
+						sum +=	*(dA + i * ldda); 
+					}
+				}
+				*(dA + loc * ldda) = *dA_rowchk - sum;
+			}
+			else{
+				// printf("d1 =< threshold.\n");
+				*(dA + loc * ldda) += d1;
+			} 	
 		}
 		else{
 			if(isinf(*(dA_rowchk + ldda_rowchk))){
@@ -502,9 +524,88 @@ detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea, int64_t col,
 				}
 				printf("[row check]chk inf error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
 				//correction
-				*(dA + loc * ldda) += d1;
+				// *(dA + loc * ldda) += d1;
+				// correction
+				if(abs_d1 > (float)1e5){
+					// printf("d1 > threshold.\n");
+					T sum = 0.0;
+					for (int i = 0; i < col; i++) {
+						if (i != loc) {
+							sum +=	*(dA + i * ldda); 
+						}
+					}
+					*(dA + loc * ldda) = *dA_rowchk - sum;
+				}
+				else{
+					// printf("d1 =< threshold.\n");
+					*(dA + loc * ldda) += d1;
+				} 		
 			}
 		}
+		return;
+	}
+	// abs d1 = INF
+	if(isinf(abs_d1)){
+		// abs == inf
+		int64_t counter = 0;
+		MAX = 0;
+		for(int i = 0; i < col; i++) {
+			if((*dA + i * ldda) > MAX){
+				MAX = *(dA + i * ldda);
+			}
+			if(isinf(*(dA + i * ldda))){
+				counter++;
+				if(counter > 1){
+					printf("[row check]Multi INFs detected in one row. \n");
+					return;
+				}
+			}
+		}
+		for(int i = 0; i < col; i++) {
+			if (*(dA + i * ldda) == MAX || isinf(*(dA + i * ldda))) {
+				loc = i;
+				break;
+			}
+		}
+		printf("[row check]INF detected (idx = (%d, %d), d1 = %.6f, d2 = %.6f, loc = %d) \n", 
+								 (blockIdx.x),(threadIdx.x),  (float)d1, (float)d2, loc);
+		//the sum of the rest correct number except the error one
+		T sum = 0.0;
+		for (int i = 0; i < col; i++) {
+			if (i != loc) {
+				sum +=	*(dA + i * ldda); 
+			}
+		}
+		*(dA + loc * ldda) = *dA_rowchk - sum;
+		return;
+	}
+	// abs d1 = NAN
+	if(isnan(abs_d1)){
+		int64_t counter = 0;
+		// abs == nan
+		for(int i = 0; i < col; i++) {
+			if (isnan(*(dA + i * ldda))) {
+				loc = i;
+				counter++;
+			}
+			if (isinf(*(dA + i * ldda))){
+				counter++;
+			}
+			if(counter > 1){
+				printf("[row check]Multi INF or NAN detected in one row. \n");
+			}
+		}
+		printf("[row check]NAN detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
+		//the sum of the rest correct number except the error one
+		T sum = 0.0;
+		for(int i = 0; i < col; i++) {
+			if (i != loc) {
+				sum +=	*(dA + i * ldda); 
+			}
+		}
+		//correct the error
+		*(dA + loc * ldda) = *dA_rowchk - sum;
+		return;
 	}
 }
 
@@ -535,10 +636,18 @@ detect_correct_col_Gemm(T * dA, int64_t ldda, T E, int64_t num_col,
 		//error detected
 		// abs == inf
 		if(isinf(abs_d1)){
+			int64_t counter = 0;
 			MAX = 0;
 			for(int i = 0; i < ldda; i++) {
-				if((*dA+i) > MAX){
-					MAX = *(dA+i);
+				if((*dA + i) > MAX){
+					MAX = *(dA + i);
+				}
+				if(isinf(*(dA + i))){
+					counter++;
+					if(counter > 1){
+						printf("[col check]Multi INFs detected in one col. \n");
+						return;
+					}
 				}
 			}
 			for(int i = 0; i < ldda; i++) {
@@ -557,13 +666,22 @@ detect_correct_col_Gemm(T * dA, int64_t ldda, T E, int64_t num_col,
 			}
 			//correct the error
 			*(dA + loc) = *dA_colchk - sum;
+			return;
 		}
 		// abs == nan
 		if(isnan(abs_d1)){
+			int64_t counter = 0;
 			for(int i = 0; i < ldda; i++) {
 				if (isnan(*(dA+i))) {
 					loc = i;
-					break;
+					counter++;
+				}
+				if(isinf(*(dA+i))){
+					counter++;
+				}
+				if(counter > 1){
+					printf("[col check]Multi INF or NAN detected in one col. \n");
+					return;
 				}
 			}
 			printf("[col check]NAN detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
@@ -576,6 +694,7 @@ detect_correct_col_Gemm(T * dA, int64_t ldda, T E, int64_t num_col,
 			}
 			//correct the error
 			*(dA + loc) = *dA_colchk - sum;
+			return;
 		}
 		//
 		if(fabs(d1) > E && !isinf(abs_d1) && !isnan(abs_d1)) {
@@ -585,7 +704,7 @@ detect_correct_col_Gemm(T * dA, int64_t ldda, T E, int64_t num_col,
 				loc = round(d2 / d1) - 1;
 				printf("[col check]error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
 				//correction
-				*(dA + loc) += d1;
+				// *(dA + loc) += d1;
 			}
 			else{
 				if(isinf(*(dA_colchk + 1))){
@@ -597,7 +716,7 @@ detect_correct_col_Gemm(T * dA, int64_t ldda, T E, int64_t num_col,
 					// C1,j != INF
 					MAX = 0;
 					for(int i = 0; i < ldda; i++) {
-						if((*dA+i) > MAX){
+						if(*(dA+i) > MAX){
 							MAX = *(dA+i);
 						}
 					}
@@ -609,9 +728,25 @@ detect_correct_col_Gemm(T * dA, int64_t ldda, T E, int64_t num_col,
 					}
 					printf("[col check]chk inf error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
 					//correction
-					*(dA + loc) += d1;
+					// *(dA + loc) += d1;
 				}
-			}	
+			}
+			// correction
+			if(abs_d1 > (float)1e5){
+				// printf("d1 > threshold.\n");
+				T sum = 0.0;
+				for (int i = 0; i < ldda; i++) {
+					if (i != loc) {
+						sum +=  *(dA + i); 
+					}
+				}
+				*(dA + loc) = *dA_colchk - sum;
+			}
+			else{
+				// printf("d1 =< threshold.\n");
+				*(dA + loc) += d1;
+			}
+			return; 		
 		}
 	}
 }
@@ -643,10 +778,18 @@ detect_correct_row_Gemm(T * dA, int64_t ldda, T E, int64_t num_row, int64_t num_
 		
 		//error detected
 		if(isinf(abs_d1)){
+			int64_t counter = 0;
 			MAX = 0;
 			for(int i = 0; i < num_col; i++){
 				if(*(dA + i * ldda) > MAX){
 					MAX = *(dA + i * ldda);
+				}
+				if(isinf(*(dA + i * ldda))){
+					counter++;
+					if(counter > 1){
+						printf("[row check]Multi INFs detected in one row. \n");
+						return;
+					}
 				}
 			}
 			for(int i = 0; i < num_col; i++){
@@ -655,6 +798,7 @@ detect_correct_row_Gemm(T * dA, int64_t ldda, T E, int64_t num_row, int64_t num_
 					break;
 				}
 			}
+			printf("[row check]INF detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
 			T sum = 0.0;
 			for (int i = 0; i < num_col; i++) {
 				if (i != loc) {
@@ -663,14 +807,24 @@ detect_correct_row_Gemm(T * dA, int64_t ldda, T E, int64_t num_row, int64_t num_
 			}
 			//correct the error
 			*(dA + loc * ldda) = *dA_rowchk - sum;
+			return;
 		}
 		if(isnan(abs_d1)){
+			int64_t counter = 0;
 			for(int i = 0; i < num_col; i++){
 				if(isnan(*(dA + i * ldda))){
 					loc = i;
-					break;
+					counter++;
+				}
+				if(isinf(*(dA + i * ldda))){
+					counter++;
+				}
+				if(counter > 1){
+					printf("[row check]Multi INF or NAN detected in one row. \n");
+					return;
 				}
 			}
+			printf("[col check]NAN detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
 			T sum = 0.0;
 			for (int i = 0; i < num_col; i++) {
 				if (i != loc) {
@@ -679,12 +833,13 @@ detect_correct_row_Gemm(T * dA, int64_t ldda, T E, int64_t num_row, int64_t num_
 			}
 			//correct the error
 			*(dA + loc * ldda) = *dA_rowchk - sum;
+			return;
 		}
 		if(abs_d1 > E && !isinf(abs_d1) && !isnan(abs_d1)) {
 			if(!isinf(d2)){
 				loc = round(d2 / d1) - 1;
 				printf("[row check]chk inf error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
-				*(dA + loc * ldda) += d1;
+				// *(dA + loc * ldda) += d1;
 			}
 			else{
 				if(isinf(*(dA_rowchk + ldda_rowchk))){
@@ -706,9 +861,25 @@ detect_correct_row_Gemm(T * dA, int64_t ldda, T E, int64_t num_row, int64_t num_
 					}
 					printf("[row check]chk inf error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
 					//correction
-					*(dA + loc * ldda) += d1;
+					// *(dA + loc * ldda) += d1;
 				}
-			}	
+			}
+			if(abs_d1 > (float)1e5){
+				// printf("d1 > threshold.\n");
+				T sum = 0.0;
+				for (int i = 0; i < num_col; i++) {
+					if (i != loc) {
+						sum +=  *(dA + i * ldda); 
+					}
+				}
+				//correct the error
+				*(dA + loc * ldda) = *dA_rowchk - sum;
+			}
+			else{
+				// printf("d1 =< threshold.\n");
+				*(dA + loc * ldda) += d1;
+			} 
+			return;	
 		}
 	}
 }
@@ -821,7 +992,9 @@ __global__ void bitflip(T *dA, int64_t row, int64_t col, int64_t lda, int64_t ba
 	int64_t flipBit = 0;
 	// T value = INFINITY;
 	// T value = NAN;
-	// T value = (T)2e10;
+	// T value = (T)1e10;
+	// *(dA + idx) = value;
+
 	float orgValue = (float)*(dA + idx);
 	if(fabs(orgValue) >= 2){
 		flipBit = 29;
@@ -829,10 +1002,7 @@ __global__ void bitflip(T *dA, int64_t row, int64_t col, int64_t lda, int64_t ba
 	else{
 		flipBit = 30;
 	}
-	
 	uint32_t* intValue = reinterpret_cast<uint32_t*>(&orgValue);
-
     *intValue ^= (1u << flipBit);
-
 	*(dA + idx) = (T) *reinterpret_cast<float*>(intValue);
 }
