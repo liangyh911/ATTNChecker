@@ -319,7 +319,7 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
     float d1 = (float)(*dA_colchk)       - (*dA_colchk_r);
     float d2 = (float)(*(dA_colchk + 1)) - (*(dA_colchk_r + 1));
 	float abs_d1 = fabs(d1);
-	int loc;
+	int loc = -1;
 	T MAX;
 
 	// E < abs d1 < INF
@@ -350,7 +350,7 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 		else{
 			if(isinf(*(dA_colchk + 1))){
 				// C1,j == INF
-				printf("Error detected in INPUTS.\n");
+				printf("[col check]Error detected in INPUTS.\n");
 				return;
 			}
 			else{
@@ -439,7 +439,13 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 				return;
 			}
 		}
-
+		if(loc == -1){
+			printf("[col check]No found NAN for d1 = NAN (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",
+															blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
+			printf("(C0: %.6f, C1: %.6f, R1: %.6f, R2: %.6f) \n", (float)(*(dA_colchk)), (float)(*(dA_colchk + 1)),
+																(float)(*(dA_colchk_r)), (float)(*(dA_colchk_r + 1)));
+			return;
+		}
 		printf("[col check]NAN detected (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",  
 											blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
 		//the sum of the rest correct number except the error one
@@ -476,7 +482,7 @@ detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea, int64_t col,
     float d1 = (float)(*dA_rowchk)                 - (*dA_rowchk_r);
     float d2 = (float)(*(dA_rowchk + ldda_rowchk)) - (*(dA_rowchk_r + ldda_rowchk_r));
 	float abs_d1 = fabs(d1);
-	int loc;
+	int loc = -1;
 	T MAX;
 
 	if(abs_d1 > E && !isinf(abs_d1) && !isnan(abs_d1)) {
@@ -595,6 +601,13 @@ detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea, int64_t col,
 				printf("[row check]Multi INF or NAN detected in one row. \n");
 			}
 		}
+		if(loc == -1){
+			printf("[row check]No found NAN for d1 = NAN (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",
+															blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
+			printf("(C0: %.6f, C1: %.6f, R1: %.6f, R2: %.6f) \n", (float)(*(dA_rowchk)), (float)(*(dA_rowchk + ldda_rowchk)),
+																(float)(*(dA_rowchk_r)), (float)(*(dA_rowchk_r + ldda_rowchk_r)));
+			return;
+		}
 		printf("[row check]NAN detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
 		//the sum of the rest correct number except the error one
 		T sum = 0.0;
@@ -630,7 +643,7 @@ detect_correct_col_Gemm(T * dA, int64_t ldda, T E, int64_t num_col,
 		float d1 = (float)(*dA_colchk)       - (*dA_colchk_r);
 		float d2 = (float)(*(dA_colchk + 1)) - (*(dA_colchk_r + 1));
 		float abs_d1 = fabs(d1);
-		int loc;
+		int loc = -1;
 		T MAX;
 
 		//error detected
@@ -683,6 +696,13 @@ detect_correct_col_Gemm(T * dA, int64_t ldda, T E, int64_t num_col,
 					printf("[col check]Multi INF or NAN detected in one col. \n");
 					return;
 				}
+			}
+			if(loc == -1){
+				printf("[col check]No found NAN for d1 = NAN (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",
+																blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
+				printf("(C0: %.6f, C1: %.6f, R1: %.6f, R2: %.6f) \n", (float)(*(dA_colchk)), (float)(*(dA_colchk + 1)),
+																(float)(*(dA_colchk_r)), (float)(*(dA_colchk_r + 1)));
+				return;
 			}
 			printf("[col check]NAN detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
 			//the sum of the rest correct number except the error one
@@ -772,7 +792,7 @@ detect_correct_row_Gemm(T * dA, int64_t ldda, T E, int64_t num_row, int64_t num_
 		float d1 = (float)(*dA_rowchk)                 - (*dA_rowchk_r);
 		float d2 = (float)(*(dA_rowchk + ldda_rowchk)) - (*(dA_rowchk_r + ldda_rowchk_r));
 		float abs_d1 = fabs(d1);
-		int loc;
+		int loc = -1;
 		T MAX;
 
 		
@@ -823,6 +843,13 @@ detect_correct_row_Gemm(T * dA, int64_t ldda, T E, int64_t num_row, int64_t num_
 					printf("[row check]Multi INF or NAN detected in one row. \n");
 					return;
 				}
+			}
+			if(loc == -1){
+				printf("[row check]No found NAN for d1 = NAN (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",
+																blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
+				printf("(C0: %.6f, C1: %.6f, R1: %.6f, R2: %.6f) \n", (float)(*(dA_rowchk)), (float)(*(dA_rowchk + ldda_rowchk)),
+																(float)(*(dA_rowchk_r)), (float)(*(dA_rowchk_r + ldda_rowchk_r)));
+				return;
 			}
 			printf("[col check]NAN detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
 			T sum = 0.0;
@@ -987,14 +1014,16 @@ __global__ void MatrixMerge(T *inpMatrix, T *outMatrix, int64_t iRow, int64_t iC
 
 template <typename T>
 __global__ void bitflip(T *dA, int64_t row, int64_t col, int64_t lda, int64_t batch){
+// __global__ void bitflip(T *dA){
 	int stride = row * col;
 	int idx = batch * stride + row + col * lda;
-	int64_t flipBit = 0;
+	
 	// T value = INFINITY;
 	// T value = NAN;
 	// T value = (T)1e10;
 	// *(dA + idx) = value;
 
+	int64_t flipBit = 0;
 	float orgValue = (float)*(dA + idx);
 	if(fabs(orgValue) >= 2){
 		flipBit = 29;

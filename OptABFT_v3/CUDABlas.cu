@@ -14,7 +14,6 @@
 #include <cmath>
 #include <vector>
 #include <cmath>
-const float INF = INFINITY;
 
 #include <ATen/ATen.h>
 #include <ATen/cuda/CUDABlas.h>
@@ -489,6 +488,45 @@ void recordTime(string FP, float time, bool DEBUG){
   }
   outFile << time << std::endl;
   if(DEBUG) printf("Data appended to the file successfully.\n");
+}
+
+int64_t deleteLine() {
+  string filename = "home/exouser/control/pos.txt";
+  int lineNumber = 0;
+
+  std::ifstream inFile(filename);
+  std::vector<string> lines;
+  string line;
+
+  // Read lines from the file into a vector
+  while (getline(inFile, line)) {
+      lines.push_back(line);
+  }
+
+  inFile.close();
+
+  // Check if lineNumber is valid
+  if (lineNumber < 0 || lineNumber >= lines.size()) {
+      std::cout << "Invalid line number!" << std::endl;
+      return -1;
+  }
+
+  // Erase the line at lineNumber
+  string deletedLine = lines[lineNumber];
+  // cout << "Deleted line: " << deletedLine << endl;
+
+  lines.erase(lines.begin() + lineNumber);
+
+  // Write the modified content back to the file
+  std::ofstream outFile(filename);
+  for (const auto& l : lines) {
+      outFile << l << std::endl;
+  }
+  outFile.close();
+
+  int64_t res = std::stoll(deletedLine);
+  return res;
+  // cout << "Line at position " << lineNumber << " deleted successfully!" << endl;
 }
 
 
@@ -1964,6 +2002,7 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   bool CHECK_BEFORE = true;
   bool CHECK_AFTER = true;
   // bool ifPassChk = false;
+  bool INJECTION = false;
 
   char flag;
   std::ifstream colFile("/home/exouser/control/abftCOL_FT.txt");
@@ -1992,6 +2031,19 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   }
   rowFile.close();
 
+  std::ifstream injFile("/home/exouser/control/Injection.txt");
+  if (injFile.is_open()){
+    injFile.get(flag);
+    if(flag == 't'){
+      INJECTION = true;
+    }
+    // printf("%c", flag);
+  }
+  else{
+    printf("Injection: Cannot open file, using default setting.\n");
+  }
+  injFile.close();
+
   auto start = high_resolution_clock::now();
   if constexpr (std::is_same<T, float>::value) {
     abftGemm<float>(transa, transb, m, n, k,
@@ -1999,7 +2051,7 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
       dB_, ldb, beta,
       c, ldc,
       chk_v_a, chk_v_b, ld_chk_v,
-      COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, QKV);
+      COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, QKV, INJECTION);
   }
   else if constexpr (std::is_same<T, at::Half>::value) {
     abftGemm<at::Half>(transa, transb, m, n, k,
@@ -2007,7 +2059,7 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
       dB_, ldb, beta,
       c, ldc,
       chk_v_a, chk_v_b, ld_chk_v,
-      COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, QKV);
+      COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, QKV, INJECTION);
   }
   cudaDeviceSynchronize();
   auto stop = high_resolution_clock::now();
@@ -2061,7 +2113,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
       T *b, int64_t ldb, at::opmath_type<T> beta,
       T *c, int64_t ldc,
       T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,                                      
-      bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV){
+      bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV, bool INJECTION){
   globalContext().alertCuBLASConfigNotDeterministic();
   cublasHandle_t handle = at::cuda::getCurrentCUDABlasHandle();
   cublasOperation_t opa = _cublasOpFromChar(transa);
@@ -2229,10 +2281,10 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
   // printf("Before injection C: \n");
   // outputChk(c, 1, ldc, 0, m, n);
 
-  // printf("Injection.\n");
-  // if(QKV == 'q'){
-  //   bitflip<<<1, 1, 0, stream_main>>>(c, 1, 0, ldc, 0);
-  // }
+  if(INJECTION){
+    if(DEBUG) printf("Injection.\n");
+    bitflip<<<1, 1, 0, stream_main>>>(c, 0, 0, ldc, 0);
+  }
 
   // printf("After injection C: \n");
   // outputChk(c, 1, ldc, 0, m, n);
@@ -3390,7 +3442,7 @@ void abftGemmBiasPassChk(
 
   if(INJECTION){
     if(DEBUG) printf("Injection.\n");
-    bitflip<<<1, 1, 0, stream_main>>>(result_ptr, 1, 0, result_ld, 0);
+    bitflip<<<1, 1, 0, stream_main>>>(result_ptr, 0, 0, result_ld, 0);
   }
   
   // printf("After injection C: \n");

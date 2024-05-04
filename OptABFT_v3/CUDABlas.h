@@ -107,7 +107,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
               T *b, int64_t ldb, at::opmath_type<T> beta,
               T *c, int64_t ldc,
               T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,                      
-              bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV);
+              bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV, bool INJECTION);
 
 template <typename Dtype>
 void myGemmBiasPassChk(
