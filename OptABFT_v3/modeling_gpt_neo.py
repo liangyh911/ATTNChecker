@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ PyTorch GPT Neo model."""
-
+import time
 
 import os
 from typing import Optional, Tuple, Union
@@ -212,6 +212,7 @@ class GPTNeoSelfAttention(nn.Module):
         self.inj = "/home/exouser/control/Injection.txt"
         self.passChk = "/home/exouser/control/IFPassChk.txt"
         self.QKV = "/home/exouser/control/QKV.txt"
+        self.batch = "/home/exouser/control/Batch.txt"
 
     def _split_heads(self, tensor, num_heads, attn_head_size):
         """
@@ -229,7 +230,7 @@ class GPTNeoSelfAttention(nn.Module):
         new_shape = tensor.size()[:-2] + (num_heads * attn_head_size,)
         return tensor.view(new_shape)
 
-    def _attn(self, query, key, value, attention_mask=None, head_mask=None):
+    def _attn(self, query, key, value, attention_mask=None, head_mask=None, num_encoderLayer=None):
         # Keep the attention weights computation in fp32 to avoid overflow issues
         query = query.to(torch.float32)
         key = key.to(torch.float32)
@@ -280,12 +281,20 @@ class GPTNeoSelfAttention(nn.Module):
             frRow.write('t')
         with open(self.colFP, 'w') as frCol:
             frCol.truncate(0)
-            frCol.write('f')
+            frCol.write('t')
         with open(self.QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('v')
+        
+        # if(num_encoderLayer == 0):
+        #     with open(self.inj, 'w') as frinj:
+        #         frinj.truncate(0)
+        #         frinj.write('t')  
         print("CL")
         attn_output = torch.matmul(attn_weights, value)
+        # with open(self.inj, 'w') as frinj:
+        #         frinj.truncate(0)
+        #         frinj.write('f')
 
         with open(self.passChk, 'w') as frPassChk:
             frPassChk.truncate(0)
@@ -303,7 +312,14 @@ class GPTNeoSelfAttention(nn.Module):
         head_mask=None,
         use_cache=False,
         output_attentions=False,
+        num_encoderLayer=None,
     ):
+        with open(self.batch, 'w') as F:
+            F.truncate(0)
+            F.write(str(hidden_states.size()[0]))
+            F.write(" ")
+            F.write(str(self.num_heads))
+
         with open(self.LinFP, "w") as frLin:
             frLin.truncate(0)
             frLin.write('t')
@@ -324,12 +340,12 @@ class GPTNeoSelfAttention(nn.Module):
             frinj.write('f')
         
         # if(num_encoderLayer == 0):
-        #     with open(inj, 'w') as frinj:
+        #     with open(self.inj, 'w') as frinj:
         #         frinj.truncate(0)
         #         frinj.write('t')
         print("Q")
         query = self.q_proj(hidden_states)
-        # with open(inj, 'w') as frinj:
+        # with open(self.inj, 'w') as frinj:
         #     frinj.truncate(0)
         #     frinj.write('f')
         
@@ -342,14 +358,13 @@ class GPTNeoSelfAttention(nn.Module):
         with open(self.QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('k')
-        
         # if(num_encoderLayer == 0):
-        #     with open(inj, 'w') as frinj:
+        #     with open(self.inj, 'w') as frinj:
         #         frinj.truncate(0)
         #         frinj.write('t')
         print("K")
         key = self.k_proj(hidden_states)
-        # with open(inj, 'w') as frinj:
+        # with open(self.inj, 'w') as frinj:
         #         frinj.truncate(0)
         #         frinj.write('f')
         
@@ -362,14 +377,21 @@ class GPTNeoSelfAttention(nn.Module):
         with open(self.QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('v')
+        # if(num_encoderLayer == 0):
+        #     with open(self.inj, 'w') as frinj:
+        #         frinj.truncate(0)
+        #         frinj.write('t')
         print('V')
         value = self.v_proj(hidden_states)
+        # with open(self.inj, 'w') as frinj:
+        #         frinj.truncate(0)
+        #         frinj.write('f')
 
         query = self._split_heads(query, self.num_heads, self.head_dim)
         key = self._split_heads(key, self.num_heads, self.head_dim)
         value = self._split_heads(value, self.num_heads, self.head_dim)
 
-        print(query.size(), key.size(), value.size())
+        # print(query.size(), key.size(), value.size())
 
         if layer_past is not None:
             past_key = layer_past[0]
@@ -382,19 +404,20 @@ class GPTNeoSelfAttention(nn.Module):
         else:
             present = None
 
-        attn_output, attn_weights = self._attn(query, key, value, attention_mask, head_mask)
+        attn_output, attn_weights = self._attn(query, key, value, attention_mask, head_mask, num_encoderLayer)
 
         attn_output = self._merge_heads(attn_output, self.num_heads, self.head_dim)
         
         with open(self.LinFP, "w") as frLin:
             frLin.write('t')
         with open(self.colFP, "w") as frCol:
-            frCol.write('t')
+            frCol.write('f')
         with open(self.rowFP, "w") as frRow:
             frRow.write('t')
         with open(self.QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('c')
+        
         print("OUT(CL)")
         attn_output = self.out_proj(attn_output)
         
@@ -438,6 +461,7 @@ class GPTNeoFlashAttention2(GPTNeoSelfAttention):
         head_mask=None,
         use_cache=False,
         output_attentions=False,
+        num_encoderLayer=None,
     ):
         bsz, _, _ = hidden_states.size()
 
@@ -639,6 +663,7 @@ class GPTNeoAttention(nn.Module):
         head_mask=None,
         use_cache=False,
         output_attentions=False,
+        num_encoderLayer=None,
     ):
         return self.attention(
             hidden_states,
@@ -647,6 +672,7 @@ class GPTNeoAttention(nn.Module):
             head_mask=head_mask,
             use_cache=use_cache,
             output_attentions=output_attentions,
+            num_encoderLayer=num_encoderLayer,
         )
 
 
@@ -685,9 +711,12 @@ class GPTNeoBlock(nn.Module):
         head_mask=None,
         use_cache=False,
         output_attentions=False,
+        num_encoderLayer=None,
     ):
         residual = hidden_states
         hidden_states = self.ln_1(hidden_states)
+
+        start_time = time.time()
         attn_outputs = self.attn(
             hidden_states,
             layer_past=layer_past,
@@ -695,7 +724,12 @@ class GPTNeoBlock(nn.Module):
             head_mask=head_mask,
             use_cache=use_cache,
             output_attentions=output_attentions,
+            num_encoderLayer=num_encoderLayer,
         )
+        elapsed_time = time.time() - start_time
+        with open("/home/exouser/records/time/attn.txt", 'a') as fr:
+            fr.write(str(elapsed_time)+"\n")
+            
         attn_output = attn_outputs[0]  # output_attn: a, present, (attentions)
         outputs = attn_outputs[1:]
         # residual connection
@@ -968,6 +1002,7 @@ class GPTNeoModel(GPTNeoPreTrainedModel):
                     head_mask=head_mask[i],
                     use_cache=use_cache,
                     output_attentions=output_attentions,
+                    num_encoderLayer=i,
                 )
 
             hidden_states = outputs[0]

@@ -821,7 +821,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
                    dC, lddc, stridec, 
                     dC_colchk_r<T>, lddc_colchk_r, (2*n));
 
-    T E = 1e-2;
+    T E = 1;
     detect_correct_col<T><<<dim3(num_batches), dim3(n), 0, stream_colchk>>>(dC, lddc, E, stridec,
                                             dC_colchk<T>,      lddc_colchk,    (2*n),
                                             dC_colchk_r<T>,    lddc_colchk_r,  (2*n));
@@ -846,7 +846,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     encode_row_v5<T, M, N><<<num_batches, dim3(M*2, 1, 1), 0, stream_rowchk>>>(num_batches,
                     dC, lddc, stridec,
                     dC_rowchk_r<T>, lddc_rowchk_r, (2*m));
-    T E = 1e-2;
+    T E = 1;
     detect_correct_row<T><<<dim3(num_batches), dim3(m), 0, stream_rowchk>>>(dC, lddc, E, stridec, n,
                                           dC_rowchk<T>, lddc_rowchk,     (2*m),
                                           dC_rowchk_r<T>, lddc_rowchk_r, (2*m));
@@ -1153,24 +1153,24 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         num_batches,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
     }
-    // else if(m == 3 && k == 6){
-    //   abftbgemm<float, 3, 3, 6>(transa, transb, m, n, k,
-    //     alpha, dA_, ldda, stridea,
-    //     dB_, lddb, strideb, beta,
-    //     dC, lddc, stridec,
-    //     chk_v_a, chk_v_b, ld_chk_v,
-    //     num_batches,
-    //     COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head);
-    // }
-    // else if(m == 6 && k == 3){
-    //   abftbgemm<float, 6, 6, 3>(transa, transb, m, n, k,
-    //     alpha, dA_, ldda, stridea,
-    //     dB_, lddb, strideb, beta,
-    //     dC, lddc, stridec,
-    //     chk_v_a, chk_v_b, ld_chk_v,
-    //     num_batches,
-    //     COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head);
-    // }
+    else if(m == 74 && k == 64){
+      abftbgemm<float, 74, 74, 64>(transa, transb, m, n, k,
+        alpha, dA_, ldda, stridea,
+        dB_, lddb, strideb, beta,
+        dC, lddc, stridec,
+        chk_v_a, chk_v_b, ld_chk_v,
+        num_batches,
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
+    }
+    else if(m == 64 && k == 74){
+      abftbgemm<float, 64, 74, 74>(transa, transb, m, n, k,
+        alpha, dA_, ldda, stridea,
+        dB_, lddb, strideb, beta,
+        dC, lddc, stridec,
+        chk_v_a, chk_v_b, ld_chk_v,
+        num_batches,
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
+    }
   } 
   else if constexpr(std::is_same<T, at::Half>::value) {
       if (m == 72 && k == 64){
@@ -1209,24 +1209,24 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
           num_batches,
           COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
       }
-    //   else if(m == 3 && k == 6){
-    //   abftbgemm<at::Half, 3, 3, 6>(transa, transb, m, n, k,
-    //     alpha, dA_, ldda, stridea,
-    //     dB_, lddb, strideb, beta,
-    //     dC, lddc, stridec,
-    //     chk_v_a, chk_v_b, ld_chk_v,
-    //     num_batches,
-    //     COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
-    // }
-    // else if(m == 6 && k == 3){
-    //   abftbgemm<at::Half, 6, 6, 3>(transa, transb, m, n, k,
-    //     alpha, dA_, ldda, stridea,
-    //     dB_, lddb, strideb, beta,
-    //     dC, lddc, stridec,
-    //     chk_v_a, chk_v_b, ld_chk_v,
-    //     num_batches,
-    //     COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
-    // }
+      else if(m == 74 && k == 64){
+      abftbgemm<at::Half, 74, 74, 64>(transa, transb, m, n, k,
+        alpha, dA_, ldda, stridea,
+        dB_, lddb, strideb, beta,
+        dC, lddc, stridec,
+        chk_v_a, chk_v_b, ld_chk_v,
+        num_batches,
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
+    }
+    else if(m == 64 && k == 74){
+      abftbgemm<at::Half, 64, 74, 74>(transa, transb, m, n, k,
+        alpha, dA_, ldda, stridea,
+        dB_, lddb, strideb, beta,
+        dC, lddc, stridec,
+        chk_v_a, chk_v_b, ld_chk_v,
+        num_batches,
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
+    }
   }
   cudaDeviceSynchronize();
   auto stop = high_resolution_clock::now();
@@ -1249,6 +1249,16 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   cudaFree(dC_rowchk_r<T>);
   cudaFree(chk_v_a);
   cudaFree(chk_v_b);
+
+  // if(QKV == 's'){
+  //   cudaFree(Q_rowchk<T>);
+  //   cudaFree(K_colchk<T>);
+  //   cudaFree(K_rowchk<T>);
+  // }
+  // else if(QKV == 'v'){
+  //   cudaFree(V_colchk<T>);
+  //   cudaFree(tmp_chk<T>);
+  // }
 }
 
 template void mybgemm<float>(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<float> alpha, 
@@ -2428,7 +2438,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
                       &fbeta, dC_colchk_r<T>, CUDA_R_16F, lddc_colchk_r,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
     }
-    T E = 1e-2;
+    T E = 1;
     detect_correct_col_Gemm<T><<<dim3(128), dim3(threadNum), 0, stream_colchk>>>(c ,ldc, E, n,
                                                                                       dC_colchk<T>, lddc_colchk,
                                                                                       dC_colchk_r<T>, lddc_colchk_r);
@@ -2465,7 +2475,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
     }
     
-    T E = 1e-2;
+    T E = 1;
     threadNum = (m+128-1)/128;
     detect_correct_row_Gemm<T><<<dim3(128), dim3(threadNum), 0, stream_rowchk>>>(c, ldc, E, m, n,
                                                                           dC_rowchk<T>, lddc_rowchk,
@@ -2927,7 +2937,6 @@ void myGemmBiasPassChk (
       cudaMalloc((void**)&V_colchk<T>, size);
       cudaMemset(V_colchk<T>, 0, size);
     }
-    else{}
     
     size = num_batches * 2 * m * sizeof(T);
     cudaMalloc((void**)&dC_rowchk<T>, size);
@@ -2948,7 +2957,6 @@ void myGemmBiasPassChk (
       cudaMalloc((void**)&K_rowchk<T>, size);
       cudaMemset(K_rowchk<T>, 0, size);
     }
-    else{}
 
     int64_t len = m / num_head;
     size = 2 * len * sizeof(T);
@@ -3259,7 +3267,7 @@ void abftGemmBiasPassChk(
         for(int i=0; i<m; i+=nb){
           cublasGemmEx(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, nb,
                       &falpha, chk_v_a, CUDA_R_16F, ld_chk_v, 
-                      mat1_ptr+i, CUDA_R_16F, mat1_ld,
+                      mat1_ptr + i, CUDA_R_16F, mat1_ld,
                       &fbeta, dA_colchk<T>+(i/nb)*2, CUDA_R_16F, ldda_colchk,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
         }
@@ -3371,7 +3379,7 @@ void abftGemmBiasPassChk(
         for(int i=0; i<m; i+=nb){
           cublasGemmEx(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2, n, nb,
                       &falpha, chk_v_a, CUDA_R_16F, ld_chk_v, 
-                      mat1_ptr+i, CUDA_R_16F, mat1_ld,
+                      biasMatrix + i, CUDA_R_16F, result_ld,
                       &fbeta, dBias_colchk+(i/nb)*2, CUDA_R_16F, lddc_colchk,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
         }
@@ -3509,11 +3517,12 @@ void abftGemmBiasPassChk(
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
       }
     }
-    std::cout << "Output org dC_colchk: " << std::endl;
+    cudaStreamSynchronize(stream_colchk);
+    // std::cout << "Output org dC_colchk: " << std::endl;
     // outputMatrixChk(dC_colchk, lddc_colchk, n*2, 1, 2, n);
     
     // dC_colchk + dBias_colchk
-    printf("dC_colchk + dBias_colchk\n");
+    // printf("dC_colchk + d Bias_colchk\n");
     if constexpr (std::is_same<T, float>::value){
       cublasSgeam(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2*num_head, n,
                     &falpha, dBias_colchk, lddc_colchk, &falpha,
@@ -3525,6 +3534,7 @@ void abftGemmBiasPassChk(
       dim3 gridSize((n + blockSize.x - 1) / blockSize.x, (2 + blockSize.y - 1) / blockSize.y);
       addVector<T><<<blockSize, gridSize, (2*num_head*n)*sizeof(T), stream_colchk>>>(dC_colchk<T>, dBias_colchk, 2*num_head, n); 
     }
+    cudaStreamSynchronize(stream_colchk);
     // std::cout << "Output dC_colchk: " << std::endl;
     // outputMatrixChk(dC_colchk, lddc_colchk, n*2, 1, 2, n);
     
@@ -3574,14 +3584,12 @@ void abftGemmBiasPassChk(
                           &fbeta, dC_rowchk<T>, CUDA_R_16F, lddc_rowchk,
                           CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
           }
-          // dC_rowchk + dBias_rowchk
-          
       }
       // dC_rowchk + dBias_rowchk
       // std::cout << "Output org dC_colchk: " << std::endl;
       // outputMatrixChk(dC_rowchk, lddc_rowchk, m*2, 1, m, 2);
       // dC_colchk + dBias_colchk
-
+      cudaStreamSynchronize(stream_rowchk);
       if constexpr (std::is_same<T, float>::value){ 
         cublasSgeam(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_N, m, 2*num_batches,
                   &falpha, dBias_rowchk, lddc_rowchk, &falpha,
@@ -3593,7 +3601,8 @@ void abftGemmBiasPassChk(
         dim3 gridSize((2 + blockSize.x - 1) / blockSize.x, (m + blockSize.y - 1) / blockSize.y);
         addVector<T><<<blockSize, gridSize, (m*num_batches*2)*sizeof(T),stream_rowchk>>>(dC_rowchk<T>, dBias_rowchk, m, 2*num_batches);
       }
-      std::cout << "Output dC_rowchk: " << std::endl;
+      cudaStreamSynchronize(stream_rowchk);
+      // std::cout << "Output dC_rowchk: " << std::endl;
       // outputMatrixChk(dC_rowchk, lddc_rowchk, m*2, 1, m, 2);
       // outputMatrixChk(dC_rowchk,lddc_rowchk, m*2, num_batches, m, 2);
   }
@@ -3619,7 +3628,7 @@ void abftGemmBiasPassChk(
     // outputChk(K_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
     MatrixTranspose<<<1, num_head*num_batches>>>(K_rowchk<T>, K_colchk<T>, m/num_head, 2);
   }
-  else{
+  else {
     MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_colchk<T>, V_colchk<T>, 2, n/num_batches, lddc_colchk, num_head);
     // MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_rowchk<T>, V_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
     // printf("V_colchk: \n");
@@ -4217,7 +4226,7 @@ void abftGemmBias(
       else if constexpr(std::is_same<T, half>::value){
         cublasGemmEx(handle_colchk, transa, transb, 2, n, k,
                       &falpha, dA_colchk<T>, CUDA_R_16F, ldda_colchk, 
-                      mat2_ptr, CUDA_R_16F, mat2_ptr,
+                      mat2_ptr, CUDA_R_16F, mat2_ld,
                       &fbeta, dC_colchk<T>, CUDA_R_16F, lddc_colchk,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
       }
@@ -4351,7 +4360,7 @@ void abftGemmBias(
                       &fbeta, dC_colchk_r<T>, CUDA_R_16F, lddc_colchk_r,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
     }
-    T E = 1e-2;
+    T E = 1;
     threadNum = (n+128-1)/128;
     detect_correct_col_Gemm<T><<<dim3(128), dim3(threadNum), 0, stream_colchk>>>(result_ptr, result_ld, E, n,
                                                                                       dC_colchk<T>, lddc_colchk, 
@@ -4388,7 +4397,7 @@ void abftGemmBias(
                       &fbeta, dC_rowchk_r<T>, CUDA_R_16F, lddc_rowchk_r,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
     }
-    T E = 1e-2;
+    T E = 1;
 
     detect_correct_row_Gemm<T><<<dim3(128), dim3((m+128-1)/128), 0, stream_rowchk>>>(result_ptr, result_ld, E, m, n,
                                                                           dC_rowchk<T>, lddc_rowchk,

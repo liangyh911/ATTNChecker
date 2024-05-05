@@ -255,6 +255,10 @@ class BertSelfAttention(nn.Module):
         self.attention_head_size = int(config.hidden_size / config.num_attention_heads)
         self.all_head_size = self.num_attention_heads * self.attention_head_size
 
+        # self.query = nn.Linear(config.hidden_size, self.all_head_size, bias = False)
+        # self.key = nn.Linear(config.hidden_size, self.all_head_size, bias = False)
+        # self.value = nn.Linear(config.hidden_size, self.all_head_size, bias = False)
+
         self.query = nn.Linear(config.hidden_size, self.all_head_size)
         self.key = nn.Linear(config.hidden_size, self.all_head_size)
         self.value = nn.Linear(config.hidden_size, self.all_head_size)
@@ -293,6 +297,13 @@ class BertSelfAttention(nn.Module):
         inj = "/home/exouser/control/Injection.txt"
         QKV = "/home/exouser/control/QKV.txt"
         passChk = "/home/exouser/control/IFPassChk.txt"
+        batch = "/home/exouser/control/Batch.txt"
+
+        with open(batch, 'w') as F:
+            F.truncate(0)
+            F.write(str(hidden_states.size()[0]))
+            F.write(" ")
+            F.write(str(self.num_attention_heads))
 
         with open(LinFP, "w") as frLin:
             frLin.truncate(0)
@@ -309,9 +320,6 @@ class BertSelfAttention(nn.Module):
         with open(QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('q')
-        with open(inj, 'w') as frinj:
-            frinj.truncate(0)
-            frinj.write('f')
         
         # if(num_encoderLayer == 0):
         #     with open(inj, 'w') as frinj:
@@ -355,15 +363,15 @@ class BertSelfAttention(nn.Module):
             with open(QKV, 'w') as frQKV:
                 frQKV.truncate(0)
                 frQKV.write('k')
-            if(num_encoderLayer == 0):
-                with open(inj, 'w') as frinj:
-                    frinj.truncate(0)
-                    frinj.write('t')
+            # if(num_encoderLayer == 0):
+            #     with open(inj, 'w') as frinj:
+            #         frinj.truncate(0)
+            #         frinj.write('t')
             print("K")
             key_layer = self.transpose_for_scores(self.key(hidden_states))
-            with open(inj, 'w') as frinj:
-                frinj.truncate(0)
-                frinj.write('f')
+            # with open(inj, 'w') as frinj:
+            #     frinj.truncate(0)
+            #     frinj.write('f')
             
             with open(colFP, "w") as frCol:
                 frCol.truncate(0)
@@ -374,8 +382,15 @@ class BertSelfAttention(nn.Module):
             with open(QKV, 'w') as frQKV:
                 frQKV.truncate(0)
                 frQKV.write('v')
+            # if(num_encoderLayer == 0):
+            #     with open(inj, 'w') as frinj:
+            #         frinj.truncate(0)
+            #         frinj.write('t')
             print("V")
             value_layer = self.transpose_for_scores(self.value(hidden_states))
+            # with open(inj, 'w') as frinj:
+            #     frinj.truncate(0)
+            #     frinj.write('f')
             
         query_layer = self.transpose_for_scores(mixed_query_layer)
 
@@ -394,6 +409,8 @@ class BertSelfAttention(nn.Module):
         # print("************* Begin: Q*K ***************")
         # query_layer[0,0,0,0] = float("inf")
         
+        # print(query_layer.size(), key_layer.size(), value_layer.size())
+
         with open(matFP, "w") as fr:
             fr.truncate(0)
             fr.write('t')
@@ -431,17 +448,17 @@ class BertSelfAttention(nn.Module):
                 # print("************* Start: 1st einsum. ************")
                 relative_position_scores = torch.einsum("bhld,lrd->bhlr", query_layer, positional_embedding)
                 # print("************* End: 1st einsum. ************")
-                time.sleep(5)
+                # time.sleep(5)
                 attention_scores = attention_scores + relative_position_scores
             elif self.position_embedding_type == "relative_key_query":
                 # print("************* Start: 2nd einsum. ************")
                 relative_position_scores_query = torch.einsum("bhld,lrd->bhlr", query_layer, positional_embedding)
                 # print("************* End:2nd einsum. ************")
-                time.sleep(5)
+                # time.sleep(5)
                 # print("************* Start: 3nd einsum. ************")
                 relative_position_scores_key = torch.einsum("bhrd,lrd->bhlr", key_layer, positional_embedding)
                 # print("************* End: 3nd einsum. ************")
-                time.sleep(5)
+                # time.sleep(5)
                 attention_scores = attention_scores + relative_position_scores_query + relative_position_scores_key
 
         attention_scores = attention_scores / math.sqrt(self.attention_head_size)
@@ -470,18 +487,26 @@ class BertSelfAttention(nn.Module):
             frRow.write('t')
         with open(colFP, 'w') as frCol:
             frCol.truncate(0)
-            frCol.write('f')
+            frCol.write('t')
         with open(QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('v')
+        # if(num_encoderLayer == 0):
+        #     with open(inj, 'w') as frinj:
+        #         frinj.truncate(0)
+        #         frinj.write('t')
         print("CL")
         context_layer = torch.matmul(attention_probs, value_layer)
+        # with open(inj, 'w') as frinj:
+        #     frinj.truncate(0)
+        #     frinj.write('f')
         
         with open(passChk, 'w') as frPassChk:
             frPassChk.truncate(0)
             frPassChk.write('f') 
         with open(matFP, 'w') as fr:
             fr.truncate(0)
+            fr.write('f')
         
         # print(torch.min(context_layer), torch.max(context_layer))
         # print("************* End: probs*V ***************")
@@ -521,7 +546,7 @@ class BertSelfOutput(nn.Module):
             frLin.write('t')
         with open(colFP, 'w') as frCol:
             frCol.truncate(0)
-            frCol.write('t')
+            frCol.write('f')
         with open(rowFP, 'w') as frRow:
             frRow.truncate(0)
             frRow.write('t')
@@ -533,6 +558,7 @@ class BertSelfOutput(nn.Module):
 
         with open(LinFP, 'w') as frLin:
             frLin.truncate(0)
+            frLin.write('f')
         
         hidden_states = self.dropout(hidden_states)
         hidden_states = self.LayerNorm(hidden_states + input_tensor)
