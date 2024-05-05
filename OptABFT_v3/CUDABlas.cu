@@ -2894,7 +2894,7 @@ void myGemmBiasPassChk (
     cudaMemset(dA_rowchk<T>, 0, size);
     cudaMalloc((void**)&dA_rowchk_r<T>, size);
     cudaMemset(dA_rowchk_r<T>, 0, size);
-    //std::cout << "  finish dA." << std::endl;
+    // std::cout << "  finish dA." << std::endl;
     
     size = num_batches * 2 * k * sizeof(T);
     cudaMalloc((void**)&dB_colchk<T>, size);
@@ -2906,7 +2906,7 @@ void myGemmBiasPassChk (
     cudaMemset(dB_rowchk<T>, 0, size);
     cudaMalloc((void**)&dB_rowchk_r<T>, size);
     cudaMemset(dB_rowchk_r<T>, 0, size);
-    //std::cout << "  finish dB." << std::endl;
+    // std::cout << "  finish dB." << std::endl;
 
     size = num_head * 2 * n * sizeof(T);
     cudaMalloc((void**)&dC_colchk<T>, size);
@@ -2923,10 +2923,11 @@ void myGemmBiasPassChk (
       cudaMalloc((void**)&K_colchk<T>, size);
       cudaMemset(K_colchk<T>, 0, size);
     }
-    else{
+    else if(QKV == 'v'){
       cudaMalloc((void**)&V_colchk<T>, size);
       cudaMemset(V_colchk<T>, 0, size);
     }
+    else{}
     
     size = num_batches * 2 * m * sizeof(T);
     cudaMalloc((void**)&dC_rowchk<T>, size);
@@ -3290,6 +3291,7 @@ void abftGemmBiasPassChk(
         cudaEventElapsedTime(&t_Achk, start, stop);
     }
   }
+  // printf("A chk\n");
 
   // B chk
   if (ROW_FT){
@@ -3342,6 +3344,7 @@ void abftGemmBiasPassChk(
       t_Bchk /= 1.0;
     }
   }
+  // printf("B chk\n");
   
   T *biasMatrix;
   size_t size =  m * n * sizeof(T);
@@ -3485,7 +3488,7 @@ void abftGemmBiasPassChk(
       else if constexpr(std::is_same<T, half>::value){
         cublasGemmEx(handle_colchk, transa, transb, 2*num_head, n, k,
                       &falpha, dA_colchk<T>, CUDA_R_16F, ldda_colchk, 
-                      mat2_ptr, CUDA_R_16F, mat2_ptr,
+                      mat2_ptr, CUDA_R_16F, mat2_ld,
                       &fbeta, dC_colchk<T>, CUDA_R_16F, lddc_colchk,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
       }
@@ -3506,10 +3509,11 @@ void abftGemmBiasPassChk(
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
       }
     }
-    // std::cout << "Output org dC_colchk: " << std::endl;
+    std::cout << "Output org dC_colchk: " << std::endl;
     // outputMatrixChk(dC_colchk, lddc_colchk, n*2, 1, 2, n);
     
     // dC_colchk + dBias_colchk
+    printf("dC_colchk + dBias_colchk\n");
     if constexpr (std::is_same<T, float>::value){
       cublasSgeam(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_N, 2*num_head, n,
                     &falpha, dBias_colchk, lddc_colchk, &falpha,
@@ -3532,6 +3536,9 @@ void abftGemmBiasPassChk(
       recordEffeciency("/home/exouser/records/effeciency/abftBias.txt",  t1, t1/t, (double)1*2*n*k*2/t1/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t1/1e6);     
     }
   }
+
+  // printf("dC_colchk: \n");
+  // outputChk(dC_colchk<T>, 1, lddc_colchk, 0, 2*num_head, n);
 
   if (ROW_FT) {
       //std::cout << "  ROW_FT" << std::endl;
@@ -3586,7 +3593,7 @@ void abftGemmBiasPassChk(
         dim3 gridSize((2 + blockSize.x - 1) / blockSize.x, (m + blockSize.y - 1) / blockSize.y);
         addVector<T><<<blockSize, gridSize, (m*num_batches*2)*sizeof(T),stream_rowchk>>>(dC_rowchk<T>, dBias_rowchk, m, 2*num_batches);
       }
-      // std::cout << "Output dC_rowchk: " << std::endl;
+      std::cout << "Output dC_rowchk: " << std::endl;
       // outputMatrixChk(dC_rowchk, lddc_rowchk, m*2, 1, m, 2);
       // outputMatrixChk(dC_rowchk,lddc_rowchk, m*2, num_batches, m, 2);
   }
@@ -3598,8 +3605,6 @@ void abftGemmBiasPassChk(
     recordEffeciency("/home/exouser/records/effeciency/abftBias.txt",  t1, t1/t, (double)1*m*2*k*2/t1/1e6, (double)1*(m*k+k*2+m*2)*sizeof(T)/t1/1e6);
   }
 
-  // printf("dC_colchk: \n");
-  // outputChk(dC_colchk<T>, 1, lddc_colchk, 0, 2*num_head, n);
   // printf("dC_rowchk: \n");
   // outputChk(dC_rowchk<T>, 1, lddc_rowchk, 0, m, 2*num_batches);
 
