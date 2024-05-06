@@ -1083,14 +1083,15 @@ __global__ void bitflip(T *dA, int64_t row, int64_t col, int64_t lda, int64_t ba
 }
 
 template <typename T>
-__global__ void assignChk(T *input, T *ouput, int64_t row, int64_t col, int64_t num_batch, int64_t num_head, int64_t N){
+__global__ void assignChk(T *input, T *output, int64_t row, int64_t col, int64_t num_batch, int64_t num_head, int64_t N){
 	int stride = row * col;
-	int inpIdx = threadIdx.x * num_head * stride;
+	int batchId = threadIdx.x / num_head;
+	int inpIdx = N * stride * num_head + batchId * stride * num_head * 3 + (threadIdx.x % num_head)* stride;
 	int outIdx = threadIdx.x * stride;
 
 	for(int c = 0; c < col; c++){
 		for(int r = 0; r < row; r++){
-			ouput[outIdx + r + c * row] = input[inpIdx + r + c * row];
+			output[outIdx + r + c * row] = input[inpIdx + r + c * row];
 		}
 	}
 }
