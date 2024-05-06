@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """PyTorch RoBERTa model."""
+import time
 
 import math
 from typing import List, Optional, Tuple, Union
@@ -169,6 +170,10 @@ class RobertaSelfAttention(nn.Module):
         self.key = nn.Linear(config.hidden_size, self.all_head_size)
         self.value = nn.Linear(config.hidden_size, self.all_head_size)
 
+        # self.query = nn.Linear(config.hidden_size, self.all_head_size, bias = False)
+        # self.key = nn.Linear(config.hidden_size, self.all_head_size, bias = False)
+        # self.value = nn.Linear(config.hidden_size, self.all_head_size, bias = False)
+
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
         self.position_embedding_type = position_embedding_type or getattr(
             config, "position_embedding_type", "absolute"
@@ -203,6 +208,13 @@ class RobertaSelfAttention(nn.Module):
         inj = "/home/exouser/control/Injection.txt"
         QKV = "/home/exouser/control/QKV.txt"
         passChk = "/home/exouser/control/IFPassChk.txt"
+        batch = "/home/exouser/control/Batch.txt"
+
+        with open(batch, 'w') as F:
+            F.truncate(0)
+            F.write(str(hidden_states.size()[0]))
+            F.write(" ")
+            F.write(str(self.num_attention_heads))
 
         with open(LinFP, "w") as frLin:
             frLin.truncate(0)
@@ -219,19 +231,16 @@ class RobertaSelfAttention(nn.Module):
         with open(QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('q')
-        with open(inj, 'w') as frinj:
-            frinj.truncate(0)
-            frinj.write('f')
         
-        if(num_encoderLayer == 0):
-            with open(inj, 'w') as frinj:
-                frinj.truncate(0)
-                frinj.write('t')
+        # if(num_encoderLayer == 0):
+        #     with open(inj, 'w') as frinj:
+        #         frinj.truncate(0)
+        #         frinj.write('t')
         print("Q")
         mixed_query_layer = self.query(hidden_states)
-        with open(inj, 'w') as frinj:
-            frinj.truncate(0)
-            frinj.write('f')
+        # with open(inj, 'w') as frinj:
+        #     frinj.truncate(0)
+        #     frinj.write('f')
 
         # If this is instantiated as a cross-attention module, the keys
         # and values come from an encoder; the attention mask needs to be
@@ -266,7 +275,7 @@ class RobertaSelfAttention(nn.Module):
             #     with open(inj, 'w') as frinj:
             #         frinj.truncate(0)
             #         frinj.write('t')
-            print("K")
+            # print("K")
             key_layer = self.transpose_for_scores(self.key(hidden_states))
             # with open(inj, 'w') as frinj:
             #     frinj.truncate(0)
@@ -281,8 +290,15 @@ class RobertaSelfAttention(nn.Module):
             with open(QKV, 'w') as frQKV:
                 frQKV.truncate(0)
                 frQKV.write('v')
+            # if(num_encoderLayer == 0):
+            #     with open(inj, 'w') as frinj:
+            #         frinj.truncate(0)
+            #         frinj.write('t')
             print("V")
             value_layer = self.transpose_for_scores(self.value(hidden_states))
+            # with open(inj, 'w') as frinj:
+            #     frinj.truncate(0)
+            #     frinj.write('f')
 
         query_layer = self.transpose_for_scores(mixed_query_layer)
 
@@ -299,7 +315,7 @@ class RobertaSelfAttention(nn.Module):
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
 
-        print(query_layer.size(), key_layer.size(), value_layer.size())
+        # print(query_layer.size(), key_layer.size(), value_layer.size())
 
         with open(matFP, "w") as fr:
             fr.truncate(0)
@@ -362,10 +378,11 @@ class RobertaSelfAttention(nn.Module):
             frRow.write('t')
         with open(colFP, 'w') as frCol:
             frCol.truncate(0)
-            frCol.write('f')
+            frCol.write('t')
         with open(QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('v')
+        
         print("CL")
         context_layer = torch.matmul(attention_probs, value_layer)
         
@@ -374,6 +391,7 @@ class RobertaSelfAttention(nn.Module):
             frPassChk.write('f') 
         with open(matFP, 'w') as fr:
             fr.truncate(0)
+            fr.write('f')
 
         context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
         new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
@@ -394,30 +412,39 @@ class RobertaSelfOutput(nn.Module):
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
-    def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor) -> torch.Tensor:
+    def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor, num_encoderLayer: int) -> torch.Tensor:
         LinFP = "/home/exouser/control/IFLinearABFT.txt"
         colFP = "/home/exouser/control/abftCOL_FT.txt"
         rowFP = "/home/exouser/control/abftROW_FT.txt"
         QKV = "/home/exouser/control/QKV.txt"
+        inj = "/home/exouser/control/Injection.txt"
 
         with open(LinFP, "w") as frLin:
             frLin.truncate(0)
             frLin.write('t')
         with open(colFP, 'w') as frCol:
             frCol.truncate(0)
-            frCol.write('t')
+            frCol.write('f')
         with open(rowFP, 'w') as frRow:
             frRow.truncate(0)
             frRow.write('t')
         with open(QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('c')
+        if(num_encoderLayer == 0):
+            with open(inj, 'w') as frinj:
+                frinj.truncate(0)
+                frinj.write('t')
         print("OUT(CL)")
+        hidden_states = self.dense(hidden_states)
+        with open(inj, 'w') as frinj:
+                frinj.truncate(0)
+                frinj.write('f')
 
         with open(LinFP, 'w') as frLin:
             frLin.truncate(0)
-        
-        hidden_states = self.dense(hidden_states)
+            frLin.write('f')
+
         hidden_states = self.dropout(hidden_states)
         hidden_states = self.LayerNorm(hidden_states + input_tensor)
         return hidden_states
@@ -470,7 +497,7 @@ class RobertaAttention(nn.Module):
             output_attentions,
             num_encoderLayer,
         )
-        attention_output = self.output(self_outputs[0], hidden_states)
+        attention_output = self.output(self_outputs[0], hidden_states, num_encoderLayer)
         outputs = (attention_output,) + self_outputs[1:]  # add attentions if we output them
         return outputs
 
@@ -535,6 +562,8 @@ class RobertaLayer(nn.Module):
     ) -> Tuple[torch.Tensor]:
         # decoder uni-directional self-attention cached key/values tuple is at positions 1,2
         self_attn_past_key_value = past_key_value[:2] if past_key_value is not None else None
+
+        start_time = time.time()
         self_attention_outputs = self.attention(
             hidden_states,
             attention_mask,
@@ -543,6 +572,9 @@ class RobertaLayer(nn.Module):
             past_key_value=self_attn_past_key_value,
             num_encoderLayer = num_encoderLayer,
         )
+        elapsed_time = time.time() - start_time
+        with open("/home/exouser/records/time/attn.txt", 'a') as fr:
+            fr.write(str(elapsed_time)+"\n")
         attention_output = self_attention_outputs[0]
 
         # if decoder, the last output is tuple of self-attn cache

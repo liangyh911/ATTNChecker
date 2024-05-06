@@ -535,11 +535,12 @@ class BertSelfOutput(nn.Module):
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
-    def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor) -> torch.Tensor:
+    def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor, num_encoderLayer: int) -> torch.Tensor:
         LinFP = "/home/exouser/control/IFLinearABFT.txt"
         colFP = "/home/exouser/control/abftCOL_FT.txt"
         rowFP = "/home/exouser/control/abftROW_FT.txt"
         QKV = "/home/exouser/control/QKV.txt"
+        inj = "/home/exouser/control/Injection.txt"
 
         with open(LinFP, "w") as frLin:
             frLin.truncate(0)
@@ -553,8 +554,15 @@ class BertSelfOutput(nn.Module):
         with open(QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('c')
+        # if(num_encoderLayer == 0):
+        #     with open(inj, 'w') as frinj:
+        #         frinj.truncate(0)
+        #         frinj.write('t')
         print("OUT(CL)")
         hidden_states = self.dense(hidden_states)
+        # with open(inj, 'w') as frinj:
+        #     frinj.truncate(0)
+        #     frinj.write('f')
 
         with open(LinFP, 'w') as frLin:
             frLin.truncate(0)
@@ -611,7 +619,7 @@ class BertAttention(nn.Module):
             output_attentions,
             num_encoderLayer
         )
-        attention_output = self.output(self_outputs[0], hidden_states)
+        attention_output = self.output(self_outputs[0], hidden_states, num_encoderLayer)
         outputs = (attention_output,) + self_outputs[1:]  # add attentions if we output them
         return outputs
 

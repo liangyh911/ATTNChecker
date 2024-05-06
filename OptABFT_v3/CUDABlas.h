@@ -164,7 +164,7 @@ void abftGemmBias(
     Dtype *chk_v_a, Dtype *chk_v_b, int64_t ld_chk_v,   
     Dtype *dBias_colchk, Dtype *dBias_rowchk, Dtype *dBias_colchk_r, Dtype *dBias_rowchk_r,
     int64_t num_batches, int64_t num_head,          
-    bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV
+    bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV, bool INJECTION
 );
 
 template <typename Dtype>

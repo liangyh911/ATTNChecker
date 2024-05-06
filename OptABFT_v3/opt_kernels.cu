@@ -405,6 +405,21 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 				}
 			}
 		}
+		// if(counter == 0){
+		// 	printf("[col check]Recaculate col chk. No found INF for d1 = INF (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",
+		// 													blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
+		// 	// printf("(C0: %.6f, C1: %.6f, R1: %.6f, R2: %.6f) \n", (float)(*(dA_rowchk)), (float)(*(dA_rowchk + ldda_rowchk)),
+		// 	// 													(float)(*(dA_rowchk_r)), (float)(*(dA_rowchk_r + ldda_rowchk_r)));
+		// 	T sum = 0.0;
+		// 	T sumW = 0.0;
+		// 	for(int i = 0; i < ldda; i++) {
+		// 		sum +=	*(dA + i); 
+		// 		sumW += (i+1)*(*(dA + i));
+		// 	}
+		// 	*(dA_colchk) = sum;
+		// 	*(dA_colchk + 1) = sumW;
+		// 	return;
+		// }
 		for(int i = 0; i < ldda; i++) {
 			if (*(dA+i) == MAX || isinf(*(dA+i))) {
 				loc = i;
@@ -442,8 +457,16 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 		if(loc == -1){
 			printf("[col check]No found NAN for d1 = NAN (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",
 															blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
-			printf("(C0: %.6f, C1: %.6f, R1: %.6f, R2: %.6f) \n", (float)(*(dA_colchk)), (float)(*(dA_colchk + 1)),
-																(float)(*(dA_colchk_r)), (float)(*(dA_colchk_r + 1)));
+			// printf("(C0: %.6f, C1: %.6f, R1: %.6f, R2: %.6f) \n", (float)(*(dA_colchk)), (float)(*(dA_colchk + 1)),
+			// 													(float)(*(dA_colchk_r)), (float)(*(dA_colchk_r + 1)));
+			// T sum = 0.0;
+			// T sumW = 0.0;
+			// for(int i = 0; i < ldda; i++) {
+			// 	sum +=	*(dA + i);
+			// 	sumW += (i+1) * (*(dA + i)); 
+			// }
+			// *(dA_colchk) = sum;
+			// *(dA_colchk + 1) = sumW;
 			return;
 		}
 		printf("[col check]NAN detected (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",  
@@ -567,6 +590,21 @@ detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea, int64_t col,
 				}
 			}
 		}
+		if(counter == 0){
+			printf("[row check]Recaculate row chk. No found INF for d1 = INF (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",
+															blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
+			// printf("(C0: %.6f, C1: %.6f, R1: %.6f, R2: %.6f) \n", (float)(*(dA_rowchk)), (float)(*(dA_rowchk + ldda_rowchk)),
+			// 													(float)(*(dA_rowchk_r)), (float)(*(dA_rowchk_r + ldda_rowchk_r)));
+			T sum = 0.0;
+			T sumW = 0.0;
+			for(int i = 0; i < col; i++) {
+				sum +=	*(dA + i * ldda); 
+				sumW += (i+1)*(*(dA + i * ldda));
+			}
+			*(dA_rowchk) = sum;
+			*(dA_rowchk + ldda_rowchk) = sumW;
+			return;
+		}
 		for(int i = 0; i < col; i++) {
 			if (*(dA + i * ldda) == MAX || isinf(*(dA + i * ldda))) {
 				loc = i;
@@ -602,10 +640,18 @@ detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea, int64_t col,
 			}
 		}
 		if(loc == -1){
-			printf("[row check]No found NAN for d1 = NAN (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",
+			printf("[row check]Recaculate row chk. No found NAN for d1 = NAN (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",
 															blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
-			printf("(C0: %.6f, C1: %.6f, R1: %.6f, R2: %.6f) \n", (float)(*(dA_rowchk)), (float)(*(dA_rowchk + ldda_rowchk)),
-																(float)(*(dA_rowchk_r)), (float)(*(dA_rowchk_r + ldda_rowchk_r)));
+			// printf("(C0: %.6f, C1: %.6f, R1: %.6f, R2: %.6f) \n", (float)(*(dA_rowchk)), (float)(*(dA_rowchk + ldda_rowchk)),
+			// 													(float)(*(dA_rowchk_r)), (float)(*(dA_rowchk_r + ldda_rowchk_r)));
+			T sum = 0.0;
+			T sumW = 0.0;
+			for(int i = 0; i < col; i++) {
+				sum +=	*(dA + i * ldda); 
+				sumW += (i+1)*(*(dA + i * ldda));
+			}
+			*(dA_rowchk) = sum;
+			*(dA_rowchk + ldda_rowchk) = sumW;
 			return;
 		}
 		printf("[row check]NAN detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
@@ -1034,4 +1080,17 @@ __global__ void bitflip(T *dA, int64_t row, int64_t col, int64_t lda, int64_t ba
 	uint32_t* intValue = reinterpret_cast<uint32_t*>(&orgValue);
     *intValue ^= (1u << flipBit);
 	*(dA + idx) = (T) *reinterpret_cast<float*>(intValue);
+}
+
+template <typename T>
+__global__ void assignChk(T *input, T *ouput, int64_t row, int64_t col, int64_t num_batch, int64_t num_head, int64_t N){
+	int stride = row * col;
+	int inpIdx = threadIdx.x * num_head * stride;
+	int outIdx = threadIdx.x * stride;
+
+	for(int c = 0; c < col; c++){
+		for(int r = 0; r < row; r++){
+			ouput[outIdx + r + c * row] = input[inpIdx + r + c * row];
+		}
+	}
 }

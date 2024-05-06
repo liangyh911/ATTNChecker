@@ -335,9 +335,6 @@ class GPTNeoSelfAttention(nn.Module):
         with open(self.QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('q')
-        with open(self.inj, 'w') as frinj:
-            frinj.truncate(0)
-            frinj.write('f')
         
         # if(num_encoderLayer == 0):
         #     with open(self.inj, 'w') as frinj:

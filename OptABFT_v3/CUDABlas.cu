@@ -1153,8 +1153,8 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         num_batches,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
     }
-    else if(m == 74 && k == 64){
-      abftbgemm<float, 74, 74, 64>(transa, transb, m, n, k,
+    else if(m == 75 && k == 64){
+      abftbgemm<float, 75, 75, 64>(transa, transb, m, n, k,
         alpha, dA_, ldda, stridea,
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
@@ -1162,8 +1162,8 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         num_batches,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
     }
-    else if(m == 64 && k == 74){
-      abftbgemm<float, 64, 74, 74>(transa, transb, m, n, k,
+    else if(m == 64 && k == 75){
+      abftbgemm<float, 64, 75, 75>(transa, transb, m, n, k,
         alpha, dA_, ldda, stridea,
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
@@ -2864,7 +2864,10 @@ void myGemmBiasPassChk (
     batchFile.close();
     
     int64_t num_batches = std::stoll(tokens[0]);
+    // for gpt-neo, bert, roberta
     int64_t num_head = std::stoll(tokens[1]);
+    // for gpt-2
+    // num_head = 3 * num_head;
 
     printf("num_batch: %d, num_head: %d\n", num_batches, num_head);
 
@@ -3617,6 +3620,7 @@ void abftGemmBiasPassChk(
   // printf("dC_rowchk: \n");
   // outputChk(dC_rowchk<T>, 1, lddc_rowchk, 0, m, 2*num_batches);
 
+  // for gpt-neo, bert, roberta
   if(QKV == 'q'){
     MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_rowchk<T>, Q_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
     // printf("Q_rowchk: \n");
@@ -3636,6 +3640,24 @@ void abftGemmBiasPassChk(
     // printf("V_rowchk: \n");
     // outputChk(V_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
   }
+
+  // For GPT-2
+  // int head = num_head / 3;
+  // MatrixSplit<<<1, dim3(num_batches, num_head), 0, stream_colchk>>>(dC_rowchk<T>, tmp_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
+  // MatrixSplit<<<1, dim3(num_batches, num_head), 0, stream_rowchk>>>(dC_colchk<T>, tmp_colchk<T>, 2, n/batches, lddc_colchk, num_head);
+  // // for Q
+  // assignChk<<<1, dim(num_batches, head)>>>(tmp_rowchk<T>, Q_rowchk<T>, m/num_head, 2, (head*num_batches), head, 0);
+  // printf("Q_rowchk: \n");
+  // outputChk(Q_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
+  // // for K
+  // assignChk<<<1, dim(num_batches, head)>>>(tmp_rowchk<T>, K_rowchk<T>, m/num_head, 2, (head*num_batches), head, 1);
+  // printf("K_colchk: \n");
+  // outputChk(K_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
+  // MatrixTranspose<<<1, num_head*num_batches>>>(K_rowchk<T>, K_colchk<T>, m/num_head, 2);
+  // // for V
+  // assignChk<<<1, dim(num_batches, head)>>>(tmp_colchk<T>, V_colchk<T>, 2, n/num_batches, (head*num_batches), head, 2);
+  // printf("V_colchk: \n");
+  // outputChk(V_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
 }
 
 template <typename T>
@@ -3776,6 +3798,7 @@ void myGemmBias (
     bool DEBUG = true;
     bool CHECK_BEFORE = true;
     bool CHECK_AFTER = true;
+    bool INJECTION = false;
     
     char flag;
     std::ifstream colFile("/home/exouser/control/abftCOL_FT.txt");
@@ -3804,6 +3827,19 @@ void myGemmBias (
     }
     rowFile.close();
 
+    std::ifstream injFile("/home/exouser/control/Injection.txt");
+    if (injFile.is_open()){
+      injFile.get(flag);
+      if(flag == 't'){
+        INJECTION = true;
+      }
+      // printf("%c", flag);
+    }
+    else{
+      printf("Injection: Cannot open file, using default setting.\n");
+    }
+    injFile.close();
+
     auto start = high_resolution_clock::now();
     if constexpr (std::is_same<T, float>::value) {
       abftGemmBias<float>(transpose_mat1, transpose_mat2, m, n, k,
@@ -3813,7 +3849,7 @@ void myGemmBias (
         activation,
         chk_v_a, chk_v_b, ld_chk_v,
         dBias_colchk, dBias_rowchk, dBias_colchk_r, dBias_rowchk_r,
-        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, QKV);
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, QKV, INJECTION);
     }
     else if constexpr (std::is_same<T, at::Half>::value) {
       abftGemmBias<at::Half>(transpose_mat1, transpose_mat2, m, n, k,
@@ -3823,7 +3859,7 @@ void myGemmBias (
         activation,
         chk_v_a, chk_v_b, ld_chk_v,
         dBias_colchk, dBias_rowchk, dBias_colchk_r, dBias_rowchk_r,
-        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, QKV);
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, QKV, INJECTION);
     }
     cudaDeviceSynchronize();
     auto stop = high_resolution_clock::now();
@@ -3883,7 +3919,7 @@ void abftGemmBias(
     GEMMAndBiasActivationEpilogue activation,
     T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,
     T *dBias_colchk, T *dBias_rowchk, T *dBias_colchk_r, T *dBias_rowchk_r,                             
-    bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV) {
+    bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV, bool INJECTION) {
   
   // std::cout << "Using gemm_and_bias." << std::endl;
   using opmath_t = at::opmath_type<T>;
@@ -4209,6 +4245,11 @@ void abftGemmBias(
         printf("dBias_rowchk_gemm: %f (%f)(%f)(%f)\n", t_Biasrowchk, t_Biascolchk/t, (double)1*2*n*m*2/t_Biascolchk/1e6, (double)1*(2*m+m*n+2*n)*sizeof(T)/t_Biascolchk/1e6);
         recordEffeciency("/home/exouser/records/effeciency/abftBias.txt",  t_Biasrowchk, t_Biascolchk/t, (double)1*2*n*m*2/t_Biascolchk/1e6, (double)1*(2*m+m*n+2*n)*sizeof(T)/t_Biascolchk/1e6);
       }
+  }
+
+  if(INJECTION){
+    if(DEBUG) printf("Injection.\n");
+    bitflip<<<1, 1, 0, stream_main>>>(result_ptr, 0, 0, result_ld, 0);
   }
 
   if (COL_FT){
