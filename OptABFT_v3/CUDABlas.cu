@@ -875,7 +875,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     int64_t nb = int(num_batches/num_head);
     // scale check sum
     ChkSumScale<<<1, num_batches, 0, stream_rowchk>>>(dC_rowchk<T>, m, n, 2*m, num_head);
-    cudaStreamSynchronize(stream_rowchk);
+    // cudaStreamSynchronize(stream_rowchk);
     // printf("After scale dC_rowchk:\n");
     // outputChk(dC_rowchk<T>, num_batches, lddc_rowchk, 2*m, m, 2);
     // merage chechk sum
@@ -1156,6 +1156,24 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         num_batches,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
     }
+    else if(m == 70 && k == 64){
+      abftbgemm<float, 70, 70, 64>(transa, transb, m, n, k,
+        alpha, dA_, ldda, stridea,
+        dB_, lddb, strideb, beta,
+        dC, lddc, stridec,
+        chk_v_a, chk_v_b, ld_chk_v,
+        num_batches,
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
+    }
+    else if(m == 64 && k == 70){
+      abftbgemm<float, 64, 70, 70>(transa, transb, m, n, k,
+        alpha, dA_, ldda, stridea,
+        dB_, lddb, strideb, beta,
+        dC, lddc, stridec,
+        chk_v_a, chk_v_b, ld_chk_v,
+        num_batches,
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
+    }
     else if(m == 75 && k == 64){
       abftbgemm<float, 75, 75, 64>(transa, transb, m, n, k,
         alpha, dA_, ldda, stridea,
@@ -1194,6 +1212,24 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
           num_batches,
           COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
       }
+      else if(m == 70 && k == 64){
+      abftbgemm<at::Half, 70, 70, 64>(transa, transb, m, n, k,
+        alpha, dA_, ldda, stridea,
+        dB_, lddb, strideb, beta,
+        dC, lddc, stridec,
+        chk_v_a, chk_v_b, ld_chk_v,
+        num_batches,
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
+    }
+    else if(m == 64 && k == 70){
+      abftbgemm<at::Half, 64, 70, 70>(transa, transb, m, n, k,
+        alpha, dA_, ldda, stridea,
+        dB_, lddb, strideb, beta,
+        dC, lddc, stridec,
+        chk_v_a, chk_v_b, ld_chk_v,
+        num_batches,
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION);
+    }
       else if(m == 71 && k == 64){
         abftbgemm<at::Half, 71, 71, 64>(transa, transb, m, n, k,
           alpha, dA_, ldda, stridea,
@@ -3496,8 +3532,24 @@ void abftGemmBiasPassChk(
   // outputChk(result_ptr, 1, result_ld, 0, m, n);
 
   if(INJECTION){
-    if(DEBUG) printf("Injection.\n");
-    bitflip<<<1, 1, 0, stream_main>>>(result_ptr, 0, 0, result_ld, 0);
+    if(Together){
+      if(QKV == 'q'){
+        if(DEBUG) printf("Injection.\n");
+        bitflip<<<1, 1, 0, stream_main>>>(result_ptr, 0, 0, result_ld, 0);
+      }
+      else if(QKV == 'k'){
+        if(DEBUG) printf("Injection.\n");
+        bitflip<<<1, 1, 0, stream_main>>>(result_ptr, 0 + (m/3), 0, result_ld, 0);
+      }
+      else{
+        if(DEBUG) printf("Injection.\n");
+        bitflip<<<1, 1, 0, stream_main>>>(result_ptr, 0 + 2*(m/3), 0, result_ld, 0);
+      }
+    }
+    else{
+      if(DEBUG) printf("Injection.\n");
+      bitflip<<<1, 1, 0, stream_main>>>(result_ptr, 0, 0, result_ld, 0);
+    }
   }
   
   // printf("After injection C: \n");

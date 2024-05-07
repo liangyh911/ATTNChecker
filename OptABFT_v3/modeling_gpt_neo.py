@@ -213,6 +213,7 @@ class GPTNeoSelfAttention(nn.Module):
         self.passChk = "/home/exouser/control/IFPassChk.txt"
         self.QKV = "/home/exouser/control/QKV.txt"
         self.batch = "/home/exouser/control/Batch.txt"
+        self.together = "/home/exouser/control/together.txt"
 
     def _split_heads(self, tensor, num_heads, attn_head_size):
         """
@@ -319,6 +320,9 @@ class GPTNeoSelfAttention(nn.Module):
             F.write(str(hidden_states.size()[0]))
             F.write(" ")
             F.write(str(self.num_heads))
+        with open(self.together, 'w') as frTo:
+            frTo.truncate(0)
+            frTo.write("f")
 
         with open(self.LinFP, "w") as frLin:
             frLin.truncate(0)

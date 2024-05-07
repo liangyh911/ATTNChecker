@@ -209,12 +209,16 @@ class RobertaSelfAttention(nn.Module):
         QKV = "/home/exouser/control/QKV.txt"
         passChk = "/home/exouser/control/IFPassChk.txt"
         batch = "/home/exouser/control/Batch.txt"
+        together = "/home/exouser/control/together.txt"
 
         with open(batch, 'w') as F:
             F.truncate(0)
             F.write(str(hidden_states.size()[0]))
             F.write(" ")
             F.write(str(self.num_attention_heads))
+        with open(together, 'w') as frTo:
+            frTo.truncate(0)
+            frTo.write("f")
 
         with open(LinFP, "w") as frLin:
             frLin.truncate(0)
