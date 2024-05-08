@@ -327,6 +327,18 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 		if(!isinf(d2)){
 			// d2 != INF
 			//locate the error
+			
+			int counter = 0;
+			for(int i = 0; i < ldda; i++){
+				if(*(dA+i) > 1e2){
+					counter++;
+					if(counter > 1){
+						printf("[col check]col chksum error.\n");
+						return;
+					}
+				}
+			}
+
 			loc = round(d2 / d1) - 1;
 			printf("[col check]error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
 			//correction
@@ -356,9 +368,17 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 			else{
 				// C1,j != INF
 				MAX = 0;
+				int counter = 0;
 				for(int i = 0; i < ldda; i++) {
 					if((*(dA+i)) > MAX){
 						MAX = *(dA+i);
+					}
+					if(*(dA+i) > 1e2){
+						counter++;
+						if(counter > 1){
+							printf("[col check]col chksum error.\n");
+							return;
+						}
 					}
 				}
 				for(int i = 0; i < ldda; i++) {
@@ -405,21 +425,7 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 				}
 			}
 		}
-		// if(counter == 0){
-		// 	printf("[col check]Recaculate col chk. No found INF for d1 = INF (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",
-		// 													blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
-		// 	// printf("(C0: %.6f, C1: %.6f, R1: %.6f, R2: %.6f) \n", (float)(*(dA_rowchk)), (float)(*(dA_rowchk + ldda_rowchk)),
-		// 	// 													(float)(*(dA_rowchk_r)), (float)(*(dA_rowchk_r + ldda_rowchk_r)));
-		// 	T sum = 0.0;
-		// 	T sumW = 0.0;
-		// 	for(int i = 0; i < ldda; i++) {
-		// 		sum +=	*(dA + i); 
-		// 		sumW += (i+1)*(*(dA + i));
-		// 	}
-		// 	*(dA_colchk) = sum;
-		// 	*(dA_colchk + 1) = sumW;
-		// 	return;
-		// }
+		
 		for(int i = 0; i < ldda; i++) {
 			if (*(dA+i) == MAX || isinf(*(dA+i))) {
 				loc = i;
@@ -512,6 +518,16 @@ detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea, int64_t col,
 		if(!isinf(d2)){
 			// d2 != INF
 			//locate the error
+			int counter = 0;
+			for(int i = 0; i < col; i++){
+				if(*(dA+i*ldda) > 1e2){
+					counter++;
+					if(counter > 1){
+						printf("[row check]row chksum error.\n");
+						return;
+					}
+				}
+			}
 			loc = round(d2 / d1) - 1;
 			printf("[row check]error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
 			//correction
@@ -540,9 +556,17 @@ detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea, int64_t col,
 			else{
 				// C1,j != INF
 				MAX = 0;
+				int counter = 0;
 				for(int i = 0; i < col; i++) {
-					if((*dA + i * ldda) > MAX){
+					if(*(dA + i * ldda) > MAX){
 						MAX = *(dA+i*ldda);
+					}
+					if(*(dA + i * ldda) > 1e2){
+						counter++;
+						if(counter > 1){
+							printf("[row check]row chksum error.\n");
+							return;
+						}
 					}
 				}
 				for(int i = 0; i < col; i++) {
