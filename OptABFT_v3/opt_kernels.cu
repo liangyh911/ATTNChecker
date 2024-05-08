@@ -1059,10 +1059,10 @@ __global__ void MatrixMerge(T *inpMatrix, T *outMatrix, int64_t iRow, int64_t iC
 }
 
 template <typename T>
-__global__ void bitflip(T *dA, int64_t row, int64_t col, int64_t lda, int64_t batch){
-// __global__ void bitflip(T *dA){
-	int stride = row * col;
-	int idx = batch * stride + row + col * lda;
+// __global__ void bitflip(T *dA, int64_t row, int64_t col, int64_t lda, int64_t batch){
+__global__ void bitflip(T *dA, int64_t idx){
+	// int stride = row * col;
+	// int idx = batch * stride + row + col * lda;
 	
 	// T value = INFINITY;
 	// T value = NAN;
