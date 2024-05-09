@@ -713,7 +713,8 @@ detect_correct_col_Gemm(T * dA, int64_t ldda, T E, int64_t num_col,
 		float d2 = (float)(*(dA_colchk + 1)) - (*(dA_colchk_r + 1));
 		float abs_d1 = fabs(d1);
 		int loc = -1;
-		T MAX;
+		int locT = -1;
+		T MAX, MIN;
 
 		//error detected
 		// abs == inf
@@ -804,10 +805,19 @@ detect_correct_col_Gemm(T * dA, int64_t ldda, T E, int64_t num_col,
 				else{
 					// C1,j != INF
 					MAX = 0;
+					MIN = INFINITY;
 					for(int i = 0; i < ldda; i++) {
 						if(*(dA+i) > MAX){
 							MAX = *(dA+i);
+							loc = i;
 						}
+						if(*(dA+i) < MIN){
+							MIN = *(dA+i);
+							locT = i;
+						}
+					}
+					if(fabs((T)MAX) < fabs((T)MIN)){
+						loc = locT;
 					}
 					for(int i = 0; i < ldda; i++) {
 						if (*(dA+i) == MAX) {
@@ -862,7 +872,8 @@ detect_correct_row_Gemm(T * dA, int64_t ldda, T E, int64_t num_row, int64_t num_
 		float d2 = (float)(*(dA_rowchk + ldda_rowchk)) - (*(dA_rowchk_r + ldda_rowchk_r));
 		float abs_d1 = fabs(d1);
 		int loc = -1;
-		T MAX;
+		int locT = -1;
+		T MAX, MIN;
 
 		
 		//error detected
@@ -944,10 +955,19 @@ detect_correct_row_Gemm(T * dA, int64_t ldda, T E, int64_t num_row, int64_t num_
 				}
 				else{
 					MAX = 0;
+					MIN = INFINITY;
 					for(int i = 0; i < num_col; i++){
 						if(*(dA + i * ldda) > MAX){
 							MAX = *(dA + i * ldda);
+							loc = i;
 						}
+						if(*(dA + i * ldda) < MIN){
+							MIN = *(dA + i * ldda);
+							locT = i;
+						}
+					}
+					if(fabs((T)MAX) < fabs((T)MIN)){
+						loc = locT;
 					}
 					for(int i = 0; i < num_col; i++){
 						if(*(dA + i * ldda) == MAX){
