@@ -320,7 +320,8 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
     float d2 = (float)(*(dA_colchk + 1)) - (*(dA_colchk_r + 1));
 	float abs_d1 = fabs(d1);
 	int loc = -1;
-	T MAX;
+	int locT = -1;
+	T MAX, MIN;
 
 	// E < abs d1 < INF
 	if(abs_d1 > E && !isinf(abs_d1) && !isnan(abs_d1)) {
@@ -368,10 +369,16 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 			else{
 				// C1,j != INF
 				MAX = 0;
+				MIN = INFINITY;
 				int counter = 0;
 				for(int i = 0; i < ldda; i++) {
 					if((*(dA+i)) > MAX){
 						MAX = *(dA+i);
+						loc = i;
+					}
+					if((*(dA+i)) < MIN){
+						MIN = *(dA+i);
+						locT = i;
 					}
 					if(*(dA+i) > 1e2){
 						counter++;
@@ -381,11 +388,8 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 						}
 					}
 				}
-				for(int i = 0; i < ldda; i++) {
-					if (*(dA+i) == MAX) {
-						loc = i;
-						break;
-					}
+				if(fabs(((float)MAX)) < fabs(((float)MIN))){
+					loc = locT;
 				}
 				printf("[col check]chk inf error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
 				//correction
@@ -463,16 +467,6 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 		if(loc == -1){
 			printf("[col check]No found NAN for d1 = NAN (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",
 															blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
-			// printf("(C0: %.6f, C1: %.6f, R1: %.6f, R2: %.6f) \n", (float)(*(dA_colchk)), (float)(*(dA_colchk + 1)),
-			// 													(float)(*(dA_colchk_r)), (float)(*(dA_colchk_r + 1)));
-			// T sum = 0.0;
-			// T sumW = 0.0;
-			// for(int i = 0; i < ldda; i++) {
-			// 	sum +=	*(dA + i);
-			// 	sumW += (i+1) * (*(dA + i)); 
-			// }
-			// *(dA_colchk) = sum;
-			// *(dA_colchk + 1) = sumW;
 			return;
 		}
 		printf("[col check]NAN detected (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",  
@@ -512,7 +506,8 @@ detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea, int64_t col,
     float d2 = (float)(*(dA_rowchk + ldda_rowchk)) - (*(dA_rowchk_r + ldda_rowchk_r));
 	float abs_d1 = fabs(d1);
 	int loc = -1;
-	T MAX;
+	int locT = -1;
+	T MAX, MIN;
 
 	if(abs_d1 > E && !isinf(abs_d1) && !isnan(abs_d1)) {
 		if(!isinf(d2)){
@@ -556,10 +551,16 @@ detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea, int64_t col,
 			else{
 				// C1,j != INF
 				MAX = 0;
+				MIN = INFINITY;
 				int counter = 0;
 				for(int i = 0; i < col; i++) {
 					if(*(dA + i * ldda) > MAX){
 						MAX = *(dA+i*ldda);
+						loc = i;
+					}
+					if(*(dA + i * ldda) < MIN){
+						MIN = *(dA+i*ldda);
+						locT = i;
 					}
 					if(*(dA + i * ldda) > 1e2){
 						counter++;
@@ -569,11 +570,9 @@ detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea, int64_t col,
 						}
 					}
 				}
-				for(int i = 0; i < col; i++) {
-					if (*(dA + i * ldda) == MAX) {
-						loc = i;
-						break;
-					}
+				
+				if(fabs((T)MAX) < fabs((T)MIN)){
+					loc = locT;
 				}
 				printf("[row check]chk inf error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
 				//correction
