@@ -330,11 +330,12 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 			//locate the error
 			
 			int counter = 0;
+			// if more than one large number in the col
 			for(int i = 0; i < ldda; i++){
-				if(*(dA+i) > 1e2){
+				if(fabs((float)*(dA+i)) > (T)1e10){
 					counter++;
 					if(counter > 1){
-						printf("[col check]col chksum error.\n");
+						printf("[col check]col chksum error, more than one large number.\n");
 						return;
 					}
 				}
@@ -380,10 +381,10 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 						MIN = *(dA+i);
 						locT = i;
 					}
-					if(*(dA+i) > 1e2){
+					if(fabs((float)*(dA+i)) > (T)1e10){
 						counter++;
 						if(counter > 1){
-							printf("[col check]col chksum error.\n");
+							printf("[col check]col chksum error, more than one large number.\n");
 							return;
 						}
 					}
@@ -416,20 +417,30 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 	// abs = inf
 	if(isinf(abs_d1)){
 		MAX = 0;
+		MIN = INFINITY;
 		int64_t counter = 0;
 		for(int i = 0; i < ldda; i++) {
 			if(*(dA+i) > MAX){
 				MAX = *(dA+i);
 			}
-			if(isinf(*(dA+i))){
+			if(*(dA+i) < MIN){
+				MIN = *(dA+i);
+			}
+			if(isinf(*(dA+i)) || fabs((float)*(dA+i)) > (T)1e10){
 				counter++;
 				if(counter > 1){
-					printf("[col check]Multi INFs detected in one column.\n");
+					printf("[col check]Multi INFs or Large Number detected in one column.\n");
 					return;
 				}
 			}
 		}
-		
+		if(counter == 0){
+			printf("[col chk]No INF or Large Number found.\n");
+			return;
+		}
+		if(fabs((T)MAX) < fabs((T)MIN)){
+			MAX = MIN;
+		}
 		for(int i = 0; i < ldda; i++) {
 			if (*(dA+i) == MAX || isinf(*(dA+i))) {
 				loc = i;
@@ -514,14 +525,28 @@ detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea, int64_t col,
 			// d2 != INF
 			//locate the error
 			int counter = 0;
+			// if more than one large number
 			for(int i = 0; i < col; i++){
-				if(*(dA+i*ldda) > 1e2){
+				if(fabs((float)*(dA + i*ldda)) > (T)1e10){
 					counter++;
 					if(counter > 1){
-						printf("[row check]row chksum error.\n");
+						printf("[row check]row chksum error. More than one Large Number detected. \n");
 						return;
 					}
 				}
+			}
+			if(counter == 0){
+				printf("[row chk]Recaculate row chk. No Large Number detected for d1 = INF (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d, %.6f) \n",
+															blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc, (float)*(dA+21*ldda));
+				T sum = 0.0;
+				T sumW = 0.0;
+				for(int i = 0; i < col; i++) {
+					sum +=	*(dA + i * ldda); 
+					sumW += (i+1)*(*(dA + i * ldda));
+				}
+				*(dA_rowchk) = sum;
+				*(dA_rowchk + ldda_rowchk) = sumW;
+				return;
 			}
 			loc = round(d2 / d1) - 1;
 			printf("[row check]error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
@@ -562,10 +587,10 @@ detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea, int64_t col,
 						MIN = *(dA+i*ldda);
 						locT = i;
 					}
-					if(*(dA + i * ldda) > 1e2){
+					if(fabs((float)*(dA + i * ldda)) > (T)1e10){
 						counter++;
 						if(counter > 1){
-							printf("[row check]row chksum error.\n");
+							printf("[row check]row chksum error. More than one Large Number detected. \n");
 							return;
 						}
 					}
@@ -601,14 +626,18 @@ detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea, int64_t col,
 		// abs == inf
 		int64_t counter = 0;
 		MAX = 0;
+		MIN == INFINITY;
 		for(int i = 0; i < col; i++) {
-			if((*dA + i * ldda) > MAX){
+			if(*(dA + i * ldda) > MAX){
 				MAX = *(dA + i * ldda);
 			}
-			if(isinf(*(dA + i * ldda))){
+			if(*(dA + i * ldda) < MIN){
+				MIN = *(dA + i * ldda);
+			}
+			if(isinf(*(dA + i * ldda)) || fabs((float)*(dA + i * ldda)) > (T)1e10){
 				counter++;
 				if(counter > 1){
-					printf("[row check]Multi INFs detected in one row. \n");
+					printf("[row check]Multi INFs or Large Number detected in one row. \n");
 					return;
 				}
 			}
@@ -627,6 +656,9 @@ detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea, int64_t col,
 			*(dA_rowchk) = sum;
 			*(dA_rowchk + ldda_rowchk) = sumW;
 			return;
+		}
+		if(fabs((float)MAX) < fabs((float)MIN)){
+			MAX = MIN;
 		}
 		for(int i = 0; i < col; i++) {
 			if (*(dA + i * ldda) == MAX || isinf(*(dA + i * ldda))) {
@@ -725,10 +757,10 @@ detect_correct_col_Gemm(T * dA, int64_t ldda, T E, int64_t num_col,
 				if((*dA + i) > MAX){
 					MAX = *(dA + i);
 				}
-				if(isinf(*(dA + i))){
+				if(isinf(*(dA + i)) || fabs((float)*(dA + i)) > (T)1e10){
 					counter++;
 					if(counter > 1){
-						printf("[col check]Multi INFs detected in one col. \n");
+						printf("[col check]Multi INFs or Large Numbers detected in one col. \n");
 						return;
 					}
 				}
@@ -884,7 +916,7 @@ detect_correct_row_Gemm(T * dA, int64_t ldda, T E, int64_t num_row, int64_t num_
 				if(*(dA + i * ldda) > MAX){
 					MAX = *(dA + i * ldda);
 				}
-				if(isinf(*(dA + i * ldda))){
+				if(isinf(*(dA + i * ldda)) || fabs((float)*(dA + i * ldda)) > (T)1e10){
 					counter++;
 					if(counter > 1){
 						printf("[row check]Multi INFs detected in one row. \n");
