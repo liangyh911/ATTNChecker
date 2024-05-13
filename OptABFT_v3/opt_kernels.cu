@@ -570,7 +570,23 @@ detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea, int64_t col,
 		else{
 			if(isinf(*(dA_rowchk + ldda_rowchk))){
 				// C1,j == INF
-				printf("[row check]Error detected in INPUTS.\n");
+				// two cases: 1. inp matrxi has error; 2. inp matrix not error
+				T sum = 0.0;
+				T sumW = 0.0;
+				for(int i = 0; i < col; i++) {
+					if(fabs((float)*(dA+i*ldda)) > (T)1e10 || isinf(*(dA+i*ldda))){
+						printf("[row check]Error detected in INPUTS.(loc = %d)\n", i);
+						return;
+					}
+					else{
+						sum +=	*(dA + i * ldda); 
+						sumW += (i+1)*(*(dA + i * ldda));
+					}
+				}
+				*(dA_rowchk) = sum;
+				*(dA_rowchk + ldda_rowchk) = sumW;
+				printf("[row check]Recaculate row chk. No found Large Number or INF for d1 = INF (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",
+															blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
 				return;
 			}
 			else{
@@ -1155,6 +1171,7 @@ __global__ void bitflip(T *dA, int64_t idx){
 	uint32_t* intValue = reinterpret_cast<uint32_t*>(&orgValue);
     *intValue ^= (1u << flipBit);
 	*(dA + idx) = (T) *reinterpret_cast<float*>(intValue);
+	// printf("%.6f\n", (float)*(dA + idx));
 }
 
 template <typename T>
