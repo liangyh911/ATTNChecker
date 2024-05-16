@@ -1,3 +1,5 @@
+# used to clean the record files 
+
 import os
 
 def get_home_directory_with_expanduser():
@@ -15,10 +17,19 @@ def main():
     biasTime =       "/abftbgemm/records/time/abftBias.txt"
     biasEffecience = "/abftbgemm/records/effeciency/abftBias.txt"
 
+    with open((homePath + bgemmTime), "w") as frTime:
+        frTime.truncate(0)
+    with open((homePath + bgemmEffecience), "w") as frEffecience:
+        frEffecience.truncate(0)
+
     with open((homePath + gemmTime), "w") as frTime:
         frTime.truncate(0)
-    
     with open((homePath + gemmEffecience), "w") as frEffecience:
+        frEffecience.truncate(0)
+
+    with open((homePath + biasTime), "w") as frTime:
+        frTime.truncate(0)
+    with open((homePath + biasEffecience), "w") as frEffecience:
         frEffecience.truncate(0)
 
     print("Finish Cleaning Records.")
