@@ -2,6 +2,10 @@
 #include <cstdio>
 #include <string>
 #include <fstream>
+#include <cstdlib>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 #define TORCH_ASSERT_ONLY_METHOD_OPERATORS
 #include <ATen/core/Tensor.h>
@@ -325,6 +329,15 @@ Tensor& addmm_out_cuda_impl(Tensor& result, const Tensor& self, const Tensor& ma
 
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(!args.result->is_conj());
 
+  const char* homeDir = nullptr;
+  homeDir = getenv("HOME");
+  if (homeDir != nullptr) {
+      
+  } 
+  else {
+      std::cerr << "Could not get home directory" << std::endl;
+  }
+
 #if (!defined(USE_ROCM) && !defined(_MSC_VER)) || (defined(USE_ROCM) && ROCM_VERSION >= 50700)
   if (useLtInterface) {
     AT_DISPATCH_FLOATING_TYPES_AND2(
@@ -333,7 +346,10 @@ Tensor& addmm_out_cuda_impl(Tensor& result, const Tensor& self, const Tensor& ma
         scalar_type,
         "addmm_cuda_lt",
         [&] {
-          std::ifstream myfile("/home/yliang/abftbgemm/control/IFLinearABFT.txt");
+          fs::path homePath(homeDir);
+          fs::path destinationFile = "abftbgemm/control/IFLinearABFT.txt";
+          fs::path fullPath = homePath / destinationFile;
+          std::ifstream myfile(fullPath);
           if (!myfile.is_open()){
             std::cout << "gemm_bias" << std::endl;
             at::cuda::blas::gemm_and_bias<scalar_t>(
@@ -375,7 +391,10 @@ Tensor& addmm_out_cuda_impl(Tensor& result, const Tensor& self, const Tensor& ma
             myfile.close();
             if(flag == 't'){
                 flag = 'f';
-                std::ifstream isPassChkFile("/home/yliang/abftbgemm/control/IFPassChk.txt");
+                fs::path homePath(homeDir);
+                fs::path destinationFile = "abftbgemm/control/IFPassChk.txt";
+                fs::path fullPath = homePath / destinationFile;
+                std::ifstream isPassChkFile(fullPath);
                 isPassChkFile.get(flag);
                 isPassChkFile.close();
                 if(flag == 't'){
@@ -501,8 +520,11 @@ Tensor& addmm_out_cuda_impl(Tensor& result, const Tensor& self, const Tensor& ma
           const scalar_t* mat1_ptr = args.mata->const_data_ptr<scalar_t>();
           const scalar_t* mat2_ptr = args.matb->const_data_ptr<scalar_t>();
           scalar_t* result_ptr = args.result->mutable_data_ptr<scalar_t>();
-          
-          std::ifstream myfile("/home/yliang/abftbgemm/control/IFLinearABFT.txt");
+
+          fs::path homePath(homeDir);
+          fs::path destinationFile = "abftbgemm/control/IFLinearABFT.txt";
+          fs::path fullPath = homePath / destinationFile;
+          std::ifstream myfile(fullPath);
           if (!myfile.is_open()){
             std::cout << "gemm" << std::endl;
             at::cuda::blas::gemm<scalar_t>(
@@ -526,7 +548,10 @@ Tensor& addmm_out_cuda_impl(Tensor& result, const Tensor& self, const Tensor& ma
             myfile.close();
             if(flag == 't'){
               flag = 'f';
-              std::ifstream isPassChkFile("/home/yliang/abftbgemm/control/IFPassChk.txt");
+              fs::path homePath(homeDir);
+              fs::path destinationFile = "abftbgemm/control/IFPassChk.txt";
+              fs::path fullPath = homePath / destinationFile;
+              std::ifstream isPassChkFile(fullPath);
               isPassChkFile.get(flag);
               isPassChkFile.close();
               if(flag == 't'){
@@ -663,6 +688,14 @@ const Tensor& baddbmm_out_cuda_impl(const Tensor& result, const Tensor& self, co
     scalar_t* result_ptr = result_->mutable_data_ptr<scalar_t>();
     const auto transa = transpose_batch1 ? batch1_->is_conj() ? 'c' : 't' : 'n';
     const auto transb = transpose_batch2 ? batch2_->is_conj() ? 'c' : 't' : 'n';
+
+    const char* homeDir = nullptr;
+    homeDir = getenv("HOME");
+    if (homeDir == nullptr) {
+      std::cerr << "Could not get home directory" << std::endl;
+      return;
+    } 
+
     // If batch is 1 call gemm rather than bgemm
     if (num_batches == 1) {
       at::cuda::blas::gemm<scalar_t>(
@@ -674,7 +707,11 @@ const Tensor& baddbmm_out_cuda_impl(const Tensor& result, const Tensor& self, co
           beta_val,
           result_ptr, ldc);
     } else {
-      std::ifstream myfile("/home/yliang/abftbgemm/control/IFABFT.txt");
+      fs::path homePath(homeDir);
+      fs::path destinationFile = "abftbgemm/control/IFABFT.txt";
+      fs::path fullPath = homePath / destinationFile;
+      std::ifstream myfile(fullPath);
+      // std::ifstream myfile("/home/yliang/abftbgemm/control/IFABFT.txt");
       if (!myfile.is_open()){
         std::cout << "Calling bgemm function" << std::endl;
           at::cuda::blas::bgemm<scalar_t>(
