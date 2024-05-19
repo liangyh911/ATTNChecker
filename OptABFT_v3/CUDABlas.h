@@ -25,6 +25,10 @@
 #include <ATen/OpMathType.h>
 // #include "opt_kernels.cu"
 
+#include <filesystem>
+
+namespace fs = std::filesystem;
+
 namespace at::cuda::blas {
 
 // RAII guard that sets the CuBLAS pointer mode and restores it to
@@ -93,7 +97,8 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
               T *c, int64_t ldc,
               T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,
               int64_t num_batches, int64_t num_head,                                     
-              bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV, bool INJECTION);
+              bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, 
+              char QKV, bool INJECTION, fs::path homePath);
 
 
 template <typename T>
@@ -107,7 +112,8 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
               T *b, int64_t ldb, at::opmath_type<T> beta,
               T *c, int64_t ldc,
               T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,                      
-              bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV, bool INJECTION);
+              bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, 
+              char QKV, bool INJECTION, fs::path homePath);
 
 template <typename Dtype>
 void myGemmBiasPassChk(
@@ -135,7 +141,8 @@ void abftGemmBiasPassChk(
     Dtype *chk_v_a, Dtype *chk_v_b, int64_t ld_chk_v,   
     Dtype *dBias_colchk, Dtype *dBias_rowchk, Dtype *dBias_colchk_r, Dtype *dBias_rowchk_r,
     int64_t num_batches, int64_t num_head,          
-    bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV, bool INJECTION, bool Together
+    bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, 
+    char QKV, bool INJECTION, bool Together, fs::path homePath
 );
 
 template <typename Dtype>
@@ -164,7 +171,8 @@ void abftGemmBias(
     Dtype *chk_v_a, Dtype *chk_v_b, int64_t ld_chk_v,   
     Dtype *dBias_colchk, Dtype *dBias_rowchk, Dtype *dBias_colchk_r, Dtype *dBias_rowchk_r,
     int64_t num_batches, int64_t num_head,          
-    bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, char QKV, bool INJECTION
+    bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, 
+    char QKV, bool INJECTION, fs::path homePath
 );
 
 template <typename Dtype>
@@ -264,7 +272,7 @@ void mybgemm(CUDABLAS_MYBGEMM_ARGTYPES(T));
     Dtype *dC, int64_t lddc, int64_t stridec,                                                 \
     int64_t num_batches,                                                                    \
     bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, bool ifPassChk, \
-    char QKV, int64_t num_head, bool INJECTION
+    char QKV, int64_t num_head, bool INJECTION, fs::path homePath
 
 template <typename T, int64_t M, int64_t N, int64_t K>
 void abftbgemm(CUDABLAS_ABFTGEMM_ARGTYPES(T));

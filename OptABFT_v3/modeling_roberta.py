@@ -435,15 +435,15 @@ class RobertaSelfOutput(nn.Module):
         with open(QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('c')
-        if(num_encoderLayer == 0):
-            with open(inj, 'w') as frinj:
-                frinj.truncate(0)
-                frinj.write('t')
+        # if(num_encoderLayer == 0):
+        #     with open(inj, 'w') as frinj:
+        #         frinj.truncate(0)
+        #         frinj.write('t')
         print("OUT(CL)")
         hidden_states = self.dense(hidden_states)
-        with open(inj, 'w') as frinj:
-                frinj.truncate(0)
-                frinj.write('f')
+        # with open(inj, 'w') as frinj:
+        #         frinj.truncate(0)
+        #         frinj.write('f')
 
         with open(LinFP, 'w') as frLin:
             frLin.truncate(0)
