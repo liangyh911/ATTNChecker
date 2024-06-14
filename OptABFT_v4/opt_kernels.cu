@@ -1174,6 +1174,35 @@ __global__ void GemmResCopyBack(T *res, T *inp, int64_t res_ld, int64_t inp_ld, 
 }
 
 template <typename T>
+__global__ void GemmChkCopyBack(T *out, T *inp, int64_t inp_ld, 
+								int64_t Orow, int64_t Ocol,
+								int64_t Irow, int64_t Icol, 
+								int64_t R_Offset, bool ifColChk){
+	int64_t inpR = 0;
+	int64_t inpC = 0;
+	if(ifColChk){
+		inpR = (Irow + 2) * threadIdx.y + Irow;
+		inpC = (Icol + 2) * threadIdx.x;
+	}
+	else{
+		inpR = (Irow + 2) * threadIdx.y;
+		inpC = (Icol + 2) * threadIdx.x + Icol;
+	}
+
+	int64_t batchId = threadIdx.y + R_Offset * threadIdx.x;
+	int64_t stride = Ocol * Orow;
+
+	for(int c = 0; c < Ocol; c++){
+		for(int r = 0; r < Orow; r++){
+			int inpIdx = (inpR + inpC * inp_ld) + (r + c * inp_ld);
+			int outIdx = (batchId * stride) + (r + c * Orow);
+			// printf("%d\n", outIdx);
+			out[outIdx] = inp[inpIdx];
+		}
+	}
+}
+
+template <typename T>
 __global__ void memSet(T *input, int64_t startOffset){
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
 	input[idx+startOffset] = (float)idx;
