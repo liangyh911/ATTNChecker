@@ -660,6 +660,13 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   // printf("V_colchk: \n");
   // outputChk(V_colchk<T>, num_batches, ldda_colchk, 2*k, 2, k);
 
+  T *A_copy, *B_copy, *C_copy;
+  int64_t m_copy = m;
+  int64_t n_copy = n;
+  int64_t stridea_copy = stridea;
+  int64_t strideb_copy = strideb;
+  int64_t stridec_copy = stridec;
+
   if (COL_FT){
     if (DEBUG) std::cout << "dA Col Chk." << std::endl;
     if (DEBUG) {
@@ -696,10 +703,22 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     }
     // printf("dA_colchk: \n");
     // outputChk(dA_colchk<T>, num_batches, ldda_colchk, 2*k, 2, k);
+
+    size_t size = (m+2)*k*num_batches*sizeof(T);
+    cudaMalloc((void**)&A_copy, size);
+    stridea_copy = (m+2)*k;
+    m_copy += 2;
+
+    // for(int i = 0; i < num_batches; i++){
+    //   cudaMemcpy(A_copy+i*stridea_copy, dA+i*stridea, num_batches*stridea_copy*sizeof(T), cudaMemcpyDeviceToDevice);
+    //   cudaMemcpy(A_copy+stridea+i*stridea_copy, dA_colchk<T>+i*(2*k), 2*k*sizeof(T), cudaMemcpyDeviceToDevice);
+    // }
+
+    BGemmMatrxiChkMerge<<<num_batches, 2>>>(A_copy, dA, dA_colchk<T>, m, k, 2, k);
+
+    // printf("A_copy: \n");
+    // outputChk(A_copy, num_batches, ldda+2, stridea_copy, m+2, k);
   }
-  
-  // printf("Q_rowchk: \n");
-  // outputChk(Q_rowchk<T>, num_batches, lddb_rowchk, 2*k, k, 2);
 
   //std::cout << "  Get dB_chk: " << std::endl;
   if (ROW_FT){
@@ -741,7 +760,20 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     }
     // printf("dB_rowchk: \n");
     // outputChk(dB_rowchk<T>, num_batches, lddb_rowchk, 2*k, k, 2);
+
+    size_t size = (n+2)*k*num_batches*sizeof(T);
+    cudaMalloc((void**)&B_copy, size);
+    strideb_copy = (n+2)*k;
+    n_copy += 2;
+
+    for(int i = 0; i < num_batches; i++){
+      cudaMemcpy(B_copy+i*strideb_copy, dB+i*strideb, strideb_copy*sizeof(T), cudaMemcpyDeviceToDevice);
+      cudaMemcpy(B_copy+strideb+i*strideb_copy, dB_rowchk<T>+i*(2*k), 2*k*sizeof(T), cudaMemcpyDeviceToDevice);
+    }
+    // printf("B_copy: \n");
+    // outputChk(B_copy, num_batches, lddb, strideb_copy, k, n+2);
   }
+  stridec_copy = m_copy * n_copy;
 
   falpha = alpha;
   fbeta = beta;
@@ -1259,6 +1291,15 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
     }
     else if(m == 64 && k == 75){
       abftbgemm<float, 64, 75, 75>(transa, transb, m, n, k,
+        alpha, dA_, ldda, stridea,
+        dB_, lddb, strideb, beta,
+        dC, lddc, stridec,
+        chk_v_a, chk_v_b, ld_chk_v,
+        num_batches,
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
+    }
+    else if(m == 5 && k == 4){
+      abftbgemm<float, 5, 5, 4>(transa, transb, m, n, k,
         alpha, dA_, ldda, stridea,
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
@@ -1891,15 +1932,6 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     B_copy = b;
   }
 
-  // MatrixMerge<<<1, dim3(num_head, 1), 0, stream_colchk>>>(dA_rowchk_r<T>, dA_rowchk<T>, k, 2, k, 2*num_head, 1);
-  // printf("dA_rowchk: \n");
-  // outputChk(dA_rowchk<T>, 1, ldda_rowchk, k*2*num_head, k, 2*num_head);  
-  
-  // MatrixMerge<<<1, dim3(num_batches, 1), 0, stream_rowchk>>>(dB_rowchk_r<T>, dB_rowchk<T>, k, 2, k, 2*num_batches, 1);
-  // printf("dB_rowchk: \n");
-  // outputChk(dB_rowchk<T>, 1, lddb_rowchk, k*2*num_batches, k, 2*num_batches);  
-
-
   int64_t mem_row = 0;
   int64_t mem_col = 0;
   falpha = alpha;
@@ -1934,13 +1966,9 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   cudaStreamSynchronize(stream_main);
 
   // C copy back
-  // T *tmpC;
-  // cudaMalloc((void**)&tmpC, m*n*sizeof(T));
   GemmResCopyBack<<<1, dim3(num_batches, num_head), 0, stream_main>>>(c, C_copy, 
                                                                       ldc, m_copy, (m/num_head), (n/num_batches),
                                                                       COL_FT, ROW_FT);
-  // printf("tmpC: \n");
-  // outputChk(tmpC, 1, ldc, m*n, m, n);
 
   // printf("c: \n");
   // outputChk(c, 1, ldc, m*n, m, n); 
@@ -1949,18 +1977,9 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   // outputChk(C_copy, 1, m_copy, m_copy*n_copy, m_copy, n_copy);     
 
   if(INJECTION){
-    // printf("Before injection C: \n");
-    // outputChk(c, 1, ldc, 0, m, n);
-
     if(DEBUG) printf("Injection.\n");
     int64_t pos = getInjPos();
-    // printf("%d \n",pos);
-    // bitflip<<<1, 1, 0, stream_main>>>(c, 0, 0, ldc, 0);
-
     bitflip<<<1,1,0,stream_main>>>(c, pos);
-    
-    // printf("After injection C: \n");
-    // outputChk(c, 1, ldc, 0, m, n);
   }
   
   if (DEBUG)  {
@@ -1986,164 +2005,26 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     }
   }
 
-  /*
-  if(COL_FT){
-    if (DEBUG)  cudaEventRecord(start, stream_colchk);
-    //std::cout << "  COL_FT" << std::endl;
-    if (opa == CUBLAS_OP_N) {
-      if (DEBUG) std::cout << "dA_colchk * dB = dC_colchk" << std::endl;
-      // K*4 must be greater then 2 * N
-      if constexpr (std::is_same<T, float>::value){
-        cublasSgemm(handle_colchk, opa, opb, 2*num_head, n, k,
-                    &falpha, dA_colchk<T>, ldda_colchk, 
-                    b, ldb, &fbeta, 
-                    dC_colchk<T>, lddc_colchk);
-      }
-      else if constexpr(std::is_same<T, at::Half>::value){
-        cublasGemmEx(handle_colchk, opa, opb, 2*num_head, n, k,
-                      &falpha, dA_colchk<T>, CUDA_R_16F, ldda_colchk, 
-                      b, CUDA_R_16F, ldb,
-                      &fbeta, dC_colchk<T>, CUDA_R_16F, lddc_colchk,
-                      CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-      }
-    }
-    else{
-      if (DEBUG) std::cout << "dB * dA_rowchk = dC_colchk" << std::endl;
-      if constexpr (std::is_same<T, float>::value){
-        cublasSgemm(handle_colchk, opa, opb, 2*num_head, n, k,
-                    &falpha, dA_rowchk<T>, ldda_rowchk, 
-                    b, ldb, &fbeta, 
-                    dC_colchk<T>, lddc_colchk);
-      }
-      else if constexpr(std::is_same<T, at::Half>::value){
-        cublasGemmEx(handle_colchk, opa, opb, 2*num_head, n, k,
-                      &falpha, dA_rowchk<T>, CUDA_R_16F, ldda_rowchk, 
-                      b, CUDA_R_16F, ldb,
-                      &fbeta, dC_colchk<T>, CUDA_R_16F, lddc_colchk,
-                      CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-      }
-    }
-    cudaStreamSynchronize(stream_colchk);
-    // printf("dC_colchk: \n");
-    // outputChk(dC_colchk<T>, 1, lddc_colchk, n*2*num_head, 2*num_head, n);  
-
-    if (DEBUG)  {
-      cudaEventRecord(stop, stream_colchk);
-      cudaEventSynchronize(stop);
-      cudaEventElapsedTime(&t1, start, stop);
-      
-      destinationFile = "abftbgemm/records/effeciency/abftgemm.txt";
-      fullPath = homePath / destinationFile;
-      printf("  gemm-col-ft: %f (%f)(%f)(%f)\n", 
-            t1, t1/t, (double)1*(2*num_head)*n*k*2/t1/1e6, (double)1*((2*num_head)*k+k*n+(2*num_head)*n)*sizeof(T)/t1/1e6);
-      recordEffeciency(fullPath,  
-            t1, t1/t, (double)1*(2*num_head)*n*k*2/t1/1e6, (double)1*((2*num_head)*k+k*n+(2*num_head)*n)*sizeof(T)/t1/1e6);
-    }
-  }
-
-  if (ROW_FT) {
-    if (DEBUG)  cudaEventRecord(start, stream_rowchk);
-    //std::cout << "  ROW_FT" << std::endl;
-    if (opb == CUBLAS_OP_N) {
-      if (DEBUG) std::cout << "dA * dB_rowchk = dC_rowlchk" << std::endl;
-      //we can further work on this to support trans A
-      if constexpr (std::is_same<T, float>::value){
-        cublasSgemm(handle_rowchk, opa, opb,  m, 2*num_batches, k,
-                    &alpha, a, lda, 
-                    dB_rowchk<T>, lddb_rowchk, &beta, 
-                    dC_rowchk<T>, lddc_rowchk);
-      }
-      else if constexpr(std::is_same<T, at::Half>::value){
-        cublasGemmEx(handle_rowchk, opa, opb,  m, 2*num_batches, k,
-                      &falpha, a, CUDA_R_16F, lda, 
-                      dB_rowchk<T>, CUDA_R_16F, lddb_rowchk,
-                      &fbeta, dC_rowchk<T>, CUDA_R_16F, lddc_rowchk,
-                      CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-      }
-    } 
-    else{
-      if (DEBUG) std::cout << "dB_colchk * dA = dC_rowlchk" << std::endl;
-      if constexpr (std::is_same<T, float>::value){
-        cublasSgemm(handle_rowchk, opa, opb,  m, 2*num_batches, k,
-                    &alpha, a, lda, 
-                    dB_colchk<T>, lddb_colchk, &beta, 
-                    dC_rowchk<T>, lddc_rowchk);
-      }
-      else if constexpr(std::is_same<T, at::Half>::value){
-        cublasGemmEx(handle_rowchk, opa, opb,  m, 2*num_batches, k,
-                      &falpha, a, CUDA_R_16F, lda, 
-                      dB_colchk<T>, CUDA_R_16F, lddb_colchk,
-                      &fbeta, dC_rowchk<T>, CUDA_R_16F, lddc_rowchk,
-                      CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-      }
-    }
-    cudaStreamSynchronize(stream_rowchk);
-    // printf("dC_rowlchk: \n");
-    // outputChk(dC_rowchk<T>, 1, lddc_rowchk, m*2*num_batches, m, 2*num_batches);  
-
-    if (DEBUG)  {
-      cudaEventRecord(stop, stream_rowchk);
-      cudaEventSynchronize(stop);
-      cudaEventElapsedTime(&t1, start, stop);
-
-      destinationFile = "abftbgemm/records/effeciency/abftgemm.txt";
-      fullPath = homePath / destinationFile;
-      printf("  gemm-row-ft: %f (%f)(%f)(%f)\n", 
-              t1, t1/t, (double)1*m*(2*num_batches)*k*2/t1/1e6, (double)1*(m*k+k*(2*num_batches)+m*(2*num_batches))*sizeof(T)/t1/1e6);
-      recordEffeciency(fullPath, 
-              t1, t1/t, (double)1*m*(2*num_batches)*k*2/t1/1e6, (double)1*(m*k+k*(2*num_batches)+m*(2*num_batches))*sizeof(T)/t1/1e6);      
-    }
-  }
-  */
-
-  // printf("dC_colchk: \n");
-  // outputChk(dC_colchk<T>, 1, lddc_colchk, 0, 2*num_head, n);
-  // printf("dC_rowchk: \n");
-  // outputChk(dC_rowchk<T>, 1, lddc_rowchk, 0, m, 2*num_batches);
-
-  // chk sum copy back
-  // T *tmpRowChk, *tmpColChk;
-
   if(QKV == 'q'){
-    // cudaMalloc((void**)&tmpRowChk, 2*m*num_batches*sizeof(T));
     GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(Q_rowchk<T>, C_copy, m_copy, 
                                                         (m/num_head), 2, (m/num_head), (n/num_batches), 
                                                         num_head, false, COL_FT, ROW_FT);
-    // printf("tmpRowChk: \n");
-    // outputChk(tmpRowChk, num_batches*num_head, m/num_head, 2*m/num_head, m/num_head, 2);
-
-    // MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_rowchk<T>, Q_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
     // printf("Q_rowchk: \n");
     // outputChk(Q_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
   }
   else if(QKV == 'k'){
-    // cudaMalloc((void**)&tmpRowChk, 2*m*num_batches*sizeof(T));
-    // cudaMalloc((void**)&tmpColChk, 2*n*num_head*sizeof(T));
-
     GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(K_rowchk<T>, C_copy, m_copy, 
                                                         (m/num_head), 2, (m/num_head), (n/num_batches), 
                                                         num_head, false, COL_FT, ROW_FT);
     MatrixTranspose<<<1, num_head*num_batches>>>(K_rowchk<T>, K_colchk<T>, m/num_head, 2);
-    // printf("tmp_colchk: \n");
-    // outputChk(tmpColChk, num_head*num_batches, 2, 2*m/num_head, 2,  m/num_head);
-
-
-    // MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_rowchk<T>, K_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
-    // printf("K_rowchk: \n");
-    // outputChk(K_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
     // MatrixTranspose<<<1, num_head*num_batches>>>(K_rowchk<T>, K_colchk<T>, m/num_head, 2);
     // printf("K_colchk: \n");
     // outputChk(K_colchk<T>, num_head*num_batches, 2, 2*m/num_head, 2,  m/num_head);
   }
   else{
-    // cudaMalloc((void**)&tmpColChk, 2*n*num_head*sizeof(T));
     GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(V_colchk<T>, C_copy, m_copy, 
                                                         2, (n/num_batches), (m/num_head), (n/num_batches), 
                                                         num_head, true, COL_FT, ROW_FT);
-    // printf("tmpColChk: \n");
-    // outputChk(tmpColChk, num_batches*num_head, 2, 2*n/num_batches, 2, n/num_batches);
-
-    // MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_colchk<T>, V_colchk<T>, 2, n/num_batches, lddc_colchk, num_head);
     // printf("V_colchk: \n");
     // outputChk(V_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
   }
