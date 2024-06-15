@@ -1918,8 +1918,8 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   // printf("c: \n");
   // outputChk(c, 1, ldc, m*n, m, n); 
 
-  printf("C_copy: \n");
-  outputChk(C_copy, 1, m_copy, m_copy*n_copy, m_copy, n_copy);     
+  // printf("C_copy: \n");
+  // outputChk(C_copy, 1, m_copy, m_copy*n_copy, m_copy, n_copy);     
 
   if(INJECTION){
     // printf("Before injection C: \n");
@@ -1958,6 +1958,13 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
               t_Bchk, t_Bchk/t, (double)1*2*n*k*2/t_Bchk/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t_Bchk/1e6);
     }
   }
+
+  // C copy back
+  T *tmpC;
+  cudaMalloc((void**)&tmpC, m*n*sizeof(T));
+  GemmResCopyBack<<<1, dim3(num_batches, num_head)>>>(tmpC, C_copy, ldc, m_copy, (m/num_head), (n/num_batches));
+  // printf("tmpC: \n");
+  // outputChk(tmpC, 1, ldc, m*n, m, n);
 
 
   if(COL_FT){
@@ -2068,17 +2075,10 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     }
   }
 
-  printf("dC_colchk: \n");
-  outputChk(dC_colchk<T>, 1, lddc_colchk, 0, 2*num_head, n);
-  printf("dC_rowchk: \n");
-  outputChk(dC_rowchk<T>, 1, lddc_rowchk, 0, m, 2*num_batches);
-
-  // C copy back
-  // T *tmpC;
-  // cudaMalloc((void**)&tmpC, m*n*sizeof(T));
-  // GemmResCopyBack<<<1, dim3(num_batches, num_head)>>>(tmpC, C_copy, ldc, m_copy, (m/num_head), (n/num_batches));
-  // printf("tmpC: \n");
-  // outputChk(tmpC, 1, ldc, m*n, m, n);
+  // printf("dC_colchk: \n");
+  // outputChk(dC_colchk<T>, 1, lddc_colchk, 0, 2*num_head, n);
+  // printf("dC_rowchk: \n");
+  // outputChk(dC_rowchk<T>, 1, lddc_rowchk, 0, m, 2*num_batches);
 
   // chk sum copy back
   T *tmpRowChk, *tmpColChk;
@@ -2086,7 +2086,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   if(QKV == 'q'){
     cudaMalloc((void**)&tmpRowChk, 2*m*num_batches*sizeof(T));
     GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(tmpRowChk, C_copy, m_copy, 
-                                                        (n/num_batches), 2, (m/num_head), (n/num_batches), 
+                                                        (m/num_head), 2, (m/num_head), (n/num_batches), 
                                                         num_head, false);
     printf("tmpRowChk: \n");
     outputChk(tmpRowChk, num_batches*num_head, m/num_head, 2*m/num_head, m/num_head, 2);
@@ -2100,7 +2100,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     cudaMalloc((void**)&tmpColChk, 2*n*num_head*sizeof(T));
 
     GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(tmpRowChk, C_copy, m_copy, 
-                                                        (n/num_batches), 2, (m/num_head), (n/num_batches), 
+                                                        (m/num_head), 2, (m/num_head), (n/num_batches), 
                                                         num_head, false);
     MatrixTranspose<<<1, num_head*num_batches>>>(tmpRowChk, tmpColChk, m/num_head, 2);
     printf("tmp_colchk: \n");

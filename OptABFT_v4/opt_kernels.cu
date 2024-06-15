@@ -1153,7 +1153,7 @@ __global__ void assignChk(T *input, T *output, int64_t row, int64_t col, int64_t
 }
 
 // template <typename T>
-// __global__ void GemmMatrxiChkMerge(T *A_copy, T *A, T *chk, int64_t row, int64_t col, int64_t ldA, int64_t ldChk){
+// __global__ void GemmMatrxiColChkMerge(T *A_copy, T *A, T *chk, int64_t row, int64_t col, int64_t ldA, int64_t ldChk){
 
 // }
 
