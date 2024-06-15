@@ -1787,17 +1787,23 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       }
       // printf("dA_rowchk: \n");
       // outputChk(dA_rowchk_r<T>, num_head, ldda_rowchk_r, k*2, k, 2);  
-
+      cudaStreamSynchronize(stream_colchk);
+      
       // make A and check_sum together
       size_t size = (m + 2*num_head) * k * sizeof(T);
       cudaMalloc((void**)&A_copy, size);
+      // cudaMalloc((void**)&A_copy1, size);
       for(int i = 0; i < num_head; i++){
         cudaMemcpy(A_copy+(i*(nb*k+2*k)), a+(i*nb*k), nb*k*sizeof(T), cudaMemcpyDeviceToDevice);
         cudaMemcpy(A_copy+(nb*k)+(i*(nb*k+2*k)), dA_rowchk_r<T>+(i*k*2), 2*k*sizeof(T), cudaMemcpyDeviceToDevice);
       }
+      // GemmMatrxiChkMerge<<<num_head, 2, 0, stream_colchk>>>(A_copy, a, dA_rowchk_r<T>, k, (m/num_head), k, 2);
       m_copy = (m + 2*num_head);
       // printf("A_copy: \n");
       // outputChk(A_copy, 1, (lda), (m+2*num_head)*k, k, (m+2*num_head));  
+
+      // printf("A_copy1: \n");
+      // outputChk(A_copy1, 1, (lda), (m+2*num_head)*k, k, (m+2*num_head));  
 
     }
     // cudaStreamSynchronize(stream_colchk);
@@ -1806,6 +1812,9 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t_Achk, start, stop);
     }
+  }
+  else{
+    A_copy = a;
   }
 
   // B check row
@@ -1835,13 +1844,18 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       // make B and check_sum together
       size_t size = (n + 2*num_batches) * k * sizeof(T);
       cudaMalloc((void**)&B_copy, size);
+      // cudaMalloc((void**)&B_copy1, size);
       for(int i = 0; i < num_batches; i++){
         cudaMemcpy(B_copy+(i*(nb*k+2*k)), b+(i*nb*k), nb*k*sizeof(T), cudaMemcpyDeviceToDevice);
         cudaMemcpy(B_copy+(nb*k)+(i*(nb*k+2*k)), dB_rowchk_r<T>+(i*k*2), 2*k*sizeof(T), cudaMemcpyDeviceToDevice);
       }
+      // GemmMatrxiChkMerge<<<num_batches, 2, 0, stream_rowchk>>>(B_copy, b, dB_rowchk_r<T>, k, (n/num_batches), k, 2);
       n_copy = (n + 2*num_batches);
+
       // printf("B_copy: \n");
       // outputChk(B_copy, 1, (ldb), (n+2*num_batches)*k, k, (n+2*num_batches));     
+      // printf("B_copy1: \n");
+      // outputChk(B_copy1, 1, (ldb), (n+2*num_batches)*k, k, (n+2*num_batches));  
     } 
     else{
       // printf("B T\n");
@@ -1873,12 +1887,15 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       t_Bchk /= 1.0;
     }
   }
+  else{
+    B_copy = b;
+  }
 
-  MatrixMerge<<<1, dim3(num_head, 1), 0, stream_colchk>>>(dA_rowchk_r<T>, dA_rowchk<T>, k, 2, k, 2*num_head, 1);
+  // MatrixMerge<<<1, dim3(num_head, 1), 0, stream_colchk>>>(dA_rowchk_r<T>, dA_rowchk<T>, k, 2, k, 2*num_head, 1);
   // printf("dA_rowchk: \n");
   // outputChk(dA_rowchk<T>, 1, ldda_rowchk, k*2*num_head, k, 2*num_head);  
   
-  MatrixMerge<<<1, dim3(num_batches, 1), 0, stream_rowchk>>>(dB_rowchk_r<T>, dB_rowchk<T>, k, 2, k, 2*num_batches, 1);
+  // MatrixMerge<<<1, dim3(num_batches, 1), 0, stream_rowchk>>>(dB_rowchk_r<T>, dB_rowchk<T>, k, 2, k, 2*num_batches, 1);
   // printf("dB_rowchk: \n");
   // outputChk(dB_rowchk<T>, 1, lddb_rowchk, k*2*num_batches, k, 2*num_batches);  
 
@@ -1893,14 +1910,15 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   T *C_copy;
   size_t size = m_copy * n_copy * sizeof(T);
   cudaMalloc((void**)&C_copy, size);
+  // printf("%d, %d\n", m_copy, n_copy);
 
   if (DEBUG)  cudaEventRecord(start, stream_main);
   if (DEBUG) std::cout<<"A*B=C." << std::endl;
   if constexpr (std::is_same<T, float>::value) {
-      cublasSgemm(handle, opa, opb, m, n, k, 
-                    &alpha, a, lda, 
-                    b, ldb, &beta, 
-                    c, ldc);
+      // cublasSgemm(handle, opa, opb, m, n, k, 
+      //               &alpha, a, lda, 
+      //               b, ldb, &beta, 
+      //               c, ldc);
       // for C_copy
       cublasSgemm(handle, opa, opb, m_copy, n_copy, k, 
                     &alpha, A_copy, lda, 
@@ -1914,6 +1932,15 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
         CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
   }
   cudaStreamSynchronize(stream_main);
+
+  // C copy back
+  // T *tmpC;
+  // cudaMalloc((void**)&tmpC, m*n*sizeof(T));
+  GemmResCopyBack<<<1, dim3(num_batches, num_head), 0, stream_main>>>(c, C_copy, 
+                                                                      ldc, m_copy, (m/num_head), (n/num_batches),
+                                                                      COL_FT, ROW_FT);
+  // printf("tmpC: \n");
+  // outputChk(tmpC, 1, ldc, m*n, m, n);
 
   // printf("c: \n");
   // outputChk(c, 1, ldc, m*n, m, n); 
@@ -1959,14 +1986,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     }
   }
 
-  // C copy back
-  T *tmpC;
-  cudaMalloc((void**)&tmpC, m*n*sizeof(T));
-  GemmResCopyBack<<<1, dim3(num_batches, num_head)>>>(tmpC, C_copy, ldc, m_copy, (m/num_head), (n/num_batches));
-  // printf("tmpC: \n");
-  // outputChk(tmpC, 1, ldc, m*n, m, n);
-
-
+  /*
   if(COL_FT){
     if (DEBUG)  cudaEventRecord(start, stream_colchk);
     //std::cout << "  COL_FT" << std::endl;
@@ -2074,6 +2094,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
               t1, t1/t, (double)1*m*(2*num_batches)*k*2/t1/1e6, (double)1*(m*k+k*(2*num_batches)+m*(2*num_batches))*sizeof(T)/t1/1e6);      
     }
   }
+  */
 
   // printf("dC_colchk: \n");
   // outputChk(dC_colchk<T>, 1, lddc_colchk, 0, 2*num_head, n);
@@ -2081,50 +2102,50 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   // outputChk(dC_rowchk<T>, 1, lddc_rowchk, 0, m, 2*num_batches);
 
   // chk sum copy back
-  T *tmpRowChk, *tmpColChk;
+  // T *tmpRowChk, *tmpColChk;
 
   if(QKV == 'q'){
-    cudaMalloc((void**)&tmpRowChk, 2*m*num_batches*sizeof(T));
-    GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(tmpRowChk, C_copy, m_copy, 
+    // cudaMalloc((void**)&tmpRowChk, 2*m*num_batches*sizeof(T));
+    GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(Q_rowchk<T>, C_copy, m_copy, 
                                                         (m/num_head), 2, (m/num_head), (n/num_batches), 
-                                                        num_head, false);
-    printf("tmpRowChk: \n");
-    outputChk(tmpRowChk, num_batches*num_head, m/num_head, 2*m/num_head, m/num_head, 2);
+                                                        num_head, false, COL_FT, ROW_FT);
+    // printf("tmpRowChk: \n");
+    // outputChk(tmpRowChk, num_batches*num_head, m/num_head, 2*m/num_head, m/num_head, 2);
 
-    MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_rowchk<T>, Q_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
-    printf("Q_rowchk: \n");
-    outputChk(Q_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
+    // MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_rowchk<T>, Q_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
+    // printf("Q_rowchk: \n");
+    // outputChk(Q_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
   }
   else if(QKV == 'k'){
-    cudaMalloc((void**)&tmpRowChk, 2*m*num_batches*sizeof(T));
-    cudaMalloc((void**)&tmpColChk, 2*n*num_head*sizeof(T));
+    // cudaMalloc((void**)&tmpRowChk, 2*m*num_batches*sizeof(T));
+    // cudaMalloc((void**)&tmpColChk, 2*n*num_head*sizeof(T));
 
-    GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(tmpRowChk, C_copy, m_copy, 
+    GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(K_rowchk<T>, C_copy, m_copy, 
                                                         (m/num_head), 2, (m/num_head), (n/num_batches), 
-                                                        num_head, false);
-    MatrixTranspose<<<1, num_head*num_batches>>>(tmpRowChk, tmpColChk, m/num_head, 2);
-    printf("tmp_colchk: \n");
-    outputChk(tmpColChk, num_head*num_batches, 2, 2*m/num_head, 2,  m/num_head);
+                                                        num_head, false, COL_FT, ROW_FT);
+    MatrixTranspose<<<1, num_head*num_batches>>>(K_rowchk<T>, K_colchk<T>, m/num_head, 2);
+    // printf("tmp_colchk: \n");
+    // outputChk(tmpColChk, num_head*num_batches, 2, 2*m/num_head, 2,  m/num_head);
 
 
-    MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_rowchk<T>, K_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
+    // MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_rowchk<T>, K_rowchk<T>, m/num_head, 2, lddc_rowchk, num_head);
     // printf("K_rowchk: \n");
     // outputChk(K_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
-    MatrixTranspose<<<1, num_head*num_batches>>>(K_rowchk<T>, K_colchk<T>, m/num_head, 2);
-    printf("K_colchk: \n");
-    outputChk(K_colchk<T>, num_head*num_batches, 2, 2*m/num_head, 2,  m/num_head);
+    // MatrixTranspose<<<1, num_head*num_batches>>>(K_rowchk<T>, K_colchk<T>, m/num_head, 2);
+    // printf("K_colchk: \n");
+    // outputChk(K_colchk<T>, num_head*num_batches, 2, 2*m/num_head, 2,  m/num_head);
   }
   else{
-    cudaMalloc((void**)&tmpColChk, 2*n*num_head*sizeof(T));
-    GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(tmpColChk, C_copy, m_copy, 
+    // cudaMalloc((void**)&tmpColChk, 2*n*num_head*sizeof(T));
+    GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(V_colchk<T>, C_copy, m_copy, 
                                                         2, (n/num_batches), (m/num_head), (n/num_batches), 
-                                                        num_head, true);
-    printf("tmpColChk: \n");
-    outputChk(tmpColChk, num_batches*num_head, 2, 2*n/num_batches, 2, n/num_batches);
+                                                        num_head, true, COL_FT, ROW_FT);
+    // printf("tmpColChk: \n");
+    // outputChk(tmpColChk, num_batches*num_head, 2, 2*n/num_batches, 2, n/num_batches);
 
-    MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_colchk<T>, V_colchk<T>, 2, n/num_batches, lddc_colchk, num_head);
-    printf("V_colchk: \n");
-    outputChk(V_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
+    // MatrixSplit<<<1, dim3(num_batches, num_head)>>>(dC_colchk<T>, V_colchk<T>, 2, n/num_batches, lddc_colchk, num_head);
+    // printf("V_colchk: \n");
+    // outputChk(V_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
   }
 }
 

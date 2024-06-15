@@ -1152,15 +1152,49 @@ __global__ void assignChk(T *input, T *output, int64_t row, int64_t col, int64_t
 	}
 }
 
-// template <typename T>
-// __global__ void GemmMatrxiColChkMerge(T *A_copy, T *A, T *chk, int64_t row, int64_t col, int64_t ldA, int64_t ldChk){
+template <typename T>
+__global__ void GemmMatrxiChkMerge(T *A_copy, T *A, T *chk, 
+										int64_t Arow, int64_t Acol,
+										int64_t Chkrow, int64_t Chkcol){
+	// for A -> copy A
+	if(threadIdx.x == 0){
+		// printf("%d\n", threadIdx.x);
+		int64_t inpIdx = blockIdx.x * (Arow*Acol);
+		int64_t outIdx = blockIdx.x * ((Acol+2)*Arow);
 
-// }
+		for(int c = 0; c < Acol; c++){
+			for(int r = 0; r < Arow; r++){
+				A_copy[outIdx + (r+c*Arow)] = A[inpIdx + (r+c*Arow)];
+			}
+		}
+	}
+	// for chk -> copy A
+	else{
+		// printf("%d\n", threadIdx.x);
+		int64_t inpIdx = blockIdx.x * (Chkcol*Chkrow);
+		int64_t outIdx = (Acol*Arow) + (blockIdx.x) * ((Acol+2)*Arow);
+		
+		for(int c = 0; c < Chkcol; c++){
+			for(int r = 0; r < Chkrow; r++){
+				A_copy[outIdx + (r+c*Chkrow)] = chk[inpIdx + (r+c*Chkrow)];
+			}
+		}
+	}
+	__syncthreads();
+}
 
 template <typename T>
-__global__ void GemmResCopyBack(T *res, T *inp, int64_t res_ld, int64_t inp_ld, int64_t row, int64_t col){
-	int64_t inpR = (row + 2) * threadIdx.y;
-	int64_t inpC = (col + 2) * threadIdx.x;
+__global__ void GemmResCopyBack(T *res, T *inp, 
+								int64_t res_ld, int64_t inp_ld, 
+								int64_t row, int64_t col, bool COL_FT, bool ROW_FT){
+	int64_t inpR = row * threadIdx.y;
+	int64_t inpC = col * threadIdx.x;
+	if(COL_FT){
+		inpR = (row + 2) * threadIdx.y;
+	}
+	if(ROW_FT){
+		inpC = (col + 2) * threadIdx.x;
+	}
 	int64_t resR = row * threadIdx.y;
 	int64_t resC = col * threadIdx.x;
 
@@ -1177,16 +1211,21 @@ template <typename T>
 __global__ void GemmChkCopyBack(T *out, T *inp, int64_t inp_ld, 
 								int64_t Orow, int64_t Ocol,
 								int64_t Irow, int64_t Icol, 
-								int64_t R_Offset, bool ifColChk){
-	int64_t inpR = 0;
-	int64_t inpC = 0;
-	if(ifColChk){
-		inpR = (Irow + 2) * threadIdx.y + Irow;
+								int64_t R_Offset, bool ifColChk, 
+								bool COL_FT, bool ROW_FT){
+	int64_t inpR = Irow * threadIdx.y;
+	int64_t inpC = Icol * threadIdx.x;
+	if(COL_FT){
+		inpR = (Irow + 2) * threadIdx.y;
+	}
+	if(ROW_FT){
 		inpC = (Icol + 2) * threadIdx.x;
 	}
+	if(ifColChk){
+		inpR += Irow;
+	}
 	else{
-		inpR = (Irow + 2) * threadIdx.y;
-		inpC = (Icol + 2) * threadIdx.x + Icol;
+		inpC += Icol;
 	}
 
 	int64_t batchId = threadIdx.y + R_Offset * threadIdx.x;
