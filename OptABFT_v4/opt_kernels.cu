@@ -1306,6 +1306,30 @@ __global__ void BGemmChkCopyBack(T *out, T *inp, int64_t row, int64_t col, int64
 	}
 }
 
+// template <typename T>
+// __device__ void run_cublasSetMatrix(T *inp, T *out, int64_t Ild,
+// 									int64_t Orow, int64_t Ocol, int64_t Old,
+// 									int elemSize){
+// 	cublasSetMatrix(Orow, Ocol, elemSize, inp, Ild, out, Old);
+// }
+
+// template <typename T>
+// __global__ void cublasSetMatrixLancher(T *inp, T *out, 
+// 										int64_t Irow, int64_t Icol, int64_t Ild,
+// 										int64_t Orow, int64_t Ocol, int64_t Old,
+// 										int64_t num_batches){
+// 	int64_t inpR = Irow * threadIdx.y;
+// 	int64_t inpC = Icol * threadIdx.x;
+// 	int64_t outR = Orow * threadIdx.y;
+// 	int64_t outC = Ocol * threadIdx.x;
+
+// 	inp = inp + (inpR + Irow * inpC);
+// 	out = out + (outR + Orow * outC);
+// 	int elemSize = (int) sizeof(T);
+
+// 	run_cublasSetMatrix(inp, out, Ild, Orow, Ocol, Old, elemSize);
+// }
+
 template <typename T>
 __global__ void memSet(T *input, int64_t startOffset){
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;

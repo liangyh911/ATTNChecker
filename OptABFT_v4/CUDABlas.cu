@@ -1744,6 +1744,9 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   T *A_copy, *B_copy;
   int64_t m_copy = m;
   int64_t n_copy = n;
+
+  int64_t RowOffset = m/num_head;
+  int64_t ColOffset = n/num_batches;
   
   //A check col
   if (COL_FT){
@@ -1799,6 +1802,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       }
       // GemmMatrxiChkMerge<<<num_head, 2, 0, stream_colchk>>>(A_copy, a, dA_rowchk_r<T>, k, (m/num_head), k, 2);
       m_copy = (m + 2*num_head);
+      RowOffset += 2;
       // printf("A_copy: \n");
       // outputChk(A_copy, 1, (lda), (m+2*num_head)*k, k, (m+2*num_head));  
 
@@ -1851,6 +1855,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       }
       // GemmMatrxiChkMerge<<<num_batches, 2, 0, stream_rowchk>>>(B_copy, b, dB_rowchk_r<T>, k, (n/num_batches), k, 2);
       n_copy = (n + 2*num_batches);
+      ColOffset += 2;
 
       // printf("B_copy: \n");
       // outputChk(B_copy, 1, (ldb), (n+2*num_batches)*k, k, (n+2*num_batches));     
@@ -1925,15 +1930,29 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   cudaStreamSynchronize(stream_main);
 
   // C copy back
-  GemmResCopyBack<<<1, dim3(num_batches, num_head), 0, stream_main>>>(c, C_copy, 
-                                                                      ldc, m_copy, (m/num_head), (n/num_batches),
-                                                                      COL_FT, ROW_FT);
+  // GemmResCopyBack<<<1, dim3(num_batches, num_head), 0, stream_main>>>(c, C_copy, 
+  //                                                                     ldc, m_copy, (m/num_head), (n/num_batches),
+  //                                                                     COL_FT, ROW_FT);
 
   // printf("c: \n");
   // outputChk(c, 1, ldc, m*n, m, n); 
 
   // printf("C_copy: \n");
-  // outputChk(C_copy, 1, m_copy, m_copy*n_copy, m_copy, n_copy);     
+  // outputChk(C_copy, 1, m_copy, m_copy*n_copy, m_copy, n_copy);  
+
+  // T *tmpC;
+  // cudaMalloc((void**)&tmpC, m*n*sizeof(T));
+  for(int col = 0; col < num_batches; col++){
+    for(int row = 0; row < num_head; row++){
+      cublasSetMatrix((m/num_head), (n/num_batches), sizeof(T),
+                      C_copy + row*RowOffset + col*ColOffset*m_copy, m_copy, 
+                      c + row*(m/num_head) + col*(n/num_batches)*ldc, ldc);
+    }
+  }
+
+  // printf("tmpC: \n");
+  // outputChk(tmpC, 1, ldc, m*n, m, n); 
+
 
   if(INJECTION){
     if(DEBUG) printf("Injection.\n");
