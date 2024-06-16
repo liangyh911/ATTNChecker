@@ -1273,6 +1273,40 @@ __global__ void BGemmMatrxiChkMerge(T *A_copy, T *A, T *chk,
 }
 
 template <typename T>
+__global__ void BGemmResCopyBack(T *res, T *inp, int64_t row, int64_t col){
+	int resIdx = (row*col) * threadIdx.x;
+	int inpIdx = (row+2)*(col+2) * threadIdx.x;
+
+	for(int c = 0; c < col; c++){
+		for(int r = 0; r < row; r++){
+			res[resIdx + c*row+r] = inp[inpIdx + c*(row+2)+r];
+		}
+	}
+}
+
+template <typename T>
+__global__ void BGemmChkCopyBack(T *out, T *inp, int64_t row, int64_t col, int64_t strideInp, bool ifColChk){
+	int inpIdx = 0;
+	int64_t chkRow = row;
+	int64_t chkCol = col;
+	if(ifColChk){
+		inpIdx = row + strideInp * threadIdx.x;
+		chkRow = 2;
+	}
+	else{
+		inpIdx = col*(row+2) + strideInp * threadIdx.x;
+		chkCol = 2;
+	}
+	int outIdx = chkRow*chkCol * threadIdx.x;
+
+	for(int c = 0; c < chkCol; c++){
+		for(int r = 0; r < chkRow; r++){
+			out[outIdx + c*chkRow+r] = inp[inpIdx + c*(row+2)+r];
+		}
+	}
+}
+
+template <typename T>
 __global__ void memSet(T *input, int64_t startOffset){
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
 	input[idx+startOffset] = (float)idx;

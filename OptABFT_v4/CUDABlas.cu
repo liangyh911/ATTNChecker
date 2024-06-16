@@ -783,16 +783,20 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
 	int64_t mem_col = 0;
 
   // --begin-- //
+  // C_copy
+  size_t size = stridec_copy * num_batches * sizeof(T);
+  cudaMalloc((void**)&C_copy, size);
   // calculate check-sum
   std::cout << "-----Begin.------" << std::endl;
   if (DEBUG) cudaEventRecord(start, stream_main);
   if (DEBUG) std::cout<<"A*B=C." << std::endl;
   if constexpr (std::is_same<T, float>::value) {
+    // C_copy
     cublasSgemmStridedBatched(
-        handle, transA, transB, m, n, k,
-        &falpha, dA, ldda, stridea,
-        dB, lddb, strideb, &fbeta,
-        dC, lddc, stridec,
+        handle, transA, transB, m_copy, n_copy, k,
+        &falpha, A_copy, m_copy, stridea_copy,
+        B_copy, lddb, strideb_copy, &fbeta,
+        C_copy, m_copy, stridec_copy,
         num_batches);
   } else if constexpr(std::is_same<T, at::Half>::value) {
     cublasGemmStridedBatchedEx(
@@ -803,8 +807,14 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
       num_batches, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
   }
   cudaStreamSynchronize(stream_main);
+
+  BGemmResCopyBack<<<1, num_batches, 0, stream_main>>>(dC, C_copy, m, n);
+
   // std::cout << "Output dC: " << std::endl;
   // outputChk(dC, num_batches, lddc, m*n, m, n);
+
+  // std::cout << "Output C_copy: " << std::endl;
+  // outputChk(C_copy, num_batches, m_copy, stridec_copy, m_copy, n_copy);
 
   // printf("Before injection C: \n");
   // outputChk(dC, 1, lddc, 0, m, n);
@@ -840,64 +850,9 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     }
   }
 
-  if(COL_FT){
-    //std::cout << "  COL_FT" << std::endl;
-    if (DEBUG) cudaEventRecord(start, stream_colchk);
-    if (transA == CUBLAS_OP_N) {
-       if (DEBUG) std::cout << "dA_colchk * dB = dC_colchk" << std::endl;;
-        // K*4 must be greater then 2 * N
-        update_col_v5<T, K, N, 4><<<num_batches, dim3(K*4, 1, 1), ((K+1)*N+2*K) * sizeof(T), stream_colchk>>>(num_batches,
-                    dA_colchk<T>, ldda_colchk, k*2, 
-                    dB, lddb, strideb, 
-                    dC_colchk<T>, lddc_colchk, n*2);
-    }
-    else{
-      if (DEBUG) std::cout << "dB * dA_rowchk = dC_colchk" << std::endl;
-    }
-    // std::cout << "Output dC_colchk: " << std::endl;
-    // outputMatrixChk(dC_colchk, ldda_colchk, n*2, num_batches, 2, n);
-    if (DEBUG) {
-      cudaEventRecord(stop, stream_colchk);
-      cudaEventSynchronize(stop);
-      cudaEventElapsedTime(&t1, start, stop);
+  BGemmChkCopyBack<<<1, num_batches, 0, stream_colchk>>>(dC_colchk<T>, C_copy, m, n, stridec_copy, true);
+  BGemmChkCopyBack<<<1, num_batches, 0, stream_rowchk>>>(dC_rowchk<T>, C_copy, m, n, stridec_copy, false);
 
-      destinationFile = "abftbgemm/records/effeciency/abftbgemm.txt";
-      fullPath = homePath / destinationFile;
-      printf("  gemm-col-ft: %f (%f)(%f)(%f)\n", t1, t1/t, (double)num_batches*2*n*k*2/t1/1e6, (double)num_batches*(2*k+k*n+2*n)/t1/1e6);
-      recordEffeciency(fullPath, t1, t1/t, (double)num_batches*2*n*k*2/t1/1e6, (double)num_batches*(2*k+k*n+2*n)/t1/1e6);
-    }
-  }
-
-  if (ROW_FT) {
-      //std::cout << "  ROW_FT" << std::endl;
-      if (DEBUG) cudaEventRecord(start, stream_rowchk);
-      if (transB == CUBLAS_OP_N) {
-        if (DEBUG) std::cout << "dA * dB_rowchk = dC_rowlchk" << std::endl;
-        //we can further work on this to support trans A.
-        update_row_v5<T, M, K><<<num_batches, dim3(M*2, 1, 1), (2*K) * sizeof(T), stream_rowchk>>>(num_batches,
-                    dA, ldda, stridea, 
-                    dB_rowchk<T>, lddb_rowchk, k*2, 
-                    dC_rowchk<T>, lddc_rowchk, m*2);
-      }
-      else{
-        if (DEBUG) std::cout << "dB_colchk * dA = dC_rowlchk" << std::endl;
-        
-      }
-      // std::cout << "Output dC_rowchk: " << std::endl;
-      // outputMatrixChk(dC_rowchk,lddc_rowchk, m*2, num_batches, m, 2);
-      if (DEBUG) {
-        cudaEventRecord(stop, stream_rowchk);
-        cudaEventSynchronize(stop);
-        cudaEventElapsedTime(&t1, start, stop);
-        printf("  gemm-row-ft: %f (%f)(%f)(%f)\n", t1, t1/t, (double)num_batches*m*2*k*2/t1/1e6, (double)num_batches*(m*k+k*2+m*2)/t1/1e6);
-        
-        destinationFile = "abftbgemm/records/effeciency/abftbgemm.txt";
-        fullPath = homePath / destinationFile;
-        recordEffeciency(fullPath, t1, t1/t, (double)num_batches*m*2*k*2/t1/1e6, (double)num_batches*(m*k+k*2+m*2)/t1/1e6);
-      }
-  }
-
-  // --- check check-sum of C---//
   if (DEBUG) std::cout << "------Check check-sum-------" << std::endl;
   if (COL_FT && CHECK_AFTER) {
     mem_row = m;
@@ -988,6 +943,10 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     // printf("CL_rowchk:\n");
     // outputChk(CL_rowchk<T>, 1, lddc_rowchk*num_head, 0, m*num_head, 2);
   }
+
+  cudaFree(A_copy);
+  cudaFree(B_copy);
+  cudaFree(C_copy);
 }
 
 template <typename T>
