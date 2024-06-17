@@ -1742,6 +1742,8 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   int64_t nb = 0;
 
   T *A_copy, *B_copy;
+  T *A_copy1, *B_copy1;
+  
   int64_t m_copy = m;
   int64_t n_copy = n;
 
@@ -1796,9 +1798,17 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       size_t size = (m + 2*num_head) * k * sizeof(T);
       cudaMalloc((void**)&A_copy, size);
       // cudaMalloc((void**)&A_copy1, size);
+      // for(int i = 0; i < num_head; i++){
+      //   cudaMemcpy(A_copy+(i*(nb*k+2*k)), a+(i*nb*k), nb*k*sizeof(T), cudaMemcpyDeviceToDevice);
+      //   cudaMemcpy(A_copy+(nb*k)+(i*(nb*k+2*k)), dA_rowchk_r<T>+(i*k*2), 2*k*sizeof(T), cudaMemcpyDeviceToDevice);
+      // }
       for(int i = 0; i < num_head; i++){
-        cudaMemcpy(A_copy+(i*(nb*k+2*k)), a+(i*nb*k), nb*k*sizeof(T), cudaMemcpyDeviceToDevice);
-        cudaMemcpy(A_copy+(nb*k)+(i*(nb*k+2*k)), dA_rowchk_r<T>+(i*k*2), 2*k*sizeof(T), cudaMemcpyDeviceToDevice);
+        cublasSetMatrix(k, nb, sizeof(T),
+                          a+(i*nb*k), lda,
+                          A_copy+(i*(nb*k+2*k)), lda);
+        cublasSetMatrix(k, 2, sizeof(T),
+                          dA_rowchk_r<T>+(i*k*2), ldda_rowchk_r,
+                          A_copy+(nb*k)+(i*(nb*k+2*k)), lda);
       }
       // GemmMatrxiChkMerge<<<num_head, 2, 0, stream_colchk>>>(A_copy, a, dA_rowchk_r<T>, k, (m/num_head), k, 2);
       m_copy = (m + 2*num_head);
@@ -1849,9 +1859,17 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       size_t size = (n + 2*num_batches) * k * sizeof(T);
       cudaMalloc((void**)&B_copy, size);
       // cudaMalloc((void**)&B_copy1, size);
-      for(int i = 0; i < num_batches; i++){
-        cudaMemcpy(B_copy+(i*(nb*k+2*k)), b+(i*nb*k), nb*k*sizeof(T), cudaMemcpyDeviceToDevice);
-        cudaMemcpy(B_copy+(nb*k)+(i*(nb*k+2*k)), dB_rowchk_r<T>+(i*k*2), 2*k*sizeof(T), cudaMemcpyDeviceToDevice);
+      // for(int i = 0; i < num_batches; i++){
+      //   cudaMemcpy(B_copy+(i*(nb*k+2*k)), b+(i*nb*k), nb*k*sizeof(T), cudaMemcpyDeviceToDevice);
+      //   cudaMemcpy(B_copy+(nb*k)+(i*(nb*k+2*k)), dB_rowchk_r<T>+(i*k*2), 2*k*sizeof(T), cudaMemcpyDeviceToDevice);
+      // }
+      for(int i = 0; i < num_head; i++){
+        cublasSetMatrix(k, nb, sizeof(T),
+                          b+(i*nb*k), ldb,
+                          B_copy+(i*(nb*k+2*k)), ldb);
+        cublasSetMatrix(k, 2, sizeof(T),
+                          dB_rowchk_r<T>+(i*k*2), lddb_rowchk_r,
+                          B_copy+(nb*k)+(i*(nb*k+2*k)), ldb);
       }
       // GemmMatrxiChkMerge<<<num_batches, 2, 0, stream_rowchk>>>(B_copy, b, dB_rowchk_r<T>, k, (n/num_batches), k, 2);
       n_copy = (n + 2*num_batches);
@@ -1933,13 +1951,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   // GemmResCopyBack<<<1, dim3(num_batches, num_head), 0, stream_main>>>(c, C_copy, 
   //                                                                     ldc, m_copy, (m/num_head), (n/num_batches),
   //                                                                     COL_FT, ROW_FT);
-
-  // printf("c: \n");
-  // outputChk(c, 1, ldc, m*n, m, n); 
-
-  // printf("C_copy: \n");
-  // outputChk(C_copy, 1, m_copy, m_copy*n_copy, m_copy, n_copy);  
-
+  
   // T *tmpC;
   // cudaMalloc((void**)&tmpC, m*n*sizeof(T));
   for(int col = 0; col < num_batches; col++){
@@ -1949,6 +1961,11 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
                       c + row*(m/num_head) + col*(n/num_batches)*ldc, ldc);
     }
   }
+  // printf("c: \n");
+  // outputChk(c, 1, ldc, m*n, m, n); 
+
+  // printf("C_copy: \n");
+  // outputChk(C_copy, 1, m_copy, m_copy*n_copy, m_copy, n_copy);  
 
   // printf("tmpC: \n");
   // outputChk(tmpC, 1, ldc, m*n, m, n); 
@@ -1984,27 +2001,53 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   }
 
   if(QKV == 'q'){
-    GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(Q_rowchk<T>, C_copy, m_copy, 
-                                                        (m/num_head), 2, (m/num_head), (n/num_batches), 
-                                                        num_head, false, COL_FT, ROW_FT);
+    // GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(Q_rowchk<T>, C_copy, m_copy, 
+    //                                                     (m/num_head), 2, (m/num_head), (n/num_batches), 
+    //                                                     num_head, false, COL_FT, ROW_FT);
+    for(int c = 0; c < num_batches; c++){  
+      for(int r = 0; r < num_head; r++){
+        cublasSetMatrix((m/num_head), 2, sizeof(T),
+                        C_copy + (r*RowOffset + c*ColOffset*m_copy) + (n/num_batches)*m_copy, m_copy, 
+                        Q_rowchk<T> + ((m/num_head)*2)*(r+c*num_head) , m/num_head);
+      }
+    }
     // printf("Q_rowchk: \n");
     // outputChk(Q_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
+    // printf("dC_rowchk: \n");
+    // outputChk(dC_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
+
   }
   else if(QKV == 'k'){
-    GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(K_rowchk<T>, C_copy, m_copy, 
-                                                        (m/num_head), 2, (m/num_head), (n/num_batches), 
-                                                        num_head, false, COL_FT, ROW_FT);
+    // GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(K_rowchk<T>, C_copy, m_copy, 
+    //                                                     (m/num_head), 2, (m/num_head), (n/num_batches), 
+    //                                                     num_head, false, COL_FT, ROW_FT);
+    for(int c = 0; c < num_batches; c++){  
+      for(int r = 0; r < num_head; r++){
+        cublasSetMatrix((m/num_head), 2, sizeof(T),
+                        C_copy + (r*RowOffset + c*ColOffset*m_copy) + (n/num_batches)*m_copy, m_copy, 
+                        K_rowchk<T> + ((m/num_head)*2)*(r+c*num_head) , m/num_head);
+      }
+    }
     MatrixTranspose<<<1, num_head*num_batches>>>(K_rowchk<T>, K_colchk<T>, m/num_head, 2);
     // MatrixTranspose<<<1, num_head*num_batches>>>(K_rowchk<T>, K_colchk<T>, m/num_head, 2);
     // printf("K_colchk: \n");
     // outputChk(K_colchk<T>, num_head*num_batches, 2, 2*m/num_head, 2,  m/num_head);
   }
   else{
-    GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(V_colchk<T>, C_copy, m_copy, 
-                                                        2, (n/num_batches), (m/num_head), (n/num_batches), 
-                                                        num_head, true, COL_FT, ROW_FT);
+    // GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(V_colchk<T>, C_copy, m_copy, 
+    //                                                     2, (n/num_batches), (m/num_head), (n/num_batches), 
+    //                                                     num_head, true, COL_FT, ROW_FT);
+    for(int c = 0; c < num_batches; c++){  
+      for(int r = 0; r < num_head; r++){
+        cublasSetMatrix(2, (n/num_batches), sizeof(T),
+                        C_copy + (r*RowOffset + c*ColOffset*m_copy) + (m/num_head), m_copy, 
+                        V_colchk<T> + ((n/num_batches)*2)*(r+c*num_head) , 2);
+      }
+    }
     // printf("V_colchk: \n");
     // outputChk(V_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
+    // printf("dC_rowchk: \n");
+    // outputChk(dC_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
   }
 }
 
