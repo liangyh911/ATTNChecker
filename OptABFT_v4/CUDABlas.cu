@@ -932,17 +932,29 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   // printf("dC_rowchk:\n");
   // outputChk(dC_rowchk<T>, num_batches, lddc_rowchk, 2*m, m, 2);
 
-  if(ifPassChk && QKV == 'v'){
+  if(ifPassChk && QKV == 'v'){    
     int64_t nb = int(num_batches/num_head);
     // scale check sum
     ChkSumScale<<<1, num_batches, 0, stream_rowchk>>>(dC_rowchk<T>, m, n, 2*m, num_head);
     // cudaStreamSynchronize(stream_rowchk);
     // printf("After scale dC_rowchk:\n");
     // outputChk(dC_rowchk<T>, num_batches, lddc_rowchk, 2*m, m, 2);
+    
     // merage chechk sum
-    MatrixMerge<<<1, dim3(nb, num_head), 0, stream_rowchk>>>(dC_rowchk<T>, tmp_chk<T>, m, 2, m*num_head, 2*nb, num_head);
+    // MatrixMerge<<<1, dim3(nb, num_head), 0, stream_rowchk>>>(dC_rowchk<T>, tmp_chk<T>, m, 2, m*num_head, 2*nb, num_head);
+    // T *t;
+    // cudaMalloc((void**)&t, 2*lddc_rowchk*num_batches*sizeof(T));
+    for(int c = 0; c < nb; c++){
+      for(int r = 0; r < num_head; r++){
+        cublasSetMatrix(m, 2, sizeof(T), 
+                        dC_rowchk<T>+(r+c*num_head)*(2*m), lddc_rowchk, 
+                        tmp_chk<T>+(r*m + c*(m*num_head)*2), lddc_rowchk*num_head);
+      }
+    }
     // printf("tmp chk:\n");
     // outputChk(tmp_chk<T>, 1, lddc_rowchk*num_head, 0, m*num_head, 2*(num_batches/num_head));
+    // printf("tmp:\n");
+    // outputChk(t, 1, lddc_rowchk*num_head, 0, m*num_head, 2*(num_batches/num_head));
     // sum matrix
     if constexpr (std::is_same<T, float>::value){
       for(int i = 0; i < 2*nb; i+=2){
@@ -1278,6 +1290,15 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
     }
     else if(m == 5 && k == 4){
       abftbgemm<float, 5, 5, 4>(transa, transb, m, n, k,
+        alpha, dA_, ldda, stridea,
+        dB_, lddb, strideb, beta,
+        dC, lddc, stridec,
+        chk_v_a, chk_v_b, ld_chk_v,
+        num_batches,
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
+    }
+    else if(m == 4 && k == 5){
+      abftbgemm<float, 4, 5, 5>(transa, transb, m, n, k,
         alpha, dA_, ldda, stridea,
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
