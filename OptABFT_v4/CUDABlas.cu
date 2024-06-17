@@ -661,6 +661,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   // outputChk(V_colchk<T>, num_batches, ldda_colchk, 2*k, 2, k);
 
   T *A_copy, *B_copy, *C_copy;
+  // T *A_copy1, *B_copy1;
   int64_t m_copy = m;
   int64_t n_copy = n;
   int64_t stridea_copy = stridea;
@@ -706,6 +707,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
 
     size_t size = (m+2)*k*num_batches*sizeof(T);
     cudaMalloc((void**)&A_copy, size);
+    // cudaMalloc((void**)&A_copy1, size);
     stridea_copy = (m+2)*k;
     m_copy += 2;
 
@@ -714,10 +716,18 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     //   cudaMemcpy(A_copy+stridea+i*stridea_copy, dA_colchk<T>+i*(2*k), 2*k*sizeof(T), cudaMemcpyDeviceToDevice);
     // }
 
-    BGemmMatrxiChkMerge<<<num_batches, 2>>>(A_copy, dA, dA_colchk<T>, m, k, 2, k);
+    for(int i = 0; i < num_batches; i++){
+      cublasSetMatrix(m, k, sizeof(T), dA+i*stridea, ldda, A_copy+i*stridea_copy, m_copy);
+      cublasSetMatrix(2, k, sizeof(T), dA_colchk<T>+i*(2*k), ldda_colchk, A_copy+i*stridea_copy+m, m_copy);
+    }
+
+    // BGemmMatrxiChkMerge<<<num_batches, 2>>>(A_copy, dA, dA_colchk<T>, m, k, 2, k);
 
     // printf("A_copy: \n");
     // outputChk(A_copy, num_batches, ldda+2, stridea_copy, m+2, k);
+
+    // printf("A_copy1: \n");
+    // outputChk(A_copy1, num_batches, ldda+2, stridea_copy, m+2, k);
   }
 
   //std::cout << "  Get dB_chk: " << std::endl;
@@ -808,10 +818,14 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   }
   cudaStreamSynchronize(stream_main);
 
-  BGemmResCopyBack<<<1, num_batches, 0, stream_main>>>(dC, C_copy, m, n);
+  // BGemmResCopyBack<<<1, num_batches, 0, stream_main>>>(dC, C_copy, m, n);
+
+  for(int i = 0; i < num_batches; i++){
+      cublasSetMatrix(m, n, sizeof(T), C_copy+i*stridec_copy, m_copy, dC+i*stridec, lddc);
+  }
 
   // std::cout << "Output dC: " << std::endl;
-  // outputChk(dC, num_batches, lddc, m*n, m, n);
+  // outputChk(tmpC, num_batches, lddc, m*n, m, n);
 
   // std::cout << "Output C_copy: " << std::endl;
   // outputChk(C_copy, num_batches, m_copy, stridec_copy, m_copy, n_copy);
@@ -850,8 +864,13 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     }
   }
 
-  BGemmChkCopyBack<<<1, num_batches, 0, stream_colchk>>>(dC_colchk<T>, C_copy, m, n, stridec_copy, true);
-  BGemmChkCopyBack<<<1, num_batches, 0, stream_rowchk>>>(dC_rowchk<T>, C_copy, m, n, stridec_copy, false);
+  // BGemmChkCopyBack<<<1, num_batches, 0, stream_colchk>>>(dC_colchk<T>, C_copy, m, n, stridec_copy, true);
+  // BGemmChkCopyBack<<<1, num_batches, 0, stream_rowchk>>>(dC_rowchk<T>, C_copy, m, n, stridec_copy, false);
+  for(int i = 0; i < num_batches; i++){
+    cublasSetMatrix(2, n, sizeof(T), C_copy+i*stridec_copy+m, m_copy, dC_colchk<T>+i*(2*n), lddc_colchk);
+    cublasSetMatrix(m, 2, sizeof(T), C_copy+i*stridec_copy+n*m_copy, m_copy, dC_rowchk<T>+i*(2*m), lddc_rowchk);
+  }
+
 
   if (DEBUG) std::cout << "------Check check-sum-------" << std::endl;
   if (COL_FT && CHECK_AFTER) {
