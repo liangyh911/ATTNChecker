@@ -717,8 +717,8 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     // }
 
     for(int i = 0; i < num_batches; i++){
-      cublasSetMatrix(m, k, sizeof(T), dA+i*stridea, ldda, A_copy+i*stridea_copy, m_copy);
-      cublasSetMatrix(2, k, sizeof(T), dA_colchk<T>+i*(2*k), ldda_colchk, A_copy+i*stridea_copy+m, m_copy);
+      cublasSetMatrixAsync(m, k, sizeof(T), dA+i*stridea, ldda, A_copy+i*stridea_copy, m_copy, stream_colchk);
+      cublasSetMatrixAsync(2, k, sizeof(T), dA_colchk<T>+i*(2*k), ldda_colchk, A_copy+i*stridea_copy+m, m_copy, stream_colchk);
     }
 
     // BGemmMatrxiChkMerge<<<num_batches, 2>>>(A_copy, dA, dA_colchk<T>, m, k, 2, k);
@@ -821,7 +821,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   // BGemmResCopyBack<<<1, num_batches, 0, stream_main>>>(dC, C_copy, m, n);
 
   for(int i = 0; i < num_batches; i++){
-      cublasSetMatrix(m, n, sizeof(T), C_copy+i*stridec_copy, m_copy, dC+i*stridec, lddc);
+      cublasSetMatrixAsync(m, n, sizeof(T), C_copy+i*stridec_copy, m_copy, dC+i*stridec, lddc, stream_main);
   }
 
   // std::cout << "Output dC: " << std::endl;
@@ -867,8 +867,8 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   // BGemmChkCopyBack<<<1, num_batches, 0, stream_colchk>>>(dC_colchk<T>, C_copy, m, n, stridec_copy, true);
   // BGemmChkCopyBack<<<1, num_batches, 0, stream_rowchk>>>(dC_rowchk<T>, C_copy, m, n, stridec_copy, false);
   for(int i = 0; i < num_batches; i++){
-    cublasSetMatrix(2, n, sizeof(T), C_copy+i*stridec_copy+m, m_copy, dC_colchk<T>+i*(2*n), lddc_colchk);
-    cublasSetMatrix(m, 2, sizeof(T), C_copy+i*stridec_copy+n*m_copy, m_copy, dC_rowchk<T>+i*(2*m), lddc_rowchk);
+    cublasSetMatrixAsync(2, n, sizeof(T), C_copy+i*stridec_copy+m, m_copy, dC_colchk<T>+i*(2*n), lddc_colchk, stream_colchk);
+    cublasSetMatrixAsync(m, 2, sizeof(T), C_copy+i*stridec_copy+n*m_copy, m_copy, dC_rowchk<T>+i*(2*m), lddc_rowchk, stream_rowchk);
   }
 
 
@@ -946,9 +946,9 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     // cudaMalloc((void**)&t, 2*lddc_rowchk*num_batches*sizeof(T));
     for(int c = 0; c < nb; c++){
       for(int r = 0; r < num_head; r++){
-        cublasSetMatrix(m, 2, sizeof(T), 
+        cublasSetMatrixAsync(m, 2, sizeof(T), 
                         dC_rowchk<T>+(r+c*num_head)*(2*m), lddc_rowchk, 
-                        tmp_chk<T>+(r*m + c*(m*num_head)*2), lddc_rowchk*num_head);
+                        tmp_chk<T>+(r*m + c*(m*num_head)*2), lddc_rowchk*num_head, stream_rowchk);
       }
     }
     // printf("tmp chk:\n");
@@ -1843,12 +1843,12 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       //   cudaMemcpy(A_copy+(nb*k)+(i*(nb*k+2*k)), dA_rowchk_r<T>+(i*k*2), 2*k*sizeof(T), cudaMemcpyDeviceToDevice);
       // }
       for(int i = 0; i < num_head; i++){
-        cublasSetMatrix(k, nb, sizeof(T),
+        cublasSetMatrixAsync(k, nb, sizeof(T),
                           a+(i*nb*k), lda,
-                          A_copy+(i*(nb*k+2*k)), lda);
-        cublasSetMatrix(k, 2, sizeof(T),
+                          A_copy+(i*(nb*k+2*k)), lda, stream_colchk);
+        cublasSetMatrixAsync(k, 2, sizeof(T),
                           dA_rowchk_r<T>+(i*k*2), ldda_rowchk_r,
-                          A_copy+(nb*k)+(i*(nb*k+2*k)), lda);
+                          A_copy+(nb*k)+(i*(nb*k+2*k)), lda, stream_colchk);
       }
       // GemmMatrxiChkMerge<<<num_head, 2, 0, stream_colchk>>>(A_copy, a, dA_rowchk_r<T>, k, (m/num_head), k, 2);
       m_copy = (m + 2*num_head);
@@ -1904,12 +1904,12 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       //   cudaMemcpy(B_copy+(nb*k)+(i*(nb*k+2*k)), dB_rowchk_r<T>+(i*k*2), 2*k*sizeof(T), cudaMemcpyDeviceToDevice);
       // }
       for(int i = 0; i < num_head; i++){
-        cublasSetMatrix(k, nb, sizeof(T),
+        cublasSetMatrixAsync(k, nb, sizeof(T),
                           b+(i*nb*k), ldb,
-                          B_copy+(i*(nb*k+2*k)), ldb);
-        cublasSetMatrix(k, 2, sizeof(T),
+                          B_copy+(i*(nb*k+2*k)), ldb, stream_rowchk);
+        cublasSetMatrixAsync(k, 2, sizeof(T),
                           dB_rowchk_r<T>+(i*k*2), lddb_rowchk_r,
-                          B_copy+(nb*k)+(i*(nb*k+2*k)), ldb);
+                          B_copy+(nb*k)+(i*(nb*k+2*k)), ldb, stream_rowchk);
       }
       // GemmMatrxiChkMerge<<<num_batches, 2, 0, stream_rowchk>>>(B_copy, b, dB_rowchk_r<T>, k, (n/num_batches), k, 2);
       n_copy = (n + 2*num_batches);
@@ -1969,10 +1969,6 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   if (DEBUG)  cudaEventRecord(start, stream_main);
   if (DEBUG) std::cout<<"A*B=C." << std::endl;
   if constexpr (std::is_same<T, float>::value) {
-      // cublasSgemm(handle, opa, opb, m, n, k, 
-      //               &alpha, a, lda, 
-      //               b, ldb, &beta, 
-      //               c, ldc);
       // for C_copy
       cublasSgemm(handle, opa, opb, m_copy, n_copy, k, 
                     &alpha, A_copy, lda, 
@@ -1986,30 +1982,6 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
         CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
   }
   cudaStreamSynchronize(stream_main);
-
-  // C copy back
-  // GemmResCopyBack<<<1, dim3(num_batches, num_head), 0, stream_main>>>(c, C_copy, 
-  //                                                                     ldc, m_copy, (m/num_head), (n/num_batches),
-  //                                                                     COL_FT, ROW_FT);
-  
-  // T *tmpC;
-  // cudaMalloc((void**)&tmpC, m*n*sizeof(T));
-  for(int col = 0; col < num_batches; col++){
-    for(int row = 0; row < num_head; row++){
-      cublasSetMatrix((m/num_head), (n/num_batches), sizeof(T),
-                      C_copy + row*RowOffset + col*ColOffset*m_copy, m_copy, 
-                      c + row*(m/num_head) + col*(n/num_batches)*ldc, ldc);
-    }
-  }
-  // printf("c: \n");
-  // outputChk(c, 1, ldc, m*n, m, n); 
-
-  // printf("C_copy: \n");
-  // outputChk(C_copy, 1, m_copy, m_copy*n_copy, m_copy, n_copy);  
-
-  // printf("tmpC: \n");
-  // outputChk(tmpC, 1, ldc, m*n, m, n); 
-
 
   if(INJECTION){
     if(DEBUG) printf("Injection.\n");
@@ -2040,53 +2012,103 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     }
   }
 
+  // C copy back
+  // T *tmpC;
+  // cudaMalloc((void**)&tmpC, m*n*sizeof(T));
+  // dim3 blocks((m_copy+32-1)/32, (n_copy+32-1)/32);
+  // dim3 threads(32, 32);
+  // GemmCopyBack_v2<<<blocks, threads, 0, stream_main>>>(C_copy, m_copy, n_copy, num_head, 
+  //                                                       c, m/num_head, n/num_batches, 
+  //                                                       dC_colchk<T>, COL_FT, dC_rowchk<T>, ROW_FT);
+  
+  // GemmResCopyBack<<<1, dim3(num_batches, num_head), 0, stream_main>>>(tmpC, C_copy, 
+  //                                                                     ldc, m_copy, (m/num_head), (n/num_batches),
+  //                                                                     COL_FT, ROW_FT); 
+  // printf("tmpC: \n");
+  // outputChk(tmpC, 1, ldc, m*n, m, n); 
+ 
+  // for(int col = 0; col < num_batches; col++){
+  //   for(int row = 0; row < num_head; row++){
+  //     cublasSetMatrixAsync((m/num_head), (n/num_batches), sizeof(T),
+  //                     C_copy + row*RowOffset + col*ColOffset*m_copy, m_copy, 
+  //                     c + row*(m/num_head) + col*(n/num_batches)*ldc, ldc, stream_main);
+  //   }
+  // }
+
+  // checkMatrix<<<blocks, threads, 0, stream_main>>>(c, tmpC, ldc, n, 0);
+
+  // printf("c: \n");
+  // outputChk(c, 1, ldc, m*n, m, n);
+
+  // printf("C_copy: \n");
+  // outputChk(C_copy, 1, m_copy, m_copy*n_copy, m_copy, n_copy);
+
+  // printf("dC_colchk: \n");
+  // outputChk(dC_colchk<T>, num_head*num_batches, 2, 2*m/num_head, 2,  m/num_head);
+
+  // printf("dC_rowchk: \n");
+  // outputChk(dC_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
+
+  dim3 blocks((m_copy+32-1)/32, (n_copy+32-1)/32);
+  dim3 threads(32, 32);
   if(QKV == 'q'){
+    GemmCopyBack_v2<<<blocks, threads, 0, stream_main>>>(C_copy, m_copy, n_copy, num_head, 
+                                                          c, m/num_head, n/num_batches, 
+                                                          dC_colchk<T>, COL_FT, Q_rowchk<T>, ROW_FT);
     // GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(Q_rowchk<T>, C_copy, m_copy, 
     //                                                     (m/num_head), 2, (m/num_head), (n/num_batches), 
     //                                                     num_head, false, COL_FT, ROW_FT);
-    for(int c = 0; c < num_batches; c++){  
-      for(int r = 0; r < num_head; r++){
-        cublasSetMatrix((m/num_head), 2, sizeof(T),
-                        C_copy + (r*RowOffset + c*ColOffset*m_copy) + (n/num_batches)*m_copy, m_copy, 
-                        Q_rowchk<T> + ((m/num_head)*2)*(r+c*num_head) , m/num_head);
-      }
-    }
+    // for(int c = 0; c < num_batches; c++){  
+    //   for(int r = 0; r < num_head; r++){
+    //     cublasSetMatrixAsync((m/num_head), 2, sizeof(T),
+    //                     C_copy + (r*RowOffset + c*ColOffset*m_copy) + (n/num_batches)*m_copy, m_copy, 
+    //                     Q_rowchk<T> + ((m/num_head)*2)*(r+c*num_head) , m/num_head, stream_rowchk);
+    //   }
+    // }
     // printf("Q_rowchk: \n");
     // outputChk(Q_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
     // printf("dC_rowchk: \n");
     // outputChk(dC_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
-
   }
   else if(QKV == 'k'){
+    // K_rowchk<T> = dC_rowchk<T>;
+    GemmCopyBack_v2<<<blocks, threads, 0, stream_main>>>(C_copy, m_copy, n_copy, num_head, 
+                                                          c, m/num_head, n/num_batches, 
+                                                          dC_colchk<T>, COL_FT, K_rowchk<T>, ROW_FT);
     // GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(K_rowchk<T>, C_copy, m_copy, 
     //                                                     (m/num_head), 2, (m/num_head), (n/num_batches), 
     //                                                     num_head, false, COL_FT, ROW_FT);
-    for(int c = 0; c < num_batches; c++){  
-      for(int r = 0; r < num_head; r++){
-        cublasSetMatrix((m/num_head), 2, sizeof(T),
-                        C_copy + (r*RowOffset + c*ColOffset*m_copy) + (n/num_batches)*m_copy, m_copy, 
-                        K_rowchk<T> + ((m/num_head)*2)*(r+c*num_head) , m/num_head);
-      }
-    }
+    // for(int c = 0; c < num_batches; c++){  
+    //   for(int r = 0; r < num_head; r++){
+    //     cublasSetMatrixAsync((m/num_head), 2, sizeof(T),
+    //                     C_copy + (r*RowOffset + c*ColOffset*m_copy) + (n/num_batches)*m_copy, m_copy, 
+    //                     K_rowchk<T> + ((m/num_head)*2)*(r+c*num_head) , m/num_head, stream_rowchk);
+    //   }
+    // }
     MatrixTranspose<<<1, num_head*num_batches>>>(K_rowchk<T>, K_colchk<T>, m/num_head, 2);
-    // MatrixTranspose<<<1, num_head*num_batches>>>(K_rowchk<T>, K_colchk<T>, m/num_head, 2);
     // printf("K_colchk: \n");
     // outputChk(K_colchk<T>, num_head*num_batches, 2, 2*m/num_head, 2,  m/num_head);
+    // printf("dC_rowchk: \n");
+    // outputChk(dC_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
   }
   else{
+    // V_colchk<T> = dC_colchk<T>;
+    GemmCopyBack_v2<<<blocks, threads, 0, stream_main>>>(C_copy, m_copy, n_copy, num_head, 
+                                                          c, m/num_head, n/num_batches, 
+                                                          V_colchk<T>, COL_FT, dC_rowchk<T>, ROW_FT);
     // GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(V_colchk<T>, C_copy, m_copy, 
     //                                                     2, (n/num_batches), (m/num_head), (n/num_batches), 
     //                                                     num_head, true, COL_FT, ROW_FT);
-    for(int c = 0; c < num_batches; c++){  
-      for(int r = 0; r < num_head; r++){
-        cublasSetMatrix(2, (n/num_batches), sizeof(T),
-                        C_copy + (r*RowOffset + c*ColOffset*m_copy) + (m/num_head), m_copy, 
-                        V_colchk<T> + ((n/num_batches)*2)*(r+c*num_head) , 2);
-      }
-    }
+    // for(int c = 0; c < num_batches; c++){  
+    //   for(int r = 0; r < num_head; r++){
+    //     cublasSetMatrixAsync(2, (n/num_batches), sizeof(T),
+    //                     C_copy + (r*RowOffset + c*ColOffset*m_copy) + (m/num_head), m_copy, 
+    //                     V_colchk<T> + ((n/num_batches)*2)*(r+c*num_head) , 2, stream_colchk);
+    //   }
+    // }
     // printf("V_colchk: \n");
     // outputChk(V_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
-    // printf("dC_rowchk: \n");
+    // printf("dC_colchk: \n");
     // outputChk(dC_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
   }
 }

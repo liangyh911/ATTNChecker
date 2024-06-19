@@ -1242,6 +1242,59 @@ __global__ void GemmChkCopyBack(T *out, T *inp, int64_t inp_ld,
 }
 
 template <typename T>
+__global__ void GemmCopyBack_v2(T *inpMatrix, int64_t ld_inp, int64_t N, int64_t num_head,
+								T *A, int64_t m, int64_t n, 
+								T *col_chk, bool COL_FT,
+								T *row_chk, bool ROW_FT){
+	int64_t inpR = blockDim.y * blockIdx.y + threadIdx.y;
+	int64_t inpC = blockDim.x * blockIdx.x + threadIdx.x;
+	
+	if(inpR < ld_inp && inpC < N){
+		int64_t aR = m;
+		int64_t aC = n;
+		if(COL_FT){
+			aR += 2;
+		}
+		if(ROW_FT){
+			aC += 2;
+		}
+		int64_t batchR = inpR / aR;
+		int64_t batchC = inpC / aC;
+		int64_t r = inpR % aR;
+		int64_t c = inpC % aC;
+		// copy to A
+		if(r < m && c < n){
+			int64_t idx = (m*num_head) * n * batchC + c * (m*num_head) + batchR * m + r;
+			A[idx] = inpMatrix[inpR + inpC * ld_inp];
+		}
+		// copy to col check
+		else if((r >= m && r < aR) && (c < n)){
+			r -= m;
+			int64_t idx = (batchR + batchC * num_head) * (2*n) + (r + c * 2);
+			col_chk[idx] = inpMatrix[inpR + inpC * ld_inp];
+		}
+		// copy to row check
+		else if((c >= n && c < aC) && (r < m)){
+			c -= n;
+			int64_t idx = (batchR + batchC * num_head) * (2*m) + (r + c * m);
+			row_chk[idx] = inpMatrix[inpR + inpC * ld_inp];
+		}
+	}
+}
+
+template <typename T>
+__global__ void checkMatrix(T *A, T *B, int64_t ld, int64_t n, int64_t num_batches){
+	int r = blockDim.y * blockIdx.y + threadIdx.y;
+	int c = blockDim.x * blockIdx.x + threadIdx.x;
+
+	if(r < ld && c < n){
+		if(A[r+c*ld] != B[r+c*ld]){
+			printf("(%d, %d), (%f, %f)\n", r, c, A[r+c*ld], B[r+c*ld]);
+		}
+	}
+}
+
+template <typename T>
 __global__ void BGemmMatrxiChkMerge(T *A_copy, T *A, T *chk, 
 										int64_t Arow, int64_t Acol,
 										int64_t Chkrow, int64_t Chkcol){
