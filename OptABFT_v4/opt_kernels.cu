@@ -1387,6 +1387,23 @@ __global__ void BGemmMatrxiChkMerge_v2(T *outMatrix, int64_t ld_inp, int64_t N,
 }
 
 template <typename T>
+__global__ void BGemmChkMerge_v2(T *inpChk, int64_t R, int64_t C, int64_t num_head,
+							  T *outChk, int64_t M, int64_t N){
+	int64_t outR = blockDim.y * blockIdx.y + threadIdx.y;
+	int64_t outC = blockDim.x * blockIdx.x + threadIdx.x;
+
+	if(outR < M && outC < N){
+		int64_t batchR = outR / R;
+		int64_t batchC = outC / C;
+		int64_t r = outR % R;
+		int64_t c = outC % C;
+
+		int64_t idx = (batchR + batchC * num_head) * (R * C) + (r + c * R); 
+		outChk[outR + outC * M] = inpChk[idx];
+	}
+}
+
+template <typename T>
 __global__ void checkMatrix(T *A, T *B, int64_t ld, int64_t n, int64_t num_batches){
 	int r = blockDim.y * blockIdx.y + threadIdx.y;
 	int c = blockDim.x * blockIdx.x + threadIdx.x;

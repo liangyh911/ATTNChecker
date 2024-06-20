@@ -270,28 +270,18 @@ void bgemm<double>(CUDABLAS_BGEMM_ARGTYPES(double)) {
 template <>
 void bgemm<float>(CUDABLAS_BGEMM_ARGTYPES(float)) {
   // See Note [Writing Nondeterministic Operations]
+  auto start = high_resolution_clock::now();
   globalContext().alertCuBLASConfigNotDeterministic();
   cublasHandle_t handle = at::cuda::getCurrentCUDABlasHandle();
   cublasOperation_t opa = _cublasOpFromChar(transa);
   cublasOperation_t opb = _cublasOpFromChar(transb);
   _cublasAdjustLdLevel3(transa, transb, m, n, k, &lda, &ldb, &ldc);
   BGEMM_CHECK_ARGVALUES(float);
-
-  // float *dA = const_cast<float*>(a);
-  // float *dB = const_cast<float*>(b);
-
-  // printf("a:\n");
-  // outputChk(dA, num_batches+1, lda, m*k, m, k);
-  // printf("b:\n");
-  // outputChk(dB, num_batches+1, ldb, k*n, k, n);
-  
   TORCH_CUDABLAS_CHECK(cublasSgemmStridedBatched(
       handle, opa, opb, m, n, k, &alpha, a, lda, stridea, b, ldb, strideb, &beta, c, ldc, stridec, num_batches));
-  
-  // printf("additional values for additional allocated\n");
-  // memSet<<<1, stridec>>>(c, m*n*num_batches);
-  // printf("c:\n");
-  // outputChk(c, num_batches+1, ldc, m*n, m, n);
+  auto stop = high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<microseconds>(stop - start);
+  // std::cout << "abftbgemm: " << duration.count() / 1000.0 << std::endl;
 }
 
 template <>
@@ -968,16 +958,22 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     // MatrixMerge<<<1, dim3(nb, num_head), 0, stream_rowchk>>>(dC_rowchk<T>, tmp_chk<T>, m, 2, m*num_head, 2*nb, num_head);
     // T *t;
     // cudaMalloc((void**)&t, 2*lddc_rowchk*num_batches*sizeof(T));
-    for(int c = 0; c < nb; c++){
-      for(int r = 0; r < num_head; r++){
-        cublasSetMatrixAsync(m, 2, sizeof(T), 
-                        dC_rowchk<T>+(r+c*num_head)*(2*m), lddc_rowchk, 
-                        tmp_chk<T>+(r*m + c*(m*num_head)*2), lddc_rowchk*num_head, stream_rowchk);
-      }
-    }
+    // for(int c = 0; c < nb; c++){
+    //   for(int r = 0; r < num_head; r++){
+    //     cublasSetMatrixAsync(m, 2, sizeof(T), 
+    //                     dC_rowchk<T>+(r+c*num_head)*(2*m), lddc_rowchk, 
+    //                     tmp_chk<T>+(r*m + c*(m*num_head)*2), lddc_rowchk*num_head, stream_rowchk);
+    //   }
+    // }
+    
+    dim3 blocks((2*(num_batches/num_head)+32-1)/32, (m*num_head+32-1)/32);
+    dim3 threads(32, 32);
+    BGemmChkMerge_v2<<<blocks, threads, 0, stream_rowchk>>>(dC_rowchk<T>, m, 2, num_head, 
+                                                            tmp_chk<T>, (m*num_head), (2*(num_batches/num_head)));
+    
     // printf("tmp chk:\n");
     // outputChk(tmp_chk<T>, 1, lddc_rowchk*num_head, 0, m*num_head, 2*(num_batches/num_head));
-    // printf("tmp:\n");
+    // printf("t:\n");
     // outputChk(t, 1, lddc_rowchk*num_head, 0, m*num_head, 2*(num_batches/num_head));
     // sum matrix
     if constexpr (std::is_same<T, float>::value){
@@ -1710,7 +1706,7 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   auto stop = high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<microseconds>(stop - start);
   std::cout << "abftGemm: " << duration.count() / 1000.0 << std::endl;
-  destinationFile = "abftbgemm/records/time/abftgemm";
+  destinationFile = "abftbgemm/records/time/abftgemm.txt";
   fullPath = homePath / destinationFile;
   recordTime(fullPath, (duration.count() / 1000.0), DEBUG);
 
@@ -2792,6 +2788,7 @@ void gemm<double>(CUDABLAS_GEMM_ARGTYPES(double)) {
 template <>
 void gemm<float>(CUDABLAS_GEMM_ARGTYPES(float)) {
   // See Note [Writing Nondeterministic Operations]
+  auto start = high_resolution_clock::now();
   globalContext().alertCuBLASConfigNotDeterministic();
   cublasHandle_t handle = at::cuda::getCurrentCUDABlasHandle();
   cublasOperation_t opa = _cublasOpFromChar(transa);
@@ -2800,6 +2797,9 @@ void gemm<float>(CUDABLAS_GEMM_ARGTYPES(float)) {
   GEMM_CHECK_ARGVALUES(float);
   TORCH_CUDABLAS_CHECK(cublasSgemm(
       handle, opa, opb, m, n, k, &alpha, a, lda, b, ldb, &beta, c, ldc));
+  auto stop = high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<microseconds>(stop - start);
+  // std::cout << "abftgemm: " << duration.count() / 1000.0 << std::endl;
 }
 
 template <>
