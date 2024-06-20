@@ -445,11 +445,12 @@ void outputChk(T *A, int64_t nb, int64_t ld, int64_t stride, int64_t row, int64_
   for(int i = 0; i < nb; i++){
     printf("[ \n");
     for(int r = 0; r < row; r++){
+      printf("|");
       for(int c = 0; c < col; c++){
         printf("%.6f", T(tensor[i*stride + c*ld + r]));
         printf(", ");
       }
-      printf("\n");
+      printf("!\n");
     }
     printf("]\n");
   }
@@ -1964,7 +1965,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   T *C_copy;
   size_t size = m_copy * n_copy * sizeof(T);
   cudaMalloc((void**)&C_copy, size);
-  // printf("%d, %d\n", m_copy, n_copy);
+  printf("%d, %d\n", m_copy, n_copy);
 
   if (DEBUG)  cudaEventRecord(start, stream_main);
   if (DEBUG) std::cout<<"A*B=C." << std::endl;
@@ -2049,12 +2050,15 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   // printf("dC_rowchk: \n");
   // outputChk(dC_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
 
-  dim3 blocks((m_copy+32-1)/32, (n_copy+32-1)/32);
+  dim3 blocks((n_copy+32-1)/32, (m_copy+32-1)/32);
   dim3 threads(32, 32);
   if(QKV == 'q'){
     GemmCopyBack_v2<<<blocks, threads, 0, stream_main>>>(C_copy, m_copy, n_copy, num_head, 
                                                           c, m/num_head, n/num_batches, 
                                                           dC_colchk<T>, COL_FT, Q_rowchk<T>, ROW_FT);
+    // printf("c: \n");
+    // outputChk(c, 1, ldc, m*n, m, n);
+    
     // GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(Q_rowchk<T>, C_copy, m_copy, 
     //                                                     (m/num_head), 2, (m/num_head), (n/num_batches), 
     //                                                     num_head, false, COL_FT, ROW_FT);
@@ -2075,6 +2079,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     GemmCopyBack_v2<<<blocks, threads, 0, stream_main>>>(C_copy, m_copy, n_copy, num_head, 
                                                           c, m/num_head, n/num_batches, 
                                                           dC_colchk<T>, COL_FT, K_rowchk<T>, ROW_FT);
+    
     // GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(K_rowchk<T>, C_copy, m_copy, 
     //                                                     (m/num_head), 2, (m/num_head), (n/num_batches), 
     //                                                     num_head, false, COL_FT, ROW_FT);
@@ -2096,6 +2101,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     GemmCopyBack_v2<<<blocks, threads, 0, stream_main>>>(C_copy, m_copy, n_copy, num_head, 
                                                           c, m/num_head, n/num_batches, 
                                                           V_colchk<T>, COL_FT, dC_rowchk<T>, ROW_FT);
+    
     // GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(V_colchk<T>, C_copy, m_copy, 
     //                                                     2, (n/num_batches), (m/num_head), (n/num_batches), 
     //                                                     num_head, true, COL_FT, ROW_FT);
