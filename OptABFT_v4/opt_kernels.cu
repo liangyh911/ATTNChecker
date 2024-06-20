@@ -1312,6 +1312,81 @@ __global__ void GemmCopyBack_v2(T *inpMatrix, int64_t ld_inp, int64_t N, int64_t
 }
 
 template <typename T>
+__global__ void BGemmCopyBack_v2(T *inpMatrix, int64_t ld_inp, int64_t N,
+								 T *A, int64_t m, int64_t n,
+								 T* col_chk, T *row_chk){
+	int64_t inpR = blockDim.y * blockIdx.y + threadIdx.y;
+	int64_t inpC = blockDim.x * blockIdx.x + threadIdx.x;
+
+	if(inpR < ld_inp && inpC < N){
+		int64_t aR = m + 2;
+		int64_t aC = n + 2;
+
+		// int64_t batchR = inpR / aR;
+		int64_t batchC = inpC / aC;
+		int64_t r = inpR % aR;
+		int64_t c = inpC % aC;
+		// copy back to A
+		if(r < m && c < n){
+			int64_t idx = (m*1) * n * batchC + c * (m*1) + 0 * m + r;
+			A[idx] = inpMatrix[inpR + inpC * ld_inp];
+		}
+		// copy back to col chk
+		else if((r >= m && r < aR) && (c < n)){
+			r -= m;
+			int64_t idx = (0 + batchC * 1) * (2*n) + (r + c * 2);
+			col_chk[idx] = inpMatrix[inpR + inpC * ld_inp];
+		}
+		// copy back to row chk
+		else if((c >= n && c < aC) && (r < m)){
+			c -= n;
+			int64_t idx = (0 + batchC * 1) * (2*m) + (r + c * m);
+			row_chk[idx] = inpMatrix[inpR + inpC * ld_inp];
+		}
+	}
+}
+
+template <typename T>
+__global__ void BGemmMatrxiChkMerge_v2(T *outMatrix, int64_t ld_inp, int64_t N,
+										T *A, int64_t m, int64_t n, 
+										T *chk, bool ifColChk){
+	int64_t inpR = blockDim.y * blockIdx.y + threadIdx.y;
+	int64_t inpC = blockDim.x * blockIdx.x + threadIdx.x;
+	
+	if(inpR < ld_inp && inpC < N){
+		int64_t aR = m;
+		int64_t aC = n;
+		if(ifColChk){
+			aR += 2;
+		}
+		else{
+			aC += 2;
+		}
+		// int64_t batchR = inpR / aR;
+		int64_t batchC = inpC / aC;
+		int64_t r = inpR % aR;
+		int64_t c = inpC % aC;
+		// copy to A
+		if(r < m && c < n){
+			int64_t idx = batchC * (n*m) + (r + c * m);
+			outMatrix[inpR + inpC * ld_inp] = A[idx];
+		}
+		// copy to col check
+		else if((r >= m && r < aR) && (c < n)){
+			r -= m;
+			int64_t idx = batchC * (2*n) + (r + c * 2);
+			outMatrix[inpR + inpC * ld_inp] = chk[idx];
+		}
+		// copy to row check
+		else if((c >= n && c < aC) && (r < m)){
+			c -= n;
+			int64_t idx = batchC * (2*m) + (r + c * m);
+			outMatrix[inpR + inpC * ld_inp] = chk[idx];
+		}
+	}
+}
+
+template <typename T>
 __global__ void checkMatrix(T *A, T *B, int64_t ld, int64_t n, int64_t num_batches){
 	int r = blockDim.y * blockIdx.y + threadIdx.y;
 	int c = blockDim.x * blockIdx.x + threadIdx.x;

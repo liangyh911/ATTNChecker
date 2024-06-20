@@ -717,12 +717,15 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     //   cudaMemcpy(A_copy+stridea+i*stridea_copy, dA_colchk<T>+i*(2*k), 2*k*sizeof(T), cudaMemcpyDeviceToDevice);
     // }
 
-    for(int i = 0; i < num_batches; i++){
-      cublasSetMatrixAsync(m, k, sizeof(T), dA+i*stridea, ldda, A_copy+i*stridea_copy, m_copy, stream_colchk);
-      cublasSetMatrixAsync(2, k, sizeof(T), dA_colchk<T>+i*(2*k), ldda_colchk, A_copy+i*stridea_copy+m, m_copy, stream_colchk);
-    }
-
-    // BGemmMatrxiChkMerge<<<num_batches, 2>>>(A_copy, dA, dA_colchk<T>, m, k, 2, k);
+    // for(int i = 0; i < num_batches; i++){
+    //   cublasSetMatrixAsync(m, k, sizeof(T), dA+i*stridea, ldda, A_copy+i*stridea_copy, m_copy, stream_colchk);
+    //   cublasSetMatrixAsync(2, k, sizeof(T), dA_colchk<T>+i*(2*k), ldda_colchk, A_copy+i*stridea_copy+m, m_copy, stream_colchk);
+    // }
+    
+    dim3 blocks(((k*num_batches)+32-1)/32, (m_copy+32-1)/32);
+    dim3 threads(32, 32);
+    BGemmMatrxiChkMerge_v2<<<blocks, threads, 0, stream_colchk>>>(A_copy, m_copy, (k*num_batches), dA, m, k, dA_colchk<T>, true);
+    BGemmMatrxiChkMerge<<<num_batches, 2>>>(A_copy, dA, dA_colchk<T>, m, k, 2, k);
 
     // printf("A_copy: \n");
     // outputChk(A_copy, num_batches, ldda+2, stridea_copy, m+2, k);
@@ -774,15 +777,24 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
 
     size_t size = (n+2)*k*num_batches*sizeof(T);
     cudaMalloc((void**)&B_copy, size);
+    // cudaMalloc((void**)&B_copy1, size);
     strideb_copy = (n+2)*k;
     n_copy += 2;
 
-    for(int i = 0; i < num_batches; i++){
-      cudaMemcpyAsync(B_copy+i*strideb_copy, dB+i*strideb, strideb_copy*sizeof(T), cudaMemcpyDeviceToDevice, stream_rowchk);
-      cudaMemcpyAsync(B_copy+strideb+i*strideb_copy, dB_rowchk<T>+i*(2*k), 2*k*sizeof(T), cudaMemcpyDeviceToDevice, stream_rowchk);
-    }
+    // for(int i = 0; i < num_batches; i++){
+    //   cudaMemcpyAsync(B_copy+i*strideb_copy, dB+i*strideb, strideb_copy*sizeof(T), cudaMemcpyDeviceToDevice, stream_rowchk);
+    //   cudaMemcpyAsync(B_copy+strideb+i*strideb_copy, dB_rowchk<T>+i*(2*k), 2*k*sizeof(T), cudaMemcpyDeviceToDevice, stream_rowchk);
+    // }
+
+    dim3 blocks(((n_copy*num_batches)+32-1)/32, (k+32-1)/32);
+    dim3 threads(32, 32);
+    BGemmMatrxiChkMerge_v2<<<blocks, threads, 0, stream_rowchk>>>(B_copy, k, (n_copy*num_batches), dB, k, n, dB_rowchk<T>, false);
+    
     // printf("B_copy: \n");
     // outputChk(B_copy, num_batches, lddb, strideb_copy, k, n+2);
+
+    // printf("B_copy1: \n");
+    // outputChk(B_copy1, num_batches, lddb, strideb_copy, k, n+2);
   }
   stridec_copy = m_copy * n_copy;
 
@@ -821,15 +833,18 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
 
   // BGemmResCopyBack<<<1, num_batches, 0, stream_main>>>(dC, C_copy, m, n);
 
-  for(int i = 0; i < num_batches; i++){
-      cublasSetMatrixAsync(m, n, sizeof(T), C_copy+i*stridec_copy, m_copy, dC+i*stridec, lddc, stream_main);
-  }
+  // for(int i = 0; i < num_batches; i++){
+  //     cublasSetMatrixAsync(m, n, sizeof(T), C_copy+i*stridec_copy, m_copy, dC+i*stridec, lddc, stream_main);
+  // }
 
-  // std::cout << "Output dC: " << std::endl;
-  // outputChk(tmpC, num_batches, lddc, m*n, m, n);
+  // T *tmpC;
+  // cudaMalloc((void**)&tmpC, stridec*num_batches*sizeof(T));
 
   // std::cout << "Output C_copy: " << std::endl;
   // outputChk(C_copy, num_batches, m_copy, stridec_copy, m_copy, n_copy);
+
+  // std::cout << "Output tmpC: " << std::endl;
+  // outputChk(tmpC, num_batches, lddc, m*n, m, n);
 
   // printf("Before injection C: \n");
   // outputChk(dC, 1, lddc, 0, m, n);
@@ -867,11 +882,19 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
 
   // BGemmChkCopyBack<<<1, num_batches, 0, stream_colchk>>>(dC_colchk<T>, C_copy, m, n, stridec_copy, true);
   // BGemmChkCopyBack<<<1, num_batches, 0, stream_rowchk>>>(dC_rowchk<T>, C_copy, m, n, stridec_copy, false);
-  for(int i = 0; i < num_batches; i++){
-    cublasSetMatrixAsync(2, n, sizeof(T), C_copy+i*stridec_copy+m, m_copy, dC_colchk<T>+i*(2*n), lddc_colchk, stream_colchk);
-    cublasSetMatrixAsync(m, 2, sizeof(T), C_copy+i*stridec_copy+n*m_copy, m_copy, dC_rowchk<T>+i*(2*m), lddc_rowchk, stream_rowchk);
-  }
-
+  // for(int i = 0; i < num_batches; i++){
+  //   cublasSetMatrixAsync(2, n, sizeof(T), C_copy+i*stridec_copy+m, m_copy, dC_colchk<T>+i*(2*n), lddc_colchk, stream_colchk);
+  //   cublasSetMatrixAsync(m, 2, sizeof(T), C_copy+i*stridec_copy+n*m_copy, m_copy, dC_rowchk<T>+i*(2*m), lddc_rowchk, stream_rowchk);
+  // }
+  
+  int64_t R = m + 2;
+  int64_t C = (n+2)*num_batches;
+  dim3 blocks((C+32-1)/32, (R+32-1)/32);
+  dim3 threads(32, 32);
+  BGemmCopyBack_v2<<<blocks, threads, 0, stream_main>>>(C_copy, R, C, 
+                                                        dC, m, n, 
+                                                        dC_colchk<T>, dC_rowchk<T>);
+  cudaStreamSynchronize(stream_main);
 
   if (DEBUG) std::cout << "------Check check-sum-------" << std::endl;
   if (COL_FT && CHECK_AFTER) {
@@ -1924,7 +1947,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
 
       dim3 blocks((n_copy+32-1)/32, (k+32-1)/32);
       dim3 threads(32,32);
-      GemmMatrxiChkMerge_v2<<<blocks, threads, 0, stream_colchk>>>(B_copy, k, n_copy, num_head,
+      GemmMatrxiChkMerge_v2<<<blocks, threads, 0, stream_rowchk>>>(B_copy, k, n_copy, num_head,
                                                                     b, k, nb, dB_rowchk_r<T>);
 
       // printf("B_copy: \n");
