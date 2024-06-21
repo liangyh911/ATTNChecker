@@ -1245,8 +1245,8 @@ template <typename T>
 __global__ void GemmMatrxiChkMerge_v2(T *outMatrix, int64_t ld_inp, int64_t N, int64_t num_head,
 										T *A, int64_t m, int64_t n, 
 										T *chk){
-	int64_t inpR = blockDim.y * blockIdx.y + threadIdx.y;
-	int64_t inpC = blockDim.x * blockIdx.x + threadIdx.x;
+	int64_t inpC = blockDim.y * blockIdx.y + threadIdx.y;
+	int64_t inpR = blockDim.x * blockIdx.x + threadIdx.x;
 	
 	if(inpR < ld_inp && inpC < N){
 		int64_t aR = m;
@@ -1275,8 +1275,8 @@ __global__ void GemmCopyBack_v2(T *inpMatrix, int64_t ld_inp, int64_t N, int64_t
 								T *A, int64_t m, int64_t n, 
 								T *col_chk, bool COL_FT,
 								T *row_chk, bool ROW_FT){
-	int64_t inpR = blockDim.y * blockIdx.y + threadIdx.y;
-	int64_t inpC = blockDim.x * blockIdx.x + threadIdx.x;
+	int64_t inpC = blockDim.y * blockIdx.y + threadIdx.y;
+	int64_t inpR = blockDim.x * blockIdx.x + threadIdx.x;
 	
 	if(inpR < ld_inp && inpC < N){
 		int64_t aR = m;
@@ -1350,8 +1350,8 @@ template <typename T>
 __global__ void BGemmMatrxiChkMerge_v2(T *outMatrix, int64_t ld_inp, int64_t N,
 										T *A, int64_t m, int64_t n, 
 										T *chk, bool ifColChk){
-	int64_t inpR = blockDim.y * blockIdx.y + threadIdx.y;
-	int64_t inpC = blockDim.x * blockIdx.x + threadIdx.x;
+	int64_t inpC = blockDim.y * blockIdx.y + threadIdx.y;
+	int64_t inpR = blockDim.x * blockIdx.x + threadIdx.x;
 	
 	if(inpR < ld_inp && inpC < N){
 		int64_t aR = m;

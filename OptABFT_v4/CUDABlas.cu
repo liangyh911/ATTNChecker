@@ -270,6 +270,7 @@ void bgemm<double>(CUDABLAS_BGEMM_ARGTYPES(double)) {
 template <>
 void bgemm<float>(CUDABLAS_BGEMM_ARGTYPES(float)) {
   // See Note [Writing Nondeterministic Operations]
+  cudaDeviceSynchronize();
   auto start = high_resolution_clock::now();
   globalContext().alertCuBLASConfigNotDeterministic();
   cublasHandle_t handle = at::cuda::getCurrentCUDABlasHandle();
@@ -279,6 +280,7 @@ void bgemm<float>(CUDABLAS_BGEMM_ARGTYPES(float)) {
   BGEMM_CHECK_ARGVALUES(float);
   TORCH_CUDABLAS_CHECK(cublasSgemmStridedBatched(
       handle, opa, opb, m, n, k, &alpha, a, lda, stridea, b, ldb, strideb, &beta, c, ldc, stridec, num_batches));
+  cudaDeviceSynchronize();
   auto stop = high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<microseconds>(stop - start);
   // std::cout << "abftbgemm: " << duration.count() / 1000.0 << std::endl;
@@ -712,10 +714,18 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     //   cublasSetMatrixAsync(2, k, sizeof(T), dA_colchk<T>+i*(2*k), ldda_colchk, A_copy+i*stridea_copy+m, m_copy, stream_colchk);
     // }
     
-    dim3 blocks(((k*num_batches)+32-1)/32, (m_copy+32-1)/32);
-    dim3 threads(32, 32);
+    int64_t threadsDim = 16;
+    dim3 blocks((m_copy+threadsDim-1)/threadsDim, ((k*num_batches)+threadsDim-1)/threadsDim);
+    dim3 threads(threadsDim, threadsDim);
+    if(DEBUG) cudaEventRecord(start, stream_colchk);
     BGemmMatrxiChkMerge_v2<<<blocks, threads, 0, stream_colchk>>>(A_copy, m_copy, (k*num_batches), dA, m, k, dA_colchk<T>, true);
-    BGemmMatrxiChkMerge<<<num_batches, 2>>>(A_copy, dA, dA_colchk<T>, m, k, 2, k);
+    // BGemmMatrxiChkMerge<<<num_batches, 2>>>(A_copy, dA, dA_colchk<T>, m, k, 2, k);
+    if (DEBUG) {
+      cudaEventRecord(stop, stream_colchk);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&t1, start, stop);
+      printf("   dA and dA_colchk merge: %f \n", t1);
+    }
 
     // printf("A_copy: \n");
     // outputChk(A_copy, num_batches, ldda+2, stridea_copy, m+2, k);
@@ -776,10 +786,18 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     //   cudaMemcpyAsync(B_copy+strideb+i*strideb_copy, dB_rowchk<T>+i*(2*k), 2*k*sizeof(T), cudaMemcpyDeviceToDevice, stream_rowchk);
     // }
 
-    dim3 blocks(((n_copy*num_batches)+32-1)/32, (k+32-1)/32);
-    dim3 threads(32, 32);
+    int64_t threadsDim = 16;
+    dim3 blocks((k+threadsDim-1)/threadsDim, ((n_copy*num_batches)+threadsDim-1)/threadsDim);
+    dim3 threads(threadsDim, threadsDim);
+    if(DEBUG) cudaEventRecord(start, stream_rowchk);
     BGemmMatrxiChkMerge_v2<<<blocks, threads, 0, stream_rowchk>>>(B_copy, k, (n_copy*num_batches), dB, k, n, dB_rowchk<T>, false);
-    
+    if (DEBUG) {
+      cudaEventRecord(stop, stream_rowchk);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&t1, start, stop);
+      printf("   dB and dB_rowchk merge: %f \n", t1);
+    }
+
     // printf("B_copy: \n");
     // outputChk(B_copy, num_batches, lddb, strideb_copy, k, n+2);
 
@@ -855,10 +873,10 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
 
     destinationFile = "abftbgemm/records/effeciency/abftbgemm.txt";
     fullPath = homePath / destinationFile;
-    printf("  gemm: %f (%f)(%f)\n", t, (double)num_batches*m*n*k*2/t/1e6, (double)num_batches*(m*k+k*n+m*n)/t/1e6);
-    recordEffeciency(fullPath, t, 1, (double)num_batches*m*n*k*2/t/1e6, (double)num_batches*(m*k+k*n+m*n)/t/1e6);
+    printf("  gemm: %f (%f)(%f)\n", t, (double)num_batches*m_copy*n_copy*k*2/t/1e6, (double)num_batches*(m_copy*k+k*n_copy+m_copy*n_copy)/t/1e6);
+    recordEffeciency(fullPath, t, 1, (double)num_batches*m_copy*n_copy*k*2/t/1e6, (double)num_batches*(m_copy*k+k*n_copy+m_copy*n_copy)/t/1e6);
     
-    if(COL_FT){
+    if(COL_FT && QKV != 's'){
       printf("dA_chk_gemm: %f (%f)(%f)(%f)\n", t_Achk, t_Achk/t, (double)num_batches*m*2*k*2/t_Achk/1e6, (double)num_batches*(2*k+2*m+k*m)/t_Achk/1e6);
       recordEffeciency(fullPath, t_Achk, t_Achk/t, 
                                     (double)num_batches*m*2*k*2/t_Achk/1e6, (double)num_batches*(2*k+2*m+k*m)/t_Achk/1e6);
@@ -879,12 +897,20 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   
   int64_t R = m + 2;
   int64_t C = (n+2)*num_batches;
-  dim3 blocks((C+32-1)/32, (R+32-1)/32);
-  dim3 threads(32, 32);
+  int64_t threadsDim = 16;
+  dim3 blocks((C+threadsDim-1)/threadsDim, (R+threadsDim-1)/threadsDim);
+  dim3 threads(threadsDim, threadsDim);
+  if (DEBUG) cudaEventRecord(start, stream_main);
   BGemmCopyBack_v2<<<blocks, threads, 0, stream_main>>>(C_copy, R, C, 
                                                         dC, m, n, 
                                                         dC_colchk<T>, dC_rowchk<T>);
   cudaStreamSynchronize(stream_main);
+  if (DEBUG) {
+    cudaEventRecord(stop, stream_main);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&t1, start, stop);
+    printf("dC, dC_colchk and dC_rowchk Copy Back: %f \n", t1);
+  }
 
   if (DEBUG) std::cout << "------Check check-sum-------" << std::endl;
   if (COL_FT && CHECK_AFTER) {
@@ -965,12 +991,18 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     //                     tmp_chk<T>+(r*m + c*(m*num_head)*2), lddc_rowchk*num_head, stream_rowchk);
     //   }
     // }
-    
-    dim3 blocks((2*(num_batches/num_head)+32-1)/32, (m*num_head+32-1)/32);
-    dim3 threads(32, 32);
+    if (DEBUG) cudaEventRecord(start, stream_rowchk);
+    int64_t threadsDim = 16;
+    dim3 blocks((2*(num_batches/num_head)+threadsDim-1)/threadsDim, (m*num_head+threadsDim-1)/threadsDim);
+    dim3 threads(threadsDim, threadsDim);
     BGemmChkMerge_v2<<<blocks, threads, 0, stream_rowchk>>>(dC_rowchk<T>, m, 2, num_head, 
                                                             tmp_chk<T>, (m*num_head), (2*(num_batches/num_head)));
-    
+    if (DEBUG) {
+      cudaEventRecord(stop, stream_rowchk);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&t1, start, stop);
+      printf("dC and dC_rowchk Merge for attn_out: %f \n", t1);
+    }
     // printf("tmp chk:\n");
     // outputChk(tmp_chk<T>, 1, lddc_rowchk*num_head, 0, m*num_head, 2*(num_batches/num_head));
     // printf("t:\n");
@@ -1874,11 +1906,6 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       m_copy = (m + 2*num_head);
       RowOffset += 2;
       
-      dim3 blocks((m_copy+32-1)/32, (k+32-1)/32);
-      dim3 threads(32,32);
-      GemmMatrxiChkMerge_v2<<<blocks, threads, 0, stream_colchk>>>(A_copy, k, m_copy, num_head,
-                                                                    a, k, nb, dA_rowchk_r<T>);
-
       // printf("A_copy: \n");
       // outputChk(A_copy, 1, (lda), (m+2*num_head)*k, k, (m+2*num_head));  
 
@@ -1891,6 +1918,20 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventRecord(stop, stream_colchk);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t_Achk, start, stop);
+    }
+
+    if (DEBUG) cudaEventRecord(start, stream_colchk);
+
+    int64_t threadsDim = 16;
+    dim3 blocks((k+threadsDim-1)/threadsDim, (m_copy+threadsDim-1)/threadsDim);
+    dim3 threads(threadsDim, threadsDim);
+    GemmMatrxiChkMerge_v2<<<blocks, threads, 0, stream_colchk>>>(A_copy, k, m_copy, num_head,
+                                                                  a, k, nb, dA_rowchk_r<T>);
+    if(DEBUG){
+      cudaEventRecord(stop, stream_colchk);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&t1, start, stop);
+      printf("  AT and dA_rowchk Merge Time: %f\n", t1);
     }
   }
   else{
@@ -1941,11 +1982,6 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       n_copy = (n + 2*num_batches);
       ColOffset += 2;
 
-      dim3 blocks((n_copy+32-1)/32, (k+32-1)/32);
-      dim3 threads(32,32);
-      GemmMatrxiChkMerge_v2<<<blocks, threads, 0, stream_rowchk>>>(B_copy, k, n_copy, num_head,
-                                                                    b, k, nb, dB_rowchk_r<T>);
-
       // printf("B_copy: \n");
       // outputChk(B_copy, 1, (ldb), (n+2*num_batches)*k, k, (n+2*num_batches));     
       // printf("B_copy1: \n");
@@ -1979,6 +2015,20 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t_Bchk, start, stop);
       t_Bchk /= 1.0;
+    }
+
+    int64_t threadsDim = 16;
+    dim3 blocks((k+threadsDim-1)/threadsDim, (n_copy+threadsDim-1)/threadsDim);
+    dim3 threads(threadsDim,threadsDim);
+    
+    if(DEBUG) cudaEventRecord(start, stream_rowchk);
+    GemmMatrxiChkMerge_v2<<<blocks, threads, 0, stream_rowchk>>>(B_copy, k, n_copy, num_head,
+                                                                  b, k, nb, dB_rowchk_r<T>);
+    if(DEBUG){
+      cudaEventRecord(stop, stream_rowchk);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&t1, start, stop);
+      printf("  B and dB_rowchk Merge Time: %f\n", t1);     
     }
   }
   else{
@@ -2027,8 +2077,8 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     destinationFile = "abftbgemm/records/effeciency/abftgemm.txt";
     fullPath = homePath / destinationFile;
     
-    printf("  gemm: %f (%f)(%f)\n", t, (double)1*m*n*k*2/t/1e6, (double)1*(m*k+k*n+m*n)/t/1e6);
-    recordEffeciency(fullPath, t, 1, (double)1*m*n*k*2/t/1e6, (double)1*(m*k+k*n+m*n)/t/1e6);
+    printf("  gemm: %f (%f)(%f)\n", t, (double)1*m_copy*n_copy*k*2/t/1e6, (double)1*(m_copy*k+k*n_copy+m_copy*n_copy)/t/1e6);
+    recordEffeciency(fullPath, t, 1, (double)1*m_copy*n_copy*k*2/t/1e6, (double)1*(m_copy*k+k*n_copy+m_copy*n_copy)/t/1e6);
     if(COL_FT){
       printf("dA_chk_gemm: %f (%f)(%f)(%f)\n", 
               t_Achk, t_Achk/t, (double)1*m*2*k*2/t_Achk/1e6, (double)1*(2*k+2*m+k*m)*sizeof(T)/t_Achk/1e6);
@@ -2080,12 +2130,20 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   // printf("dC_rowchk: \n");
   // outputChk(dC_rowchk<T>, num_head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
 
-  dim3 blocks((n_copy+32-1)/32, (m_copy+32-1)/32);
-  dim3 threads(32, 32);
+  int64_t threadsDim = 16;
+  dim3 blocks((m_copy+threadsDim-1)/threadsDim, (n_copy+threadsDim-1)/threadsDim);
+  dim3 threads(threadsDim, threadsDim);
   if(QKV == 'q'){
+    if(DEBUG) cudaEventRecord(start, stream_main);
     GemmCopyBack_v2<<<blocks, threads, 0, stream_main>>>(C_copy, m_copy, n_copy, num_head, 
                                                           c, m/num_head, n/num_batches, 
                                                           dC_colchk<T>, COL_FT, Q_rowchk<T>, ROW_FT);
+    if(DEBUG){
+      cudaEventRecord(stop, stream_main);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&t1, start, stop);
+      printf("C and Q_rowchk Copy Back: %f\n", t1);
+    }
     // printf("c: \n");
     // outputChk(c, 1, ldc, m*n, m, n);
     
@@ -2106,10 +2164,16 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   }
   else if(QKV == 'k'){
     // K_rowchk<T> = dC_rowchk<T>;
+    if(DEBUG) cudaEventRecord(start, stream_main);
     GemmCopyBack_v2<<<blocks, threads, 0, stream_main>>>(C_copy, m_copy, n_copy, num_head, 
                                                           c, m/num_head, n/num_batches, 
                                                           dC_colchk<T>, COL_FT, K_rowchk<T>, ROW_FT);
-    
+    if(DEBUG){
+      cudaEventRecord(stop, stream_main);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&t1, start, stop);
+      printf("C and K_rowchk Copy Back: %f\n", t1);
+    }
     // GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(K_rowchk<T>, C_copy, m_copy, 
     //                                                     (m/num_head), 2, (m/num_head), (n/num_batches), 
     //                                                     num_head, false, COL_FT, ROW_FT);
@@ -2128,10 +2192,16 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   }
   else{
     // V_colchk<T> = dC_colchk<T>;
+    if(DEBUG) cudaEventRecord(start, stream_main);
     GemmCopyBack_v2<<<blocks, threads, 0, stream_main>>>(C_copy, m_copy, n_copy, num_head, 
                                                           c, m/num_head, n/num_batches, 
                                                           V_colchk<T>, COL_FT, dC_rowchk<T>, ROW_FT);
-    
+    if(DEBUG){
+      cudaEventRecord(stop, stream_main);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&t1, start, stop);
+      printf("C and V_colchk Copy Back: %f\n", t1);
+    }
     // GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(V_colchk<T>, C_copy, m_copy, 
     //                                                     2, (n/num_batches), (m/num_head), (n/num_batches), 
     //                                                     num_head, true, COL_FT, ROW_FT);
@@ -2788,6 +2858,7 @@ void gemm<double>(CUDABLAS_GEMM_ARGTYPES(double)) {
 template <>
 void gemm<float>(CUDABLAS_GEMM_ARGTYPES(float)) {
   // See Note [Writing Nondeterministic Operations]
+  cudaDeviceSynchronize();
   auto start = high_resolution_clock::now();
   globalContext().alertCuBLASConfigNotDeterministic();
   cublasHandle_t handle = at::cuda::getCurrentCUDABlasHandle();
@@ -2797,6 +2868,7 @@ void gemm<float>(CUDABLAS_GEMM_ARGTYPES(float)) {
   GEMM_CHECK_ARGVALUES(float);
   TORCH_CUDABLAS_CHECK(cublasSgemm(
       handle, opa, opb, m, n, k, &alpha, a, lda, b, ldb, &beta, c, ldc));
+  cudaDeviceSynchronize();
   auto stop = high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<microseconds>(stop - start);
   // std::cout << "abftgemm: " << duration.count() / 1000.0 << std::endl;
