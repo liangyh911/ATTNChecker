@@ -1404,6 +1404,76 @@ __global__ void BGemmChkMerge_v2(T *inpChk, int64_t R, int64_t C, int64_t num_he
 }
 
 template <typename T>
+__global__ void GemmMatrxiChkMerge_v3(T *A, int64_t A_r, int64_t A_c,
+								T *chk, int64_t nb,
+								T *outMatrix, int64_t out_r, int64_t out_c){
+	int64_t inpC = blockDim.y * blockIdx.y + threadIdx.y;
+	int64_t inpR = blockDim.x * blockIdx.x + threadIdx.x;
+
+	if(inpR < out_r && inpC < out_c){
+		// copy from A
+		if(inpR < A_r && inpC < nb*A_c){
+			int64_t b = inpC / A_c;
+			int64_t c = inpC + b * 2;
+			outMatrix[inpR + c * A_r] = A[inpR + inpC * A_r];
+		}
+		// copy from chk
+		else if(inpR < A_r && inpC >= nb*A_c){
+			int64_t tc = inpC - nb*A_c;
+			int64_t b = tc / 2;
+			// printf("%d\n", b);
+			int64_t c = inpC - (nb-b-1)*A_c;
+			outMatrix[inpR + c * A_r] = chk[inpR + tc * A_r];
+		}
+	}
+}
+
+template <typename T>
+__global__ void BGemmMatrxiColChkMerge_v3(T *A, int64_t A_r, int64_t A_c, int64_t nb,
+									   T *chk, T *outMatrix, int64_t out_r, int64_t out_c){
+	int64_t inpC = blockDim.y * blockIdx.y + threadIdx.y;
+	int64_t inpR = blockDim.x * blockIdx.x + threadIdx.x;
+	if(inpR < out_r && inpC < out_c){
+		// copy from A
+		if(inpR < A_r){
+			outMatrix[inpR + inpC * out_r] = A[inpR + inpC * A_r];
+		}
+		// copy from col chk
+		else if(inpR >= A_r){
+			int64_t tr = inpR - A_r;
+			// int64_t b = tc / 2;
+			// printf("%d\n", b);
+			// int64_t c = inpC - (nb-b-1)*A_c;
+			outMatrix[inpR + inpC * out_r] = chk[tr + 2*inpC];
+		}
+	}
+}
+
+
+template <typename T>
+__global__ void BGemmMatrxiRowChkMerge_v3(T *A, int64_t A_r, int64_t A_c, int64_t nb,
+									   T *chk, T *outMatrix, int64_t out_r, int64_t out_c){
+	int64_t inpC = blockDim.y * blockIdx.y + threadIdx.y;
+	int64_t inpR = blockDim.x * blockIdx.x + threadIdx.x;
+	
+	if(inpR < A_r && inpC < out_c){
+		// copy from A
+		if(inpC < A_c*nb){
+			int64_t b = inpC / A_c;
+			int64_t c = inpC + b * 2;
+			outMatrix[inpR + c * A_r] = A[inpR + inpC * A_r];
+		}
+		// copy from row chk
+		else if(inpC >= A_c*nb){
+			int64_t tc = inpC - nb*A_c;
+			int64_t b = tc / 2;
+			int64_t c = inpC - (nb-b-1)*A_c;
+			outMatrix[inpR + c * A_r] = chk[inpR + tc * A_r];
+		}
+	}
+}
+
+template <typename T>
 __global__ void checkMatrix(T *A, T *B, int64_t ld, int64_t n, int64_t num_batches){
 	int r = blockDim.y * blockIdx.y + threadIdx.y;
 	int c = blockDim.x * blockIdx.x + threadIdx.x;

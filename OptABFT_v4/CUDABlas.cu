@@ -718,18 +718,18 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     dim3 blocks((m_copy+threadsDim-1)/threadsDim, ((k*num_batches)+threadsDim-1)/threadsDim);
     dim3 threads(threadsDim, threadsDim);
     if(DEBUG) cudaEventRecord(start, stream_colchk);
-    BGemmMatrxiChkMerge_v2<<<blocks, threads, 0, stream_colchk>>>(A_copy, m_copy, (k*num_batches), dA, m, k, dA_colchk<T>, true);
+    // BGemmMatrxiChkMerge_v2<<<blocks, threads, 0, stream_colchk>>>(A_copy, m_copy, (k*num_batches), dA, m, k, dA_colchk<T>, true);
+    BGemmMatrxiColChkMerge_v3<<<blocks, threads, 0, stream_colchk>>>(dA, m, k, num_batches, dA_colchk<T>, A_copy, m_copy, k*num_batches);
     // BGemmMatrxiChkMerge<<<num_batches, 2>>>(A_copy, dA, dA_colchk<T>, m, k, 2, k);
     if (DEBUG) {
       cudaEventRecord(stop, stream_colchk);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
-      printf("   dA and dA_colchk merge: %f \n", t1);
+      printf("   dA and dA_colchk merge: %f, (%f)\n", t1, (double)m_copy*k*num_batches*sizeof(T)/t1/1e6);
     }
 
     // printf("A_copy: \n");
     // outputChk(A_copy, num_batches, ldda+2, stridea_copy, m+2, k);
-
     // printf("A_copy1: \n");
     // outputChk(A_copy1, num_batches, ldda+2, stridea_copy, m+2, k);
   }
@@ -789,15 +789,16 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     int64_t threadsDim = 16;
     dim3 blocks((k+threadsDim-1)/threadsDim, ((n_copy*num_batches)+threadsDim-1)/threadsDim);
     dim3 threads(threadsDim, threadsDim);
+    
     if(DEBUG) cudaEventRecord(start, stream_rowchk);
-    BGemmMatrxiChkMerge_v2<<<blocks, threads, 0, stream_rowchk>>>(B_copy, k, (n_copy*num_batches), dB, k, n, dB_rowchk<T>, false);
+    // BGemmMatrxiChkMerge_v2<<<blocks, threads, 0, stream_rowchk>>>(B_copy, k, (n_copy*num_batches), dB, k, n, dB_rowchk<T>, false);
+    BGemmMatrxiRowChkMerge_v3<<<blocks, threads, 0, stream_rowchk>>>(dB, k, n, num_batches, dB_rowchk<T>, B_copy, k, (n_copy*num_batches));
     if (DEBUG) {
       cudaEventRecord(stop, stream_rowchk);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
-      printf("   dB and dB_rowchk merge: %f \n", t1);
-    }
-
+      printf("   dB and dB_rowchk merge: %f, (%f) \n", t1, (double)n_copy*k*num_batches*sizeof(T)/t1/1e6);
+    }    
     // printf("B_copy: \n");
     // outputChk(B_copy, num_batches, lddb, strideb_copy, k, n+2);
 
@@ -909,7 +910,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     cudaEventRecord(stop, stream_main);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&t1, start, stop);
-    printf("dC, dC_colchk and dC_rowchk Copy Back: %f \n", t1);
+    printf("dC, dC_colchk and dC_rowchk Copy Back: %f, (%f) \n", t1, (double)m_copy*n_copy*num_batches*sizeof(T)/t1/1e6);
   }
 
   if (DEBUG) std::cout << "------Check check-sum-------" << std::endl;
@@ -1001,7 +1002,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
       cudaEventRecord(stop, stream_rowchk);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
-      printf("dC and dC_rowchk Merge for attn_out: %f \n", t1);
+      printf("dC_rowchk Merge for attn_out: %f, (%f) \n", t1, (double)m*num_head*2*(num_batches/num_head)*sizeof(T)/t1/1e6);
     }
     // printf("tmp chk:\n");
     // outputChk(tmp_chk<T>, 1, lddc_rowchk*num_head, 0, m*num_head, 2*(num_batches/num_head));
@@ -1904,14 +1905,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       // }
       // GemmMatrxiChkMerge<<<num_head, 2, 0, stream_colchk>>>(A_copy, a, dA_rowchk_r<T>, k, (m/num_head), k, 2);
       m_copy = (m + 2*num_head);
-      RowOffset += 2;
-      
-      // printf("A_copy: \n");
-      // outputChk(A_copy, 1, (lda), (m+2*num_head)*k, k, (m+2*num_head));  
-
-      // printf("A_copy1: \n");
-      // outputChk(A_copy1, 1, (lda), (m+2*num_head)*k, k, (m+2*num_head));  
-
+      // RowOffset += 2;
     }
     // cudaStreamSynchronize(stream_colchk);
     if (DEBUG) {
@@ -1925,14 +1919,21 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     int64_t threadsDim = 16;
     dim3 blocks((k+threadsDim-1)/threadsDim, (m_copy+threadsDim-1)/threadsDim);
     dim3 threads(threadsDim, threadsDim);
-    GemmMatrxiChkMerge_v2<<<blocks, threads, 0, stream_colchk>>>(A_copy, k, m_copy, num_head,
-                                                                  a, k, nb, dA_rowchk_r<T>);
+    // GemmMatrxiChkMerge_v2<<<blocks, threads, 0, stream_colchk>>>(A_copy, k, m_copy, num_head,
+    //                                                               a, k, nb, dA_rowchk_r<T>);
+    
+    GemmMatrxiChkMerge_v3<<<blocks, threads, 0, stream_colchk>>>(a, k, nb, dA_rowchk_r<T>, num_head, A_copy, k, m_copy);
     if(DEBUG){
       cudaEventRecord(stop, stream_colchk);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
-      printf("  AT and dA_rowchk Merge Time: %f\n", t1);
+      printf("  AT and dA_rowchk Merge: %f, (%f)\n", t1, (double)k*m_copy*sizeof(T)/t1/1e6);
     }
+    // printf("A_copy: \n");
+    // outputChk(A_copy, 1, (lda), (m+2*num_head)*k, k, (m+2*num_head));  
+
+    // printf("A_copy1: \n");
+    // outputChk(A_copy1, 1, (lda), (m+2*num_head)*k, k, (m+2*num_head));  
   }
   else{
     A_copy = a;
@@ -1980,7 +1981,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       // }
       // GemmMatrxiChkMerge<<<num_batches, 2, 0, stream_rowchk>>>(B_copy, b, dB_rowchk_r<T>, k, (n/num_batches), k, 2);
       n_copy = (n + 2*num_batches);
-      ColOffset += 2;
+      // ColOffset += 2;
 
       // printf("B_copy: \n");
       // outputChk(B_copy, 1, (ldb), (n+2*num_batches)*k, k, (n+2*num_batches));     
@@ -2022,13 +2023,14 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     dim3 threads(threadsDim,threadsDim);
     
     if(DEBUG) cudaEventRecord(start, stream_rowchk);
-    GemmMatrxiChkMerge_v2<<<blocks, threads, 0, stream_rowchk>>>(B_copy, k, n_copy, num_head,
-                                                                  b, k, nb, dB_rowchk_r<T>);
+    // GemmMatrxiChkMerge_v2<<<blocks, threads, 0, stream_rowchk>>>(B_copy, k, n_copy, num_head,
+    //                                                               b, k, nb, dB_rowchk_r<T>);
+    GemmMatrxiChkMerge_v3<<<blocks, threads, 0, stream_rowchk>>>(b, k, nb, dB_rowchk_r<T>, num_batches, B_copy, k, n_copy);
     if(DEBUG){
       cudaEventRecord(stop, stream_rowchk);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
-      printf("  B and dB_rowchk Merge Time: %f\n", t1);     
+      printf("  B and dB_rowchk Merge: %f, (%f)\n", t1, (double)k*n_copy*sizeof(T)/t1/1e6);     
     }
   }
   else{
@@ -2142,7 +2144,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventRecord(stop, stream_main);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
-      printf("C and Q_rowchk Copy Back: %f\n", t1);
+      printf("C and Q_rowchk Copy Back: %f, (%f)\n", t1, (double)(m_copy*n_copy)*sizeof(T)/t1/1e6);
     }
     // printf("c: \n");
     // outputChk(c, 1, ldc, m*n, m, n);
@@ -2172,7 +2174,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventRecord(stop, stream_main);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
-      printf("C and K_rowchk Copy Back: %f\n", t1);
+      printf("C and K_rowchk Copy Back: %f, (%f)\n", t1, (double)m_copy*n_copy*sizeof(T)/t1/1e6);
     }
     // GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(K_rowchk<T>, C_copy, m_copy, 
     //                                                     (m/num_head), 2, (m/num_head), (n/num_batches), 
@@ -2200,7 +2202,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventRecord(stop, stream_main);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
-      printf("C and V_colchk Copy Back: %f\n", t1);
+      printf("C and V_colchk Copy Back: %f, (%f)\n", t1, (double)m_copy*n_copy*sizeof(T)/t1/1e6);
     }
     // GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(V_colchk<T>, C_copy, m_copy, 
     //                                                     2, (n/num_batches), (m/num_head), (n/num_batches), 
