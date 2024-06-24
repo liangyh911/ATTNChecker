@@ -1429,6 +1429,35 @@ __global__ void GemmMatrxiChkMerge_v3(T *A, int64_t A_r, int64_t A_c,
 }
 
 template <typename T>
+__global__ void GemmRowCopyBack_v3(T *inpMatrix, int64_t inp_r, int64_t inp_c, int64_t num_head, int64_t num_batches,
+								   T *A, int64_t A_r, int64_t A_c, int64_t chk_r,
+								   T *chk){
+	int64_t c = blockDim.y * blockIdx.y + threadIdx.y;
+	int64_t r = blockDim.x * blockIdx.x + threadIdx.x;
+
+	if(r < inp_r && c < inp_c){
+		// copy to A
+		if(c < A_c*num_batches){
+			int64_t b = c / A_c;
+			int64_t ic = c + b * 2;
+			A[r+c*A_r] = inpMatrix[r+ic*inp_r];
+		}
+		// copy to row chk
+		else if(c >= A_c*num_batches){
+			int64_t tc = c - A_c*num_batches;
+			int64_t batchR = r / chk_r;
+			int64_t batchC = tc / 2;
+			int64_t chkR = r % chk_r;
+			int64_t chkC = tc % 2;
+			int64_t b = batchR + batchC*num_head;
+
+			chk[chk_r*2*b + chkR+chkC*chk_r] = inpMatrix[r + A_r*(c-(num_batches-batchC-1)*A_c)];
+			// chk[chk_r*2*b + chkR+chkC*chk_r] = 1;
+		}
+	}
+}
+
+template <typename T>
 __global__ void BGemmMatrxiColChkMerge_v3(T *A, int64_t A_r, int64_t A_c, int64_t nb,
 									   T *chk, T *outMatrix, int64_t out_r, int64_t out_c){
 	int64_t inpC = blockDim.y * blockIdx.y + threadIdx.y;
@@ -1469,6 +1498,35 @@ __global__ void BGemmMatrxiRowChkMerge_v3(T *A, int64_t A_r, int64_t A_c, int64_
 			int64_t b = tc / 2;
 			int64_t c = inpC - (nb-b-1)*A_c;
 			outMatrix[inpR + c * A_r] = chk[inpR + tc * A_r];
+		}
+	}
+}
+
+template <typename T>
+__global__ void GemmBiasCopyBack(T *inpMatrix, int64_t inp_r, int64_t inp_c,
+								T *A, int64_t m, int64_t n, 
+								// T *col_chk, bool COL_FT,
+								T *row_chk, T *bias){
+	int64_t inpC = blockDim.y * blockIdx.y + threadIdx.y;
+	int64_t inpR = blockDim.x * blockIdx.x + threadIdx.x;
+	
+	if(inpR < inp_r && inpC < inp_c){
+		// copy to A
+		if(inpR < m && inpC < n){
+			A[inpR + inpC * inp_r] = inpMatrix[inpR + inpC * inp_r];
+		}
+		// copy to row check
+		else if(inpC >= n){
+			int64_t c = inpC - n;
+			int64_t idx = inpR + c * m;
+			if(c == 0){
+				T b = bias[inpR] * (T)(n-1);
+				row_chk[idx] = inpMatrix[inpR + inpC * inp_r] + b;
+			}
+			else{
+				T b = bias[inpR] * (T)(((n+1)*n/2)-1);
+				row_chk[idx] = inpMatrix[inpR + inpC * inp_r] + b;
+			}
 		}
 	}
 }
