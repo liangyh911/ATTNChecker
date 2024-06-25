@@ -846,27 +846,6 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   //     cublasSetMatrixAsync(m, n, sizeof(T), C_copy+i*stridec_copy, m_copy, dC+i*stridec, lddc, stream_main);
   // }
 
-  // T *tmpC;
-  // cudaMalloc((void**)&tmpC, stridec*num_batches*sizeof(T));
-
-  // std::cout << "Output C_copy: " << std::endl;
-  // outputChk(C_copy, num_batches, m_copy, stridec_copy, m_copy, n_copy);
-
-  // std::cout << "Output tmpC: " << std::endl;
-  // outputChk(tmpC, num_batches, lddc, m*n, m, n);
-
-  // printf("Before injection C: \n");
-  // outputChk(dC, 1, lddc, 0, m, n);
-
-  if(INJECTION){
-    if(DEBUG) printf("Injection.\n");
-    int64_t pos = getInjPos();
-    bitflip<<<1, 1, 0, stream_main>>>(dC, pos);
-  }
-  
-  // printf("After injection C: \n");
-  // outputChk(dC, 1, lddc, 0, m, n);
-  
   if (DEBUG) {
     cudaEventRecord(stop, stream_main);
     cudaEventSynchronize(stop);
@@ -889,6 +868,18 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     }
   }
 
+  // printf("Before injection C: \n");
+  // outputChk(dC, 1, lddc, 0, m, n);
+
+  if(INJECTION){
+    if(DEBUG) printf("Injection.\n");
+    int64_t pos = getInjPos();
+    bitflip<<<1, 1, 0, stream_main>>>(dC, pos);
+  }
+  
+  // printf("After injection C: \n");
+  // outputChk(dC, 1, lddc, 0, m, n);
+
   // BGemmChkCopyBack<<<1, num_batches, 0, stream_colchk>>>(dC_colchk<T>, C_copy, m, n, stridec_copy, true);
   // BGemmChkCopyBack<<<1, num_batches, 0, stream_rowchk>>>(dC_rowchk<T>, C_copy, m, n, stridec_copy, false);
   // for(int i = 0; i < num_batches; i++){
@@ -896,15 +887,17 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   //   cublasSetMatrixAsync(m, 2, sizeof(T), C_copy+i*stridec_copy+n*m_copy, m_copy, dC_rowchk<T>+i*(2*m), lddc_rowchk, stream_rowchk);
   // }
   
-  int64_t R = m + 2;
-  int64_t C = (n+2)*num_batches;
+  // int64_t R = m + 2;
+  // int64_t C = (n+2)*num_batches;
   int64_t threadsDim = 16;
-  dim3 blocks((C+threadsDim-1)/threadsDim, (R+threadsDim-1)/threadsDim);
+  dim3 blocks((m_copy+threadsDim-1)/threadsDim, ((n_copy)*num_batches+threadsDim-1)/threadsDim);
   dim3 threads(threadsDim, threadsDim);
   if (DEBUG) cudaEventRecord(start, stream_main);
-  BGemmCopyBack_v2<<<blocks, threads, 0, stream_main>>>(C_copy, R, C, 
-                                                        dC, m, n, 
-                                                        dC_colchk<T>, dC_rowchk<T>);
+  // BGemmCopyBack_v2<<<blocks, threads, 0, stream_main>>>(C_copy, R, C, 
+  //                                                       dC, m, n, 
+  //                                                       dC_colchk<T>, dC_rowchk<T>);
+  BGemmCopyBack_v3<<<blocks, threads, 0, stream_main>>>(C_copy, m_copy, n_copy, num_batches, dC, m, n,  dC_rowchk<T>, dC_colchk<T>);
+
   cudaStreamSynchronize(stream_main);
   if (DEBUG) {
     cudaEventRecord(stop, stream_main);
@@ -913,6 +906,26 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     printf("dC, dC_colchk and dC_rowchk Copy Back: %f, (%f) \n", t1, (double)m_copy*n_copy*num_batches*sizeof(T)/t1/1e6);
   }
 
+  // T *tmpC, *row_chk, *col_chk;
+  // cudaMalloc((void**)&tmpC, stridec*num_batches*sizeof(T));
+  // cudaMalloc((void**)&row_chk, 2*n*num_batches*sizeof(T));
+  // cudaMalloc((void**)&col_chk, 2*m*num_batches*sizeof(T));
+
+  // dim3 blocks1((R+threadsDim-1)/threadsDim, (C+threadsDim-1)/threadsDim);
+  // dim3 threads1(threadsDim, threadsDim);
+  // cudaStreamSynchronize(stream_main);
+
+  // std::cout << "Output C_copy: " << std::endl;
+  // outputChk(C_copy, num_batches, m_copy, stridec_copy, m_copy, n_copy);
+
+  // std::cout << "Output tmpC: " << std::endl;
+  // outputChk(tmpC, num_batches, lddc, m*n, m, n);
+  // printf("col_chk:\n");
+  // outputChk(col_chk, num_batches, lddc_colchk_r, 2*n, 2, n);
+  // printf("row_chk:\n");
+  // outputChk(row_chk, num_batches, lddc_rowchk, 2*m, m, 2);
+
+  
   if (DEBUG) std::cout << "------Check check-sum-------" << std::endl;
   if (COL_FT && CHECK_AFTER) {
     mem_row = m;
