@@ -1752,6 +1752,10 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   bool CHECK_AFTER = true;
   bool INJECTION = false;
 
+  T *A_copy, *B_copy, *C_copy;
+  int64_t m_copy = m;
+  int64_t n_copy = n;
+
   char flag;
   destinationFile = "abftbgemm/control/abftCOL_FT.txt";
   fullPath = homePath / destinationFile;
@@ -1760,6 +1764,13 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
     colFile.get(flag);
     if(flag == 'f'){
       COL_FT = false;
+      // A_copy = const_cast<T*>(a);
+      cudaMalloc((void**)&A_copy, m * k * sizeof(T));
+      cublasSetMatrix(k, m, sizeof(T), a, lda, A_copy, lda);
+    }
+    else{
+      m_copy = m + 2 * num_head;
+      cudaMalloc((void**)&A_copy, m_copy * k * sizeof(T));
     }
     // printf("%c", flag);
   }
@@ -1775,6 +1786,13 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
     rowFile.get(flag);
     if(flag == 'f'){
       ROW_FT = false;
+      // B_copy = const_cast<T*>(b);
+      cudaMalloc((void**)&B_copy, n * k * sizeof(T));
+      cublasSetMatrix(k, n, sizeof(T), b, ldb, B_copy, ldb);
+    }
+    else{
+      n_copy = n + 2 * num_batches;
+      cudaMalloc((void**)&B_copy, n_copy * k * sizeof(T));
     }
     // printf("%c", flag);
   }
@@ -1801,11 +1819,7 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   destinationFile = "abftbgemm/records/time/abftgemm.txt";
   fullPath = homePath / destinationFile;
 
-  // T *A_copy, *B_copy, *C_copy;
-  // int64_t m_copy = m;
-  // int64_t n_copy = n;
-
-  // cudaMalloc((void**)&C_copy, m_copy * n_copy * sizeof(T));
+  cudaMalloc((void**)&C_copy, m_copy * n_copy * sizeof(T));
 
   auto start = high_resolution_clock::now();
   if constexpr (std::is_same<T, float>::value) {
@@ -1814,9 +1828,9 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
       dB_, ldb, beta,
       c, ldc,
       chk_v_a, chk_v_b, ld_chk_v,
-      // A_copy, B_copy, C_copy,
+      A_copy, B_copy, C_copy,
       num_batches, num_head, 
-      // m_copy, n_copy,
+      m_copy, n_copy,
       COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER,QKV,INJECTION, homePath);
   }
   else if constexpr (std::is_same<T, at::Half>::value) {
@@ -1825,9 +1839,9 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
       dB_, ldb, beta,
       c, ldc,
       chk_v_a, chk_v_b, ld_chk_v,
-      // A_copy, B_copy, C_copy,
+      A_copy, B_copy, C_copy,
       num_batches, num_head, 
-      // m_copy, n_copy,
+      m_copy, n_copy,
       COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER,QKV, INJECTION, homePath);
   }
   cudaDeviceSynchronize();
@@ -1853,9 +1867,9 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   cudaFree(dC_rowchk_r<T>);
   cudaFree(chk_v_a);
   cudaFree(chk_v_b);
-  // cudaFree(A_copy);
-  // cudaFree(B_copy);
-  // cudaFree(C_copy);
+  cudaFree(A_copy);
+  cudaFree(B_copy);
+  cudaFree(C_copy);
 }
 
 template void myGemmPassChk<float>(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<float> alpha,
@@ -1888,9 +1902,9 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       T *b, int64_t ldb, at::opmath_type<T> beta,
       T *c, int64_t ldc,
       T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,
-      // T *A_copy, T *B_copy, T *C_copy,
+      T *A_copy, T *B_copy, T *C_copy,
       int64_t num_batches, int64_t num_head, 
-      // int64_t m_copy, int64_t n_copy,                                   
+      int64_t m_copy, int64_t n_copy,                                   
       bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, 
       char QKV, bool INJECTION, fs::path homePath){
   globalContext().alertCuBLASConfigNotDeterministic();
@@ -1935,11 +1949,11 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
 
   int64_t nb = 0;
 
-  T *A_copy, *B_copy;
+  // T *A_copy, *B_copy;
   // T *A_copy1, *B_copy1;
   
-  int64_t m_copy = m;
-  int64_t n_copy = n;
+  // int64_t m_copy = m;
+  // int64_t n_copy = n;
 
   // int64_t RowOffset = m/num_head;
   // int64_t ColOffset = n/num_batches;
@@ -2013,9 +2027,9 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventElapsedTime(&t_Achk, start, stop);
     }
 
-    size_t size = m_copy * k * sizeof(T);
-    cudaMalloc((void**)&A_copy, size);
-    m_copy = (m + 2*num_head);
+    // size_t size = m_copy * k * sizeof(T);
+    // cudaMalloc((void**)&A_copy, size);
+    // m_copy = (m + 2*num_head);
     int64_t threadsDim = 16;
     dim3 blocks((k+threadsDim-1)/threadsDim, (m_copy+threadsDim-1)/threadsDim);
     dim3 threads(threadsDim, threadsDim);
@@ -2035,9 +2049,9 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     // printf("A_copy1: \n");
     // outputChk(A_copy1, 1, (lda), (m+2*num_head)*k, k, (m+2*num_head));  
   }
-  else{
-    A_copy = a;
-  }
+  // else{
+  //   A_copy = a;
+  // }
 
   // B check row
   if (ROW_FT){
@@ -2115,9 +2129,9 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       t_Bchk /= 1.0;
     }
 
-    size_t size = n_copy * k * sizeof(T);
-    cudaMalloc((void**)&B_copy, size);
-    n_copy = (n + 2*num_batches);
+    // size_t size = n_copy * k * sizeof(T);
+    // cudaMalloc((void**)&B_copy, size);
+    // n_copy = (n + 2*num_batches);
     int64_t threadsDim = 16;
     dim3 blocks((k+threadsDim-1)/threadsDim, (n_copy+threadsDim-1)/threadsDim);
     dim3 threads(threadsDim,threadsDim);
@@ -2133,9 +2147,9 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       printf("  B and dB_rowchk Merge: %f, (%f)\n", t1, (double)2*k*n_copy*sizeof(T)/t1/1e6);     
     }
   }
-  else{
-    B_copy = b;
-  }
+  // else{
+  //   B_copy = b;
+  // }
 
   int64_t mem_row = 0;
   int64_t mem_col = 0;
@@ -2144,9 +2158,9 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
 
   // A * B
   // allocate a C_copy with col and row chk
-  T *C_copy;
-  size_t size = m_copy * n_copy * sizeof(T);
-  cudaMalloc((void**)&C_copy, size);
+  // T *C_copy;
+  // size_t size = m_copy * n_copy * sizeof(T);
+  // cudaMalloc((void**)&C_copy, size);
   printf("%d, %d\n", m_copy, n_copy);
 
   if (DEBUG)  cudaEventRecord(start, stream_main);
@@ -4339,10 +4353,10 @@ void myGemmBias (
     cudaMalloc((void**)&dC_colchk_r<T>, size);
     cudaMemset(dC_colchk_r<T>, 0, size);
 
-    cudaMalloc((void**)&dBias_colchk, size);
-    cudaMemset(dBias_colchk, 0, size);
-    cudaMalloc((void**)&dBias_colchk_r, size);
-    cudaMemset(dBias_colchk_r, 0, size);
+    // cudaMalloc((void**)&dBias_colchk, size);
+    // cudaMemset(dBias_colchk, 0, size);
+    // cudaMalloc((void**)&dBias_colchk_r, size);
+    // cudaMemset(dBias_colchk_r, 0, size);
     
     size = 2 * m * sizeof(T);
     cudaMalloc((void**)&dC_rowchk<T>, size);
@@ -4350,10 +4364,10 @@ void myGemmBias (
     cudaMalloc((void**)&dC_rowchk_r<T>, size);
     cudaMemset(dC_rowchk_r<T>, 0, size);
 
-    cudaMalloc((void**)&dBias_rowchk, size);
-    cudaMemset(dBias_rowchk, 0, size);
-    cudaMalloc((void**)&dBias_rowchk_r, size);
-    cudaMemset(dBias_rowchk_r, 0, size);
+    // cudaMalloc((void**)&dBias_rowchk, size);
+    // cudaMemset(dBias_rowchk, 0, size);
+    // cudaMalloc((void**)&dBias_rowchk_r, size);
+    // cudaMemset(dBias_rowchk_r, 0, size);
 
     int64_t len = m;
     size = 2 * len * sizeof(T);
@@ -4395,6 +4409,10 @@ void myGemmBias (
     bool CHECK_BEFORE = true;
     bool CHECK_AFTER = true;
     bool INJECTION = false;
+
+    T *A_copy, *B_copy, *C_copy;
+    int64_t m_copy = m;
+    int64_t n_copy = n;
     
     destinationFile = "abftbgemm/control/abftCOL_FT.txt";
     fullPath = homePath / destinationFile;
@@ -4404,6 +4422,12 @@ void myGemmBias (
       colFile.get(flag);
       if(flag == 'f'){
         COL_FT = false;
+        cudaMalloc((void**)&A_copy, m*k*sizeof(T));
+        cublasSetMatrix(k, m, sizeof(T), mat1_ptr, mat1_ld, A_copy, mat1_ld);
+      }
+      else{
+        m_copy = m + 2;
+        cudaMalloc((void**)&A_copy, m_copy*k*sizeof(T));
       }
       // printf("%c", flag);
     }
@@ -4419,6 +4443,12 @@ void myGemmBias (
       rowFile.get(flag);
       if(flag == 'f'){
         ROW_FT = false;
+        cudaMalloc((void**)&B_copy, n*k*sizeof(T));
+        cublasSetMatrix(k, n, sizeof(T), mat2_ptr, mat2_ld, B_copy, mat2_ld);
+      }
+      else{
+        n_copy = n + 2;
+        cudaMalloc((void**)&B_copy, n_copy*k*sizeof(T));
       }
       // printf("%c", flag);
     }
@@ -4442,6 +4472,8 @@ void myGemmBias (
     }
     injFile.close();
 
+    cudaMalloc((void**)&C_copy, m_copy*n_copy*sizeof(T));
+
     auto start = high_resolution_clock::now();
     if constexpr (std::is_same<T, float>::value) {
       abftGemmBias<float>(transpose_mat1, transpose_mat2, m, n, k,
@@ -4450,7 +4482,9 @@ void myGemmBias (
         result_ptr, result_ld,
         activation,
         chk_v_a, chk_v_b, ld_chk_v,
-        dBias_colchk, dBias_rowchk, dBias_colchk_r, dBias_rowchk_r,
+        A_copy, B_copy, C_copy,
+        m_copy, n_copy,
+        // dBias_colchk, dBias_rowchk, dBias_colchk_r, dBias_rowchk_r,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, QKV, INJECTION, homePath);
     }
     else if constexpr (std::is_same<T, at::Half>::value) {
@@ -4460,7 +4494,9 @@ void myGemmBias (
         result_ptr, result_ld,
         activation,
         chk_v_a, chk_v_b, ld_chk_v,
-        dBias_colchk, dBias_rowchk, dBias_colchk_r, dBias_rowchk_r,
+        A_copy, B_copy, C_copy,
+        m_copy, n_copy,
+        // dBias_colchk, dBias_rowchk, dBias_colchk_r, dBias_rowchk_r,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, QKV, INJECTION, homePath);
     }
     cudaDeviceSynchronize();
@@ -4486,10 +4522,13 @@ void myGemmBias (
     cudaFree(dC_rowchk_r<T>);
     cudaFree(chk_v_a);
     cudaFree(chk_v_b);
-    cudaFree(dBias_colchk);
-    cudaFree(dBias_rowchk);
-    cudaFree(dBias_colchk_r);
-    cudaFree(dBias_rowchk_r);
+    cudaFree(A_copy);
+    cudaFree(B_copy);
+    cudaFree(C_copy);
+    // cudaFree(dBias_colchk);
+    // cudaFree(dBias_rowchk);
+    // cudaFree(dBias_colchk_r);
+    // cudaFree(dBias_rowchk_r);
 
     // printf("Bias Test\n");
 }
@@ -4523,7 +4562,9 @@ void abftGemmBias(
     T* result_ptr, int64_t result_ld,
     GEMMAndBiasActivationEpilogue activation,
     T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,
-    T *dBias_colchk, T *dBias_rowchk, T *dBias_colchk_r, T *dBias_rowchk_r,                             
+    T *A_copy, T *B_copy, T *C_copy,
+    int64_t m_copy, int64_t n_copy,
+    // T *dBias_colchk, T *dBias_rowchk, T *dBias_colchk_r, T *dBias_rowchk_r,                             
     bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, 
     char QKV, bool INJECTION, fs::path homePath) {
   
@@ -4574,8 +4615,8 @@ void abftGemmBias(
     computeDesc.setAttribute(CUBLASLT_MATMUL_DESC_BIAS_POINTER, bias);
   }
 
-  int64_t m_copy = COL_FT ? m+2 : m;
-  int64_t n_copy = ROW_FT ? n+2 : n;
+  // int64_t m_copy = COL_FT ? m+2 : m;
+  // int64_t n_copy = ROW_FT ? n+2 : n;
   CuBlasLtMatrixLayout Adesc(abcType, m_copy, k, mat1_ld, transpose_mat1);
   CuBlasLtMatrixLayout Bdesc(abcType, k, n_copy, mat2_ld, transpose_mat2);
   CuBlasLtMatrixLayout Cdesc(abcType, m_copy, n_copy, m_copy);
@@ -4662,7 +4703,7 @@ void abftGemmBias(
   // printf("mat2:\n");
   // outputChk(mat2_ptr,1, mat2_ld, k*n, k, n);
 
-  T *A_copy, *B_copy, *C_copy;
+  // T *A_copy, *B_copy, *C_copy;
   // CuBlasLtMatrixLayout ACdesc(abcType, m_copy, k, mat1_ld, transpose_mat1);
   // CuBlasLtMatrixLayout BCdesc(abcType, k, n_copy, mat2_ld, transpose_mat2);
   // CuBlasLtMatrixLayout CCdesc(abcType, m_copy, n_copy, m_copy);
@@ -4708,9 +4749,9 @@ void abftGemmBias(
         cudaEventElapsedTime(&t_Achk, start, stop);
     }
   }
-  else{
-    A_copy = mat1_ptr;
-  }
+  // else{
+  //   A_copy = mat1_ptr;
+  // }
 
   // B chk
   if (ROW_FT){
@@ -4765,8 +4806,8 @@ void abftGemmBias(
       t_Bchk /= 1.0;
     }
     
-    size_t size = k * n_copy * sizeof(T);
-    cudaMalloc((void**)&B_copy, size);
+    // size_t size = k * n_copy * sizeof(T);
+    // cudaMalloc((void**)&B_copy, size);
     int64_t threadsDim = 16;
     dim3 blocks((k+threadsDim-1)/threadsDim, (n_copy+threadsDim-1)/threadsDim);
     dim3 threads(threadsDim,threadsDim);
@@ -4781,20 +4822,20 @@ void abftGemmBias(
     // printf("B_copy: \n");
     // outputChk(B_copy, 1, mat2_ld, n_copy*k, k, n_copy);     
   }
-  else{
-    B_copy = mat2_ptr;
-  }
+  // else{
+  //   B_copy = mat2_ptr;
+  // }
   
   int64_t mem_row = 0;
   int64_t mem_col = 0;
 
   // falpha = alpha_val;
   // fbeta = beta_val;
-  cudaMalloc((void**)&C_copy, m_copy*n_copy*sizeof(T));
+  // cudaMalloc((void**)&C_copy, m_copy*n_copy*sizeof(T));
   // T *tmpC;
   // cudaMalloc((void**)&tmpC, m*n*sizeof(T));
-  T *row_chk;
-  cudaMalloc((void**)&row_chk, 2*m*sizeof(T));
+  // T *row_chk;
+  // cudaMalloc((void**)&row_chk, 2*m*sizeof(T));
   if (DEBUG) std::cout<<"A*B=C." << std::endl;
   if (DEBUG)  cudaEventRecord(start, stream_main);
   // C_copy
