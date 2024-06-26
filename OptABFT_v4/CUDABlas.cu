@@ -596,8 +596,11 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
               T *dA, int64_t ldda, int64_t stridea,                                           
               T *dB, int64_t lddb, int64_t strideb, at::opmath_type<T> beta,             
               T *dC, int64_t lddc, int64_t stridec,                                                 
-              T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,                                     
-              int64_t num_batches,
+              T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,
+              T *A_copy, int64_t stridea_copy,
+              T *B_copy, int64_t strideb_copy,
+              T *C_copy, int64_t stridec_copy,                                    
+              int64_t num_batches, int64_t m_copy, int64_t n_copy,
               bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, bool ifPassChk, 
               char QKV, int64_t num_head, bool INJECTION, fs::path homePath){
   // std::cout << "Using abftbgemm-T function." << std::endl;
@@ -653,13 +656,13 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   // printf("V_colchk: \n");
   // outputChk(V_colchk<T>, num_batches, ldda_colchk, 2*k, 2, k);
 
-  T *A_copy, *B_copy, *C_copy;
+  // T *A_copy, *B_copy, *C_copy;
   // T *A_copy1, *B_copy1;
-  int64_t m_copy = m;
-  int64_t n_copy = n;
-  int64_t stridea_copy = stridea;
-  int64_t strideb_copy = strideb;
-  int64_t stridec_copy = stridec;
+  // int64_t m_copy = m;
+  // int64_t n_copy = n;
+  // int64_t stridea_copy = stridea;
+  // int64_t strideb_copy = strideb;
+  // int64_t stridec_copy = stridec;
 
   if (COL_FT){
     if (DEBUG) std::cout << "dA Col Chk." << std::endl;
@@ -698,11 +701,11 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     // printf("dA_colchk: \n");
     // outputChk(dA_colchk<T>, num_batches, ldda_colchk, 2*k, 2, k);
 
-    size_t size = (m+2)*k*num_batches*sizeof(T);
-    cudaMalloc((void**)&A_copy, size);
+    // size_t size = (m+2)*k*num_batches*sizeof(T);
+    // cudaMalloc((void**)&A_copy, size);
     // cudaMalloc((void**)&A_copy1, size);
-    stridea_copy = (m+2)*k;
-    m_copy += 2;
+    // stridea_copy = (m+2)*k;
+    // m_copy += 2;
 
     // for(int i = 0; i < num_batches; i++){
     //   cudaMemcpy(A_copy+i*stridea_copy, dA+i*stridea, num_batches*stridea_copy*sizeof(T), cudaMemcpyDeviceToDevice);
@@ -725,7 +728,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
       cudaEventRecord(stop, stream_colchk);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
-      printf("   dA and dA_colchk merge: %f, (%f)\n", t1, (double)m_copy*k*num_batches*sizeof(T)/t1/1e6);
+      printf("   dA and dA_colchk merge: %f, (%f)\n", t1, (double)2*m_copy*k*num_batches*sizeof(T)/t1/1e6);
     }
 
     // printf("A_copy: \n");
@@ -775,11 +778,11 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     // printf("dB_rowchk: \n");
     // outputChk(dB_rowchk<T>, num_batches, lddb_rowchk, 2*k, k, 2);
 
-    size_t size = (n+2)*k*num_batches*sizeof(T);
-    cudaMalloc((void**)&B_copy, size);
+    // size_t size = (n+2)*k*num_batches*sizeof(T);
+    // cudaMalloc((void**)&B_copy, size);
     // cudaMalloc((void**)&B_copy1, size);
-    strideb_copy = (n+2)*k;
-    n_copy += 2;
+    // strideb_copy = (n+2)*k;
+    // n_copy += 2;
 
     // for(int i = 0; i < num_batches; i++){
     //   cudaMemcpyAsync(B_copy+i*strideb_copy, dB+i*strideb, strideb_copy*sizeof(T), cudaMemcpyDeviceToDevice, stream_rowchk);
@@ -797,7 +800,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
       cudaEventRecord(stop, stream_rowchk);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
-      printf("   dB and dB_rowchk merge: %f, (%f) \n", t1, (double)n_copy*k*num_batches*sizeof(T)/t1/1e6);
+      printf("   dB and dB_rowchk merge: %f, (%f) \n", t1, (double)2*n_copy*k*num_batches*sizeof(T)/t1/1e6);
     }    
     // printf("B_copy: \n");
     // outputChk(B_copy, num_batches, lddb, strideb_copy, k, n+2);
@@ -805,7 +808,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     // printf("B_copy1: \n");
     // outputChk(B_copy1, num_batches, lddb, strideb_copy, k, n+2);
   }
-  stridec_copy = m_copy * n_copy;
+  // stridec_copy = m_copy * n_copy;
 
   falpha = alpha;
   fbeta = beta;
@@ -816,8 +819,8 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
 
   // --begin-- //
   // C_copy
-  size_t size = stridec_copy * num_batches * sizeof(T);
-  cudaMalloc((void**)&C_copy, size);
+  // size_t size = stridec_copy * num_batches * sizeof(T);
+  // cudaMalloc((void**)&C_copy, size);
   // calculate check-sum
   std::cout << "-----Begin.------" << std::endl;
   if (DEBUG) cudaEventRecord(start, stream_main);
@@ -893,7 +896,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   dim3 blocks((m_copy+threadsDim-1)/threadsDim, ((n_copy)*num_batches+threadsDim-1)/threadsDim);
   dim3 threads(threadsDim, threadsDim);
   if (DEBUG) cudaEventRecord(start, stream_main);
-  // BGemmCopyBack_v2<<<blocks, threads, 0, stream_main>>>(C_copy, R, C, 
+  // BGemmCopyBack_v2<<<blocks, threads, 0, stream_main>>>(C_copy, m_copy, n_copy*num_batches, 
   //                                                       dC, m, n, 
   //                                                       dC_colchk<T>, dC_rowchk<T>);
   BGemmCopyBack_v3<<<blocks, threads, 0, stream_main>>>(C_copy, m_copy, n_copy, num_batches, dC, m, n,  dC_rowchk<T>, dC_colchk<T>);
@@ -903,7 +906,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     cudaEventRecord(stop, stream_main);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&t1, start, stop);
-    printf("dC, dC_colchk and dC_rowchk Copy Back: %f, (%f) \n", t1, (double)m_copy*n_copy*num_batches*sizeof(T)/t1/1e6);
+    printf("dC, dC_colchk and dC_rowchk Copy Back: %f, (%f) \n", t1, (double)2*(m_copy*n_copy-4)*num_batches*sizeof(T)/t1/1e6);
   }
 
   // T *tmpC, *row_chk, *col_chk;
@@ -1015,7 +1018,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
       cudaEventRecord(stop, stream_rowchk);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
-      printf("dC_rowchk Merge for attn_out: %f, (%f) \n", t1, (double)m*num_head*2*(num_batches/num_head)*sizeof(T)/t1/1e6);
+      printf("dC_rowchk Merge for attn_out: %f, (%f) \n", t1, (double)2*m*num_head*2*(num_batches/num_head)*sizeof(T)/t1/1e6);
     }
     // printf("tmp chk:\n");
     // outputChk(tmp_chk<T>, 1, lddc_rowchk*num_head, 0, m*num_head, 2*(num_batches/num_head));
@@ -1040,10 +1043,6 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     // printf("CL_rowchk:\n");
     // outputChk(CL_rowchk<T>, 1, lddc_rowchk*num_head, 0, m*num_head, 2);
   }
-
-  cudaFree(A_copy);
-  cudaFree(B_copy);
-  cudaFree(C_copy);
 }
 
 template <typename T>
@@ -1218,6 +1217,10 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   bool ifPassChk = false;
   bool INJECTION = false;
 
+  T *A_copy, *B_copy, *C_copy;
+  int64_t m_copy = m;
+  int64_t n_copy = n;
+
   char flag;
   destinationFile = "abftbgemm/control/abftCOL_FT.txt";
   fullPath = homePath / destinationFile;
@@ -1226,6 +1229,10 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
     colFile.get(flag);
     if(flag == 'f'){
       COL_FT = false;
+    }
+    else{
+      m_copy = m+2;
+      cudaMalloc((void**)&A_copy, m_copy*k*num_batches*sizeof(T));
     }
     // printf("%c", flag);
   }
@@ -1241,6 +1248,10 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
     rowFile.get(flag);
     if(flag == 'f'){
       ROW_FT = false;
+    }
+    else{
+      n_copy = n + 2;
+      cudaMalloc((void**)&B_copy, n_copy*k*num_batches*sizeof(T));
     }
     // printf("%c", flag);
   }
@@ -1280,6 +1291,11 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
 
   // std::cout << "Calling abftgemm-T function." << std::endl;
 
+  cudaMalloc((void**)&C_copy, m_copy*n_copy*num_batches*sizeof(T));
+  int64_t stridea_copy = m_copy * k;
+  int64_t strideb_copy = n_copy * k;
+  int64_t stridec_copy = m_copy * n_copy;
+  
   auto start = high_resolution_clock::now();
   if constexpr (std::is_same<T, float>::value) {
     if (m == 72 && k == 64){
@@ -1288,7 +1304,10 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
-        num_batches,
+        A_copy, stridea_copy,
+        B_copy, strideb_copy,
+        C_copy, stridec_copy,
+        num_batches, m_copy, n_copy,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
     }
     else if(m == 64 && k == 72){
@@ -1297,7 +1316,10 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
-        num_batches,
+        A_copy, stridea_copy,
+        B_copy, strideb_copy,
+        C_copy, stridec_copy,
+        num_batches, m_copy, n_copy,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
     }
     else if(m == 71 && k == 64){
@@ -1306,7 +1328,10 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
-        num_batches,
+        A_copy, stridea_copy,
+        B_copy, strideb_copy,
+        C_copy, stridec_copy,
+        num_batches, m_copy, n_copy,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
     }
     else if(m == 64 && k == 71){
@@ -1315,7 +1340,10 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
-        num_batches,
+        A_copy, stridea_copy,
+        B_copy, strideb_copy,
+        C_copy, stridec_copy,
+        num_batches, m_copy, n_copy,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
     }
     else if(m == 70 && k == 64){
@@ -1324,7 +1352,10 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
-        num_batches,
+        A_copy, stridea_copy,
+        B_copy, strideb_copy,
+        C_copy, stridec_copy,
+        num_batches, m_copy, n_copy,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
     }
     else if(m == 64 && k == 70){
@@ -1333,7 +1364,10 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
-        num_batches,
+        A_copy, stridea_copy,
+        B_copy, strideb_copy,
+        C_copy, stridec_copy,
+        num_batches, m_copy, n_copy,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
     }
     else if(m == 75 && k == 64){
@@ -1342,7 +1376,10 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
-        num_batches,
+        A_copy, stridea_copy,
+        B_copy, strideb_copy,
+        C_copy, stridec_copy,
+        num_batches, m_copy, n_copy,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
     }
     else if(m == 64 && k == 75){
@@ -1351,7 +1388,10 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
-        num_batches,
+        A_copy, stridea_copy,
+        B_copy, strideb_copy,
+        C_copy, stridec_copy,
+        num_batches, m_copy, n_copy,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
     }
     else if(m == 5 && k == 4){
@@ -1360,7 +1400,10 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
-        num_batches,
+        A_copy, stridea_copy,
+        B_copy, strideb_copy,
+        C_copy, stridec_copy,
+        num_batches, m_copy, n_copy,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
     }
     else if(m == 4 && k == 5){
@@ -1369,7 +1412,10 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
-        num_batches,
+        A_copy, stridea_copy,
+        B_copy, strideb_copy,
+        C_copy, stridec_copy,
+        num_batches, m_copy, n_copy,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
     }
   } 
@@ -1380,7 +1426,10 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
           dB_, lddb, strideb, beta,
           dC, lddc, stridec,
           chk_v_a, chk_v_b, ld_chk_v,
-          num_batches,
+          A_copy, stridea_copy,
+          B_copy, strideb_copy,
+          C_copy, stridec_copy,
+          num_batches, m_copy, n_copy,
           COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
       }
       else if(m == 64 && k == 72){
@@ -1389,7 +1438,10 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
           dB_, lddb, strideb, beta,
           dC, lddc, stridec,
           chk_v_a, chk_v_b, ld_chk_v,
-          num_batches,
+          A_copy, stridea_copy,
+          B_copy, strideb_copy,
+          C_copy, stridec_copy,
+          num_batches, m_copy, n_copy,
           COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
       }
       else if(m == 70 && k == 64){
@@ -1398,7 +1450,10 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
-        num_batches,
+        A_copy, stridea_copy,
+        B_copy, strideb_copy,
+        C_copy, stridec_copy,
+        num_batches, m_copy, n_copy,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
     }
     else if(m == 64 && k == 70){
@@ -1407,7 +1462,10 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
-        num_batches,
+        A_copy, stridea_copy,
+        B_copy, strideb_copy,
+        C_copy, stridec_copy,
+        num_batches, m_copy, n_copy,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
     }
       else if(m == 71 && k == 64){
@@ -1416,7 +1474,10 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
           dB_, lddb, strideb, beta,
           dC, lddc, stridec,
           chk_v_a, chk_v_b, ld_chk_v,
-          num_batches,
+          A_copy, stridea_copy,
+          B_copy, strideb_copy,
+          C_copy, stridec_copy,
+          num_batches, m_copy, n_copy,
           COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
       }
       else if(m == 64 && k == 71){
@@ -1425,7 +1486,10 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
           dB_, lddb, strideb, beta,
           dC, lddc, stridec,
           chk_v_a, chk_v_b, ld_chk_v,
-          num_batches,
+          A_copy, stridea_copy,
+          B_copy, strideb_copy,
+          C_copy, stridec_copy,
+          num_batches, m_copy, n_copy,
           COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
       }
       else if(m == 74 && k == 64){
@@ -1434,7 +1498,10 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
-        num_batches,
+        A_copy, stridea_copy,
+        B_copy, strideb_copy,
+        C_copy, stridec_copy,
+        num_batches, m_copy, n_copy,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
     }
     else if(m == 64 && k == 74){
@@ -1443,7 +1510,10 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
         chk_v_a, chk_v_b, ld_chk_v,
-        num_batches,
+        A_copy, stridea_copy,
+        B_copy, strideb_copy,
+        C_copy, stridec_copy,
+        num_batches, m_copy, n_copy,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
     }
   }
@@ -1469,6 +1539,9 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   cudaFree(dC_rowchk_r<T>);
   cudaFree(chk_v_a);
   cudaFree(chk_v_b);
+  cudaFree(A_copy);
+  cudaFree(B_copy);
+  cudaFree(C_copy);
 
   // if(QKV == 's'){
   //   cudaFree(Q_rowchk<T>);
@@ -1728,6 +1801,12 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   destinationFile = "abftbgemm/records/time/abftgemm.txt";
   fullPath = homePath / destinationFile;
 
+  // T *A_copy, *B_copy, *C_copy;
+  // int64_t m_copy = m;
+  // int64_t n_copy = n;
+
+  // cudaMalloc((void**)&C_copy, m_copy * n_copy * sizeof(T));
+
   auto start = high_resolution_clock::now();
   if constexpr (std::is_same<T, float>::value) {
     abftGemmPassChk<float>(transa, transb, m, n, k,
@@ -1735,7 +1814,9 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
       dB_, ldb, beta,
       c, ldc,
       chk_v_a, chk_v_b, ld_chk_v,
-      num_batches, num_head,
+      // A_copy, B_copy, C_copy,
+      num_batches, num_head, 
+      // m_copy, n_copy,
       COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER,QKV,INJECTION, homePath);
   }
   else if constexpr (std::is_same<T, at::Half>::value) {
@@ -1744,7 +1825,9 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
       dB_, ldb, beta,
       c, ldc,
       chk_v_a, chk_v_b, ld_chk_v,
-      num_batches, num_head,
+      // A_copy, B_copy, C_copy,
+      num_batches, num_head, 
+      // m_copy, n_copy,
       COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER,QKV, INJECTION, homePath);
   }
   cudaDeviceSynchronize();
@@ -1770,6 +1853,9 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   cudaFree(dC_rowchk_r<T>);
   cudaFree(chk_v_a);
   cudaFree(chk_v_b);
+  // cudaFree(A_copy);
+  // cudaFree(B_copy);
+  // cudaFree(C_copy);
 }
 
 template void myGemmPassChk<float>(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<float> alpha,
@@ -1802,7 +1888,9 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       T *b, int64_t ldb, at::opmath_type<T> beta,
       T *c, int64_t ldc,
       T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,
-      int64_t num_batches, int64_t num_head,                                      
+      // T *A_copy, T *B_copy, T *C_copy,
+      int64_t num_batches, int64_t num_head, 
+      // int64_t m_copy, int64_t n_copy,                                   
       bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, 
       char QKV, bool INJECTION, fs::path homePath){
   globalContext().alertCuBLASConfigNotDeterministic();
@@ -1853,8 +1941,8 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   int64_t m_copy = m;
   int64_t n_copy = n;
 
-  int64_t RowOffset = m/num_head;
-  int64_t ColOffset = n/num_batches;
+  // int64_t RowOffset = m/num_head;
+  // int64_t ColOffset = n/num_batches;
   
   //A check col
   if (COL_FT){
@@ -1925,7 +2013,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventElapsedTime(&t_Achk, start, stop);
     }
 
-    size_t size = (m + 2*num_head) * k * sizeof(T);
+    size_t size = m_copy * k * sizeof(T);
     cudaMalloc((void**)&A_copy, size);
     m_copy = (m + 2*num_head);
     int64_t threadsDim = 16;
@@ -1939,7 +2027,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventRecord(stop, stream_colchk);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
-      printf("  AT and dA_rowchk Merge: %f, (%f)\n", t1, (double)k*m_copy*sizeof(T)/t1/1e6);
+      printf("  AT and dA_rowchk Merge: %f, (%f)\n", t1, (double)2*k*m_copy*sizeof(T)/t1/1e6);
     }
     // printf("A_copy: \n");
     // outputChk(A_copy, 1, (lda), (m+2*num_head)*k, k, (m+2*num_head));  
@@ -2027,7 +2115,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       t_Bchk /= 1.0;
     }
 
-    size_t size = (n + 2*num_batches) * k * sizeof(T);
+    size_t size = n_copy * k * sizeof(T);
     cudaMalloc((void**)&B_copy, size);
     n_copy = (n + 2*num_batches);
     int64_t threadsDim = 16;
@@ -2042,7 +2130,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventRecord(stop, stream_rowchk);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
-      printf("  B and dB_rowchk Merge: %f, (%f)\n", t1, (double)k*n_copy*sizeof(T)/t1/1e6);     
+      printf("  B and dB_rowchk Merge: %f, (%f)\n", t1, (double)2*k*n_copy*sizeof(T)/t1/1e6);     
     }
   }
   else{
@@ -2158,7 +2246,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventRecord(stop, stream_main);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
-      printf("C and Q_rowchk Copy Back v2: %f, (%f)\n", t1, (double)(m_copy*n_copy)*sizeof(T)/t1/1e6);
+      printf("C and Q_rowchk Copy Back v2: %f, (%f)\n", t1, (double)2*(m_copy*n_copy)*sizeof(T)/t1/1e6);
     }
     
     // printf("c: \n");
@@ -2192,7 +2280,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventRecord(stop, stream_main);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
-      printf("C and K_rowchk Copy Back: %f, (%f)\n", t1, (double)m_copy*n_copy*sizeof(T)/t1/1e6);
+      printf("C and K_rowchk Copy Back: %f, (%f)\n", t1, (double)2*m_copy*n_copy*sizeof(T)/t1/1e6);
     }
     // GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(K_rowchk<T>, C_copy, m_copy, 
     //                                                     (m/num_head), 2, (m/num_head), (n/num_batches), 
@@ -2220,7 +2308,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventRecord(stop, stream_main);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
-      printf("C and V_colchk Copy Back: %f, (%f)\n", t1, (double)m_copy*n_copy*sizeof(T)/t1/1e6);
+      printf("C and V_colchk Copy Back: %f, (%f)\n", t1, (double)2*m_copy*n_copy*sizeof(T)/t1/1e6);
     }
     // GemmChkCopyBack<<<1, dim3(num_batches, num_head)>>>(V_colchk<T>, C_copy, m_copy, 
     //                                                     2, (n/num_batches), (m/num_head), (n/num_batches), 
@@ -4688,7 +4776,7 @@ void abftGemmBias(
       cudaEventRecord(stop, stream_main);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
-      printf("  B and dB_rowchk Merge: %f, (%f) \n", t1, (double)(k*n_copy)*sizeof(T)/t1/1e6);
+      printf("  B and dB_rowchk Merge: %f, (%f) \n", t1, (double)2*(k*n_copy)*sizeof(T)/t1/1e6);
     }
     // printf("B_copy: \n");
     // outputChk(B_copy, 1, mat2_ld, n_copy*k, k, n_copy);     
@@ -4758,17 +4846,18 @@ void abftGemmBias(
         // recordEffeciency(fullPath,  
         //   t_Biasrowchk, t_Biasrowchk/t, (double)1*2*n*m*2/t_Biasrowchk/1e6, (double)1*(2*m+m*n+2*n)*sizeof(T)/t_Biasrowchk/1e6);
       }
-      int64_t threadsDim = 16;
-      dim3 blocks((m_copy+threadsDim-1)/threadsDim, (n_copy+threadsDim-1)/threadsDim);
-      dim3 threads(threadsDim, threadsDim);
-      if(DEBUG) cudaEventRecord(start, stream_main);
-      GemmBiasCopyBack<<<blocks, threads, 0, stream_main>>>(C_copy, m_copy, n_copy, result_ptr, m, n, dC_rowchk<T>, bias);
-      if(DEBUG){
-        cudaEventRecord(stop, stream_main);
-        cudaEventSynchronize(stop);
-        cudaEventElapsedTime(&t1, start, stop);
-        printf("C and dC_rowchk+bias Copy Back: %f, (%f) \n", t1, (double)(m_copy*n_copy)*sizeof(T)/t1/1e6);
-      }
+  }
+
+  int64_t threadsDim = 16;
+  dim3 blocks((m_copy+threadsDim-1)/threadsDim, (n_copy+threadsDim-1)/threadsDim);
+  dim3 threads(threadsDim, threadsDim);
+  if(DEBUG) cudaEventRecord(start, stream_main);
+  GemmBiasCopyBack<<<blocks, threads, 0, stream_main>>>(C_copy, m_copy, n_copy, result_ptr, m, n, dC_rowchk<T>, bias);
+  if(DEBUG){
+    cudaEventRecord(stop, stream_main);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&t1, start, stop);
+    printf("C and dC_rowchk+bias Copy Back: %f, (%f) \n", t1, (double)2*(m_copy*n_copy)*sizeof(T)/t1/1e6);
   }
 
   if(INJECTION){

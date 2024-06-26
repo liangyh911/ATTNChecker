@@ -1315,8 +1315,8 @@ template <typename T>
 __global__ void BGemmCopyBack_v2(T *inpMatrix, int64_t ld_inp, int64_t N,
 								 T *A, int64_t m, int64_t n,
 								 T* col_chk, T *row_chk){
-	int64_t inpR = blockDim.y * blockIdx.y + threadIdx.y;
-	int64_t inpC = blockDim.x * blockIdx.x + threadIdx.x;
+	int64_t inpC = blockDim.y * blockIdx.y + threadIdx.y;
+	int64_t inpR = blockDim.x * blockIdx.x + threadIdx.x;
 
 	if(inpR < ld_inp && inpC < N){
 		int64_t aR = m + 2;
