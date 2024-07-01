@@ -1505,27 +1505,29 @@ __global__ void BGemmMatrxiRowChkMerge_v3(T *A, int64_t A_r, int64_t A_c, int64_
 template <typename T>
 __global__ void BGemmCopyBack_v3(T *inpMatrix, int64_t inp_r, int64_t inp_c, int64_t num_batches,
 								 T *A, int64_t m, int64_t n,
-								 T *row_chk, T *col_chk){
+								 T *row_chk, T *col_chk,
+								 int64_t inp_N, int64_t N){
 	int64_t inpC = blockDim.y * blockIdx.y + threadIdx.y;
 	int64_t inpR = blockDim.x * blockIdx.x + threadIdx.x;
 
-	if(inpR < inp_r && inpC < (inp_c*num_batches)){
+	if(inpR < inp_r && inpC < inp_N){
 		// copy to A
-		if(inpR < m && inpC < (n*num_batches)){
+		if(inpR < m && inpC < N){
 			int64_t b = inpC / n;
 			int64_t c = inpC + b * 2;
 			A[inpR + inpC * m] = inpMatrix[inpR + c * inp_r];
 		}
 		// copy to rowchk
-		else if(inpR < m && inpC >= (n*num_batches)){
+		else if(inpR < m && inpC >= N){
 			int64_t tc = inpC - num_batches*n;
 			int64_t b = tc / 2;
 			int64_t c = inpC - (num_batches-b-1)*n;
 			row_chk[inpR + tc * m] = inpMatrix[inpR + c * inp_r];
 		}
 		// copy to colchk
-		else if(inpR >= m && inpC < (n*num_batches)){
+		else if(inpR >= m && inpC < N){
 			int64_t b = inpC / n;
+			// int64_t b = 0;
 			int64_t c = inpC + b * 2;
 			int64_t r = inpR - m;
 			col_chk[r + inpC * 2] = inpMatrix[inpR + c * inp_r];
@@ -1534,7 +1536,7 @@ __global__ void BGemmCopyBack_v3(T *inpMatrix, int64_t inp_r, int64_t inp_c, int
 }
 
 template <typename T>
-__global__ void GemmBiasCopyBack(T *inpMatrix, int64_t inp_r, int64_t inp_c,
+__global__ void GemmBiasRowCopyBack(T *inpMatrix, int64_t inp_r, int64_t inp_c,
 								T *A, int64_t m, int64_t n, 
 								// T *col_chk, bool COL_FT,
 								T *row_chk, T *bias){
@@ -1559,6 +1561,70 @@ __global__ void GemmBiasCopyBack(T *inpMatrix, int64_t inp_r, int64_t inp_c,
 				row_chk[idx] = inpMatrix[inpR + inpC * inp_r] + b;
 			}
 		}
+	}
+}
+
+template <typename T>
+__global__ void GemmBiasCopyBack_v2(T *inpMatrix, int64_t inp_r, int64_t inp_c, int64_t num_batches,
+										T *A, int64_t m, int64_t n, 
+										T *col_chk, bool COL_FT,
+										T *row_chk, bool ROW_FT, T *bias){
+	int64_t inpC = blockDim.y * blockIdx.y + threadIdx.y;
+	int64_t inpR = blockDim.x * blockIdx.x + threadIdx.x;
+	
+	if(inpR < inp_r && inpC < inp_c){
+		int64_t aR = m;
+		int64_t aC = n;
+		if(COL_FT){
+			aR += 2;
+		}
+		if(ROW_FT){
+			aC += 2;
+		}
+		int64_t batchR = inpR / aR;
+		int64_t batchC = inpC / aC;
+		int64_t r = inpR % aR;
+		int64_t c = inpC % aC;
+		// copy to A
+		if(r < m && c < n){
+			int64_t idx = (m*num_batches) * n * batchC + c * (m*num_batches) + batchR * m + r;
+			A[idx] = inpMatrix[inpR + inpC * inp_r];
+		}
+		// copy to col check
+		else if((r >= m && r < aR) && (c < n)){
+			r -= m;
+			// T b = bias[inpR];
+			int64_t idx = (batchR + batchC * num_batches) * (2*n) + (r + c * 2);
+			col_chk[idx] = inpMatrix[inpR + inpC * inp_r];
+		}
+		// copy to row check
+		else if((c >= n && c < aC) && (r < m)){
+			c -= n;
+			if(c == 0){
+				T b = bias[inpR] * (T)(n-1);
+				int64_t idx = (batchR + batchC * num_batches) * (2*m) + (r + c * m);
+				row_chk[idx] = inpMatrix[inpR + inpC * inp_r] + b;
+			}
+			else{
+				T b = bias[inpR] * (T)(((n+1)*n/2)-1);
+				int64_t idx = (batchR + batchC * num_batches) * (2*m) + (r + c * m);
+				row_chk[idx] = inpMatrix[inpR + inpC * inp_r] + b;
+			}
+			// int64_t idx = (batchR + batchC * num_batches) * (2*m) + (r + c * m);
+			// T b = bias[inpR] * (T)(((n+1)*n/2)-1);
+			// row_chk[idx] = inpMatrix[inpR + inpC * inp_r];
+		}
+	}
+}
+
+template <typename T>
+__global__ void BiasCopy(T *bias_copy, T *bias, int64_t row, int64_t nb){
+	int64_t r = blockDim.x * blockIdx.x + threadIdx.x;
+
+	if(r < row){
+		int64_t b = r / nb;
+		int64_t idx = r + b * 2;
+		bias_copy[idx] = bias[r];
 	}
 }
 
