@@ -1618,6 +1618,65 @@ __global__ void GemmBiasCopyBack_v2(T *inpMatrix, int64_t inp_r, int64_t inp_c, 
 }
 
 template <typename T>
+__global__ void GemmBiasCopyBack_QKV(T *inpMatrix, int64_t inp_r, int64_t inp_c, int64_t num_head, int64_t head_size,
+										T *A, int64_t m, int64_t n,
+										T *q_chk, T *k_chk, T *v_chk, T *bias){
+	int64_t inpC = blockDim.y * blockIdx.y + threadIdx.y;
+	int64_t inpR = blockDim.x * blockIdx.x + threadIdx.x;
+	
+	if(inpR < inp_r && inpC < inp_c){
+		int64_t aR = m + 2;
+		int64_t aC = n + 2;
+		int64_t batchR = inpR / aR;
+		int64_t batchC = inpC / aC;
+		int64_t r = inpR % aR;
+		int64_t c = inpC % aC;
+		int64_t headIdx = batchR / head_size;
+		// copy to A
+		if(r < m && c < n){
+			int64_t idx = (m*num_head) * n * batchC + c * (m*num_head) + batchR * m + r;
+			A[idx] = inpMatrix[inpR + inpC * inp_r];
+		}
+		// copy to Q row check
+		else if((c >= n && c < aC) && (r < m) && (headIdx == 0)){
+			// printf("R: %d\n", batchR);
+			// printf("C: %d\n", batchC);
+			c -= n;
+			int64_t idx = (batchR + batchC * head_size) * (2*m) + (r + c * m);
+			if(c == 0){
+				T b = bias[inpR] * (T)(n-1);
+				q_chk[idx] = inpMatrix[inpR + inpC * inp_r] + b;
+			}
+			else{
+				T b = bias[inpR] * (T)(((n+1)*n/2)-1);
+				q_chk[idx] = inpMatrix[inpR + inpC * inp_r] + b;
+			}
+		}
+		// copy to K row check
+		else if((c >= n && c < aC) && (r < m) && headIdx == 1){
+			c -= n;
+			int64_t idx = ((batchR-head_size) + batchC * head_size) * (2*m) + (r + c * m);
+			if(c == 0){
+				T b = bias[inpR] * (T)(n-1);
+				k_chk[idx] = inpMatrix[inpR + inpC * inp_r] + b;
+			}
+			else{
+				T b = bias[inpR] * (T)(((n+1)*n/2)-1);
+				k_chk[idx] = inpMatrix[inpR + inpC * inp_r] + b;
+			}
+		}
+		// copy to V col check
+		else if((r >= m && r < aR) && (c < n) && headIdx == 2){
+			r -= m;
+			// T b = bias[inpR];
+			int64_t idx = ((batchR-2*head_size) + batchC * head_size) * (2*n) + (r + c * 2);
+			v_chk[idx] = inpMatrix[inpR + inpC * inp_r];
+		}
+	}
+}
+
+
+template <typename T>
 __global__ void BiasCopy(T *bias_copy, T *bias, int64_t row, int64_t nb){
 	int64_t r = blockDim.x * blockIdx.x + threadIdx.x;
 
