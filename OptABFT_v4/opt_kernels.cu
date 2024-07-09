@@ -1417,13 +1417,38 @@ __global__ void GemmMatrxiChkMerge_v3(T *A, int64_t A_r, int64_t A_c,
 			int64_t c = inpC + b * 2;
 			outMatrix[inpR + c * A_r] = A[inpR + inpC * A_r];
 		}
-		// copy from chk
+		// copy from row chk
 		else if(inpR < A_r && inpC >= nb*A_c){
 			int64_t tc = inpC - nb*A_c;
 			int64_t b = tc / 2;
 			// printf("%d\n", b);
 			int64_t c = inpC - (nb-b-1)*A_c;
 			outMatrix[inpR + c * A_r] = chk[inpR + tc * A_r];
+		}
+	}
+}
+
+template <typename T>
+__global__ void GemmMatrxiColChkMerge_v3(T *A, int64_t A_r, int64_t A_c,
+								T *chk, int64_t num_head,
+								T *outMatrix, int64_t out_r, int64_t out_c){
+	int64_t inpC = blockDim.y * blockIdx.y + threadIdx.y;
+	int64_t inpR = blockDim.x * blockIdx.x + threadIdx.x;
+
+	if(inpR < out_r && inpC < out_c){
+		int64_t aR = A_r + 2;
+		int64_t batchR = inpR / aR;
+		int64_t r = inpR % aR;
+		// copy from A
+		if(r < A_r && inpC < A_c){
+			int64_t idx = (A_r*num_head) * A_c * 0 + inpC * (A_r*num_head) + batchR * A_r + r;
+			outMatrix[inpR + inpC * out_r] = A[idx];
+		}
+		// copy from col chk
+		else if((r >= A_r && r < aR) && (inpC < A_c)){
+			r -= A_r;
+			int64_t idx = (batchR + 0 * num_head) * (2*A_c) + (r + A_c * 2);
+			outMatrix[inpR + inpC * out_r] = chk[idx];
 		}
 	}
 }

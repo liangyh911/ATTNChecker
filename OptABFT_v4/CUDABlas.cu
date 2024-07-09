@@ -4141,33 +4141,33 @@ void abftGemmBiasPassChk(
     printf("m:%d, n:%d, k:%d, m_copy:%d, n_copy:%d\n ", m, n, k, m_copy, n_copy);
   }
   
-  TORCH_CUDABLAS_CHECK(
-    cublasLtMatmulAlgoGetHeuristic(
-      ltHandle,
-      computeDesc.descriptor(),
-      Adesc.descriptor(),
-      Bdesc.descriptor(),
-      Cdesc.descriptor(),
-      Cdesc.descriptor(),
-      preference.descriptor(),
-      1,
-      &heuristicResult,
-      &returnedResult)
-  );
-  if (returnedResult == 0) {
-    TORCH_CUDABLAS_CHECK(CUBLAS_STATUS_NOT_SUPPORTED);
-  }
+  // TORCH_CUDABLAS_CHECK(
+  //   cublasLtMatmulAlgoGetHeuristic(
+  //     ltHandle,
+  //     computeDesc.descriptor(),
+  //     Adesc.descriptor(),
+  //     Bdesc.descriptor(),
+  //     Cdesc.descriptor(),
+  //     Cdesc.descriptor(),
+  //     preference.descriptor(),
+  //     1,
+  //     &heuristicResult,
+  //     &returnedResult)
+  // );
+  // if (returnedResult == 0) {
+  //   TORCH_CUDABLAS_CHECK(CUBLAS_STATUS_NOT_SUPPORTED);
+  // }
   
-  // cublasLtMatmulAlgo_t algo;
-  // cublasLtMatmulAlgoInit(ltHandle,
-  //           computeType,
-  //           scaleType,
-  //           abcType,
-  //           abcType,
-  //           abcType,
-  //           abcType,
-  //           0,
-  //           &algo);
+  cublasLtMatmulAlgo_t algo;
+  cublasLtMatmulAlgoInit(ltHandle,
+            computeType,
+            scaleType,
+            abcType,
+            abcType,
+            abcType,
+            abcType,
+            0,
+            &algo);
   // std::cout << returnedResult << std::endl;
   // std::cout << heuristicResult.algo. algoId << std::endl;
 
@@ -4228,31 +4228,31 @@ void abftGemmBiasPassChk(
     nb = m / num_head;
     if(transa == CUBLAS_OP_N){
       if constexpr (std::is_same<T, float>::value) {
-        for(int i=0; i<m; i+=nb){
-          cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, nb, 
-                      &falpha, chk_v_a, ld_chk_v, 
-                      mat1_ptr + i, mat1_ld, &fbeta, 
-                      dA_colchk<T>+(i/nb)*2, ldda_colchk);
-        }
-        // cublasSgemmStridedBatched(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, nb,
-        //                             &falpha, chk_v_a, ld_chk_v, 0,
-        //                             mat1_ptr, (mat1_ld/num_head), nb, &fbeta,
-        //                             dA_colchk_r<T>, (ldda_colchk_r/num_head), k*2,
-        //                             num_head);
+        // for(int i=0; i<m; i+=nb){
+        //   cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, nb, 
+        //               &falpha, chk_v_a, ld_chk_v, 
+        //               mat1_ptr + i, mat1_ld, &fbeta, 
+        //               dA_colchk<T>+(i/nb)*2, ldda_colchk);
+        // }
+        cublasSgemmStridedBatched(handle, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, nb,
+                                    &falpha, chk_v_a, ld_chk_v, 0,
+                                    mat1_ptr, mat1_ld, nb, &fbeta,
+                                    dA_colchk<T>, 2, k*2,
+                                    num_head);
       }
       else if constexpr(std::is_same<T, at::Half>::value) {
-        for(int i=0; i<m; i+=nb){
-          cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, nb,
-                      &falpha, chk_v_a, CUDA_R_16F, ld_chk_v, 
-                      mat1_ptr + i, CUDA_R_16F, mat1_ld,
-                      &fbeta, dA_colchk<T>+(i/nb)*2, CUDA_R_16F, ldda_colchk,
-                      CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-        }
-        // cublasGemmStridedBatchedEx(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, nb,
-        //                 &falpha, chk_v_a, CUDA_R_16F, ld_chk_v, 0,
-        //                 mat1_ptr, CUDA_R_16F, (mat1_ld/num_head), nb, &fbeta,
-        //                 dA_colchk_r<T>, CUDA_R_16F, (ldda_colchk_r/num_head), k*2,
-        //                 num_head, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+        // for(int i=0; i<m; i+=nb){
+        //   cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, nb,
+        //               &falpha, chk_v_a, CUDA_R_16F, ld_chk_v, 
+        //               mat1_ptr + i, CUDA_R_16F, mat1_ld,
+        //               &fbeta, dA_colchk<T>+(i/nb)*2, CUDA_R_16F, ldda_colchk,
+        //               CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+        // }
+        cublasGemmStridedBatchedEx(handle, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, nb,
+                        &falpha, chk_v_a, CUDA_R_16F, ld_chk_v, 0,
+                        mat1_ptr, CUDA_R_16F, mat1_ld, nb, &fbeta,
+                        dA_colchk<T>, CUDA_R_16F, 2, k*2,
+                        num_head, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
       } 
     }
     else{
@@ -4278,17 +4278,25 @@ void abftGemmBiasPassChk(
         cudaEventElapsedTime(&t_Achk, start, stop);
     }
 
-    int64_t threadsDim = 16;
-    dim3 blocks((k+threadsDim-1)/threadsDim, (m_copy+threadsDim-1)/threadsDim);
-    dim3 threads(threadsDim,threadsDim);
+    
     if(DEBUG) cudaEventRecord(start, stream_main);
-    GemmMatrxiChkMerge_v3<<<blocks, threads, 0, stream_main>>>(mat1_ptr, k, nb, dA_rowchk<T>, num_head, A_copy, k, m_copy);
-    // GemmMatrxiChkMerge_v3<<<blocks, threads, 0, stream_colchk>>>(a, k, nb, dA_rowchk<T>, num_head, A_copy, k, m_copy);
+    if(transa == CUBLAS_OP_N){
+      int64_t threadsDim = 16;
+      dim3 blocks((m_copy+threadsDim-1)/threadsDim, (k+threadsDim-1)/threadsDim);
+      dim3 threads(threadsDim,threadsDim);
+      GemmMatrxiColChkMerge_v3<<<blocks, threads, 0, stream_main>>>(mat1_ptr, nb, k, dA_colchk<T>, num_head, A_copy, m_copy, k);
+    }
+    else{
+      int64_t threadsDim = 16;
+      dim3 blocks((k+threadsDim-1)/threadsDim, (m_copy+threadsDim-1)/threadsDim);
+      dim3 threads(threadsDim,threadsDim);
+      GemmMatrxiChkMerge_v3<<<blocks, threads, 0, stream_main>>>(mat1_ptr, k, nb, dA_rowchk<T>, num_head, A_copy, k, m_copy);
+    }
     if(DEBUG){
       cudaEventRecord(stop, stream_main);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
-      printf("  A and dA_rowchk Merge: %f, (%f) \n", t1, (double)2*(k*m_copy)*sizeof(T)/t1/1e6);
+      printf("  A and dA_chk Merge: %f, (%f) \n", t1, (double)2*(k*m_copy)*sizeof(T)/t1/1e6);
 
       destinationFile = "abftbgemm/records/time/V.txt";
       fullPath = homePath / destinationFile;
@@ -4412,8 +4420,8 @@ void abftGemmBiasPassChk(
       B_copy, Bdesc.descriptor(), &beta_val,
       C_copy, Cdesc.descriptor(), 
       C_copy, Cdesc.descriptor(),
-      &heuristicResult.algo, 
-      // &algo,
+      // &heuristicResult.algo, 
+      &algo,
       workspace.mutable_get(), workspaceSize, stream_main);
   cudaStreamSynchronize(stream_main);
 
