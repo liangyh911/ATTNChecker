@@ -645,6 +645,12 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   // std::cout << "Using abftbgemm-T function." << std::endl;
   // See Note [Writing Nondeterministic Operations]
   // std::cout << "globalContext. \n";
+
+  // cudaEvent_t abft_prepare_start, abft_prepare_end;
+  // cudaEventCreate(&abft_prepare_start,0);
+  // cudaEventCreate(&abft_prepare_end,0);
+  // cudaEventRecord(abft_prepare_start, 0);
+
   globalContext().alertCuBLASConfigNotDeterministic();
   // std::cout << "handle. \n";
   cublasHandle_t handle = at::cuda::getCurrentCUDABlasHandle();
@@ -680,8 +686,13 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   cublasSetStream(handle_colchk, stream_colchk);
   cublasSetStream(handle_rowchk, stream_rowchk);
 
-  cudaEvent_t main_compute_done;
-  cudaEventCreate(&main_compute_done);
+  cudaEvent_t col_compute_done, row_compute_done;
+  cudaEventCreate(&col_compute_done);
+  cudaEventCreate(&row_compute_done);
+
+  cudaEvent_t abft_compute_start, abft_compute_done;
+  cudaEventCreate(&abft_compute_start, 0);
+  cudaEventCreate(&abft_compute_done, 0);
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
@@ -689,6 +700,11 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   float t, t1, t_Achk, t_Bchk;
 
   fs::path destinationFile, fullPath;
+
+  // cudaEventRecord(abft_prepare_end, 0);
+  // cudaEventSynchronize(abft_prepare_end);
+  // cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
+  // printf("ABFT Prepare Time: %f \n", t1);
 
   // clock_t tc_cpu, tc1_cpu, tr_cpu, tr1_cpu; 
 
@@ -708,12 +724,15 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   // int64_t stridea_copy = stridea;
   // int64_t strideb_copy = strideb;
   // int64_t stridec_copy = stridec;
-
+  cudaEventRecord(abft_compute_start, 0);
   if (COL_FT){
     if (DEBUG) std::cout << "dA Col Chk." << std::endl;
     if (DEBUG) {
       cudaEventRecord(start, stream_colchk);
     }
+    // else{
+    //   cudaEventRecord(col_compute_done, stream_colchk);
+    // }
     if (!ifPassChk){
       if (DEBUG) std::cout << "   Navie Calulatation." << std::endl;
       if(transA == CUBLAS_OP_N){
@@ -779,7 +798,8 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
       fullPath = homePath / destinationFile;
       recordEffeciency(fullPath, t1, 0, 0, (double)2*m_copy*k*num_batches*sizeof(T)/t1/1e6);
     }
-
+    
+    if(!DEBUG) cudaEventRecord(col_compute_done, stream_colchk);
     // printf("A_copy: \n");
     // outputChk(A_copy, num_batches, ldda+2, stridea_copy, m+2, k);
     // printf("A_copy1: \n");
@@ -792,6 +812,9 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     if (DEBUG) {
       cudaEventRecord(start, stream_rowchk);
     }
+    // else{
+    //   cudaEventRecord(row_compute_done, stream_rowchk);
+    // }
     if(!ifPassChk){
       if (DEBUG) std::cout << "   Navie Calulatation." << std::endl;
       if (transB == CUBLAS_OP_N){
@@ -854,7 +877,8 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
       destinationFile = "abftbgemm/records/effeciency/abftbgemm.txt";
       fullPath = homePath / destinationFile;
       recordEffeciency(fullPath, t1, 0, 0, (double)2*n_copy*k*num_batches*sizeof(T)/t1/1e6);
-    }    
+    }
+    if(!DEBUG) cudaEventRecord(row_compute_done, stream_rowchk);    
     // printf("B_copy: \n");
     // outputChk(B_copy, num_batches, lddb, strideb_copy, k, n+2);
 
@@ -880,7 +904,9 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     cudaEventRecord(start, stream_main);
   }
   else{
-    cudaDeviceSynchronize();
+    cudaStreamWaitEvent(stream_main, col_compute_done, 0);
+    cudaStreamWaitEvent(stream_main, row_compute_done, 0);
+    // cudaDeviceSynchronize();
   }
   if (DEBUG) std::cout<<"A*B=C." << std::endl;
   if constexpr (std::is_same<T, float>::value) {
@@ -1009,10 +1035,6 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     encode_col_v5<T, M, N, 4><<<num_batches, dim3(M*4, 1), (M+1)*N*sizeof(T), stream_colchk>>>(num_batches,
                    dC, lddc, stridec, 
                     dC_colchk_r<T>, lddc_colchk_r, (2*n));
-    
-    // encode_col_v5<T, M, N, 4><<<num_batches, dim3(M*4, 1), (M+1)*N*sizeof(T), stream_colchk>>>(num_batches,
-    //               C_copy, m_copy, stridec_copy, 
-    //               dC_colchk_r<T>, lddc_colchk_r, (2*n));
 
     T E = 1;
     detect_correct_col<T><<<dim3(num_batches), dim3(n), 0, stream_colchk>>>(dC, lddc, E, stridec,
@@ -1069,7 +1091,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   if(ifPassChk && QKV == 'v'){    
     int64_t nb = int(num_batches/num_head);
     // scale check sum
-    ChkSumScale<<<1, num_batches, 0, stream_rowchk>>>(dC_rowchk<T>, m, n, 2*m, num_head);
+    // ChkSumScale<<<1, num_batches, 0, stream_rowchk>>>(dC_rowchk<T>, m, n, 2*m, num_head);
     // cudaStreamSynchronize(stream_rowchk);
     // printf("After scale dC_rowchk:\n");
     // outputChk(dC_rowchk<T>, num_batches, lddc_rowchk, 2*m, m, 2);
@@ -1087,10 +1109,12 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     // }
     if (DEBUG) cudaEventRecord(start, stream_rowchk);
     int64_t threadsDim = 16;
-    dim3 blocks((2*(num_batches/num_head)+threadsDim-1)/threadsDim, (m*num_head+threadsDim-1)/threadsDim);
+    dim3 blocks((m*num_head+threadsDim-1)/threadsDim, (2*(num_batches/num_head)+threadsDim-1)/threadsDim);
     dim3 threads(threadsDim, threadsDim);
-    BGemmChkMerge_v2<<<blocks, threads, 0, stream_rowchk>>>(dC_rowchk<T>, m, 2, num_head, 
-                                                            tmp_chk<T>, (m*num_head), (2*(num_batches/num_head)));
+    // BGemmChkMerge_v2<<<blocks, threads, 0, stream_rowchk>>>(dC_rowchk<T>, m, 2, num_head, 
+    //                                                         tmp_chk<T>, (m*num_head), (2*(num_batches/num_head)));
+    BGemmChkMerge_v3<<<blocks, threads, 0, stream_rowchk>>>(dC_rowchk<T>, m, 2, num_head, 
+                                                            tmp_chk<T>, (m*num_head), (2*(num_batches/num_head)), n);
     if (DEBUG) {
       cudaEventRecord(stop, stream_rowchk);
       cudaEventSynchronize(stop);
@@ -1105,6 +1129,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     // outputChk(tmp_chk<T>, 1, lddc_rowchk*num_head, 0, m*num_head, 2*(num_batches/num_head));
     // printf("t:\n");
     // outputChk(t, 1, lddc_rowchk*num_head, 0, m*num_head, 2*(num_batches/num_head));
+    
     // sum matrix
     if constexpr (std::is_same<T, float>::value){
       for(int i = 0; i < 2*nb; i+=2){
@@ -1124,6 +1149,14 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     // printf("CL_rowchk:\n");
     // outputChk(CL_rowchk<T>, 1, lddc_rowchk*num_head, 0, m*num_head, 2);
   }
+  cudaEventRecord(abft_compute_done, 0);
+  cudaEventSynchronize(abft_compute_done);
+  cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
+  printf("ABFT Compute Time: %f\n", t1);
+  
+  destinationFile = "abftbgemm/records/time/abftbgemm_Computing.txt";
+  fullPath = homePath / destinationFile;
+  recordTime(fullPath, t1, DEBUG);
 }
 
 template <typename T>
@@ -1633,9 +1666,9 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   auto stop = high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<microseconds>(stop - start);
   std::cout << "abftbgemm: " << duration.count() / 1000.0 << std::endl;
-  destinationFile = "abftbgemm/records/time/abftbgemm.txt";
-  fullPath = homePath / destinationFile;
-  recordTime(fullPath, (duration.count() / 1000.0), DEBUG);
+  // destinationFile = "abftbgemm/records/time/abftbgemm.txt";
+  // fullPath = homePath / destinationFile;
+  // recordTime(fullPath, (duration.count() / 1000.0), DEBUG);
 
   cudaFree(dA_colchk<T>);
   cudaFree(dA_rowchk<T>);
@@ -1982,9 +2015,9 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   auto stop = high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<microseconds>(stop - start);
   std::cout << "abftGemm: " << duration.count() / 1000.0 << std::endl;
-  destinationFile = "abftbgemm/records/time/abftgemm.txt";
-  fullPath = homePath / destinationFile;
-  recordTime(fullPath, (duration.count() / 1000.0), DEBUG);
+  // destinationFile = "abftbgemm/records/time/abftgemm.txt";
+  // fullPath = homePath / destinationFile;
+  // recordTime(fullPath, (duration.count() / 1000.0), DEBUG);
 
   cudaFree(dA_colchk<T>);
   cudaFree(dA_rowchk<T>);
@@ -2042,6 +2075,12 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       int64_t m_copy, int64_t n_copy,                                   
       bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, 
       char QKV, bool INJECTION, fs::path homePath){
+  
+  // cudaEvent_t abft_prepare_start, abft_prepare_end;
+  // cudaEventCreate(&abft_prepare_start,0);
+  // cudaEventCreate(&abft_prepare_end,0);
+  // cudaEventRecord(abft_prepare_start, 0);
+  
   globalContext().alertCuBLASConfigNotDeterministic();
   cublasHandle_t handle = at::cuda::getCurrentCUDABlasHandle();
   cublasOperation_t opa = _cublasOpFromChar(transa);
@@ -2060,8 +2099,13 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   cublasSetStream(handle_colchk, stream_colchk);
   cublasSetStream(handle_rowchk, stream_rowchk);
 
-  cudaEvent_t main_compute_done;
-  cudaEventCreate(&main_compute_done);
+  // cudaEvent_t col_compute_done, row_compute_done;
+  // cudaEventCreate(&col_compute_done);
+  // cudaEventCreate(&row_compute_done);
+
+  cudaEvent_t abft_compute_start, abft_compute_done;
+  cudaEventCreate(&abft_compute_start);
+  cudaEventCreate(&abft_compute_done);
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
@@ -2096,7 +2140,14 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
 
   // int64_t RowOffset = m/num_head;
   // int64_t ColOffset = n/num_batches;
+
+  // cudaEventRecord(abft_prepare_end, 0);
+  // cudaEventSynchronize(abft_prepare_end);
+  // cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
+  // printf("ABFT Prepare Time: %f \n", t1);
   
+  cudaEventRecord(abft_compute_start,0);
+
   //A check col
   if (COL_FT){
     if (DEBUG) std::cout << "dA_chk" << std::endl;
@@ -2336,7 +2387,16 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     cudaEventRecord(start, stream_main);
   }
   else{
-    cudaDeviceSynchronize();
+    if(COL_FT){
+      cudaStreamSynchronize(stream_colchk);
+    }
+    else if(ROW_FT){
+      cudaStreamSynchronize(stream_rowchk);
+    }
+    else{
+      printf("device sync\n");
+      cudaDeviceSynchronize();
+    }
   }
   if (DEBUG) std::cout<<"A*B=C." << std::endl;
   if constexpr (std::is_same<T, float>::value) {
@@ -2352,7 +2412,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
         &beta, c, CUDA_R_16F, ldc,
         CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
   }
-  cudaStreamSynchronize(stream_main);
+  // cudaStreamSynchronize(stream_main);
 
   if(INJECTION){
     if(DEBUG) printf("Injection.\n");
@@ -2469,6 +2529,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     }
 
     input_rowchk<T> = dB_rowchk<T>;
+
     // printf("input_rowchk: \n");
     // outputChk(input_rowchk<T>, num_batches, lddb_rowchk, k*2, k, 2);
     // printf("c: \n");
@@ -2518,7 +2579,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     //                     K_rowchk<T> + ((m/num_head)*2)*(r+c*num_head) , m/num_head, stream_rowchk);
     //   }
     // }
-    MatrixTranspose<<<1, num_head*num_batches>>>(K_rowchk<T>, K_colchk<T>, m/num_head, 2);
+    MatrixTranspose<<<1, num_head*num_batches, 0, stream_main>>>(K_rowchk<T>, K_colchk<T>, m/num_head, 2);
     // printf("K_colchk: \n");
     // outputChk(K_colchk<T>, num_head*num_batches, 2, 2*m/num_head, 2,  m/num_head);
     // printf("dC_rowchk: \n");
@@ -2555,6 +2616,14 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     // printf("dC_colchk: \n");
     // outputChk(dC_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
   }
+  cudaEventRecord(abft_compute_done, 0);
+  cudaEventSynchronize(abft_compute_done);
+  cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
+  printf("ABFT Compute Time: %f \n", t1);
+
+  destinationFile = "abftbgemm/records/time/abftgemm_Computing.txt";
+  fullPath = homePath / destinationFile;
+  recordTime(fullPath, t1, DEBUG);
 }
 
 template<typename T>
@@ -2760,9 +2829,9 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   auto duration = std::chrono::duration_cast<microseconds>(stop - start);
   std::cout << "abftGemm: " << duration.count() / 1000.0 << std::endl;
   
-  destinationFile = "abftbgemm/records/time/abftgemm.txt";
-  fullPath = homePath / destinationFile;
-  recordTime(fullPath, (duration.count() / 1000.0), DEBUG);
+  // destinationFile = "abftbgemm/records/time/abftgemm.txt";
+  // fullPath = homePath / destinationFile;
+  // recordTime(fullPath, (duration.count() / 1000.0), DEBUG);
 
   cudaFree(dA_colchk<T>);
   cudaFree(dA_rowchk<T>);
@@ -3955,9 +4024,9 @@ void myGemmBiasPassChk (
     auto stop = high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<microseconds>(stop - start);
     std::cout << "abftGemmBias: " << duration.count() / 1000.0 << std::endl;
-    destinationFile = "abftbgemm/records/time/abftBias.txt";
-    fullPath = homePath / destinationFile;
-    recordTime(fullPath, (duration.count() / 1000.0), DEBUG);
+    // destinationFile = "abftbgemm/records/time/abftBias.txt";
+    // fullPath = homePath / destinationFile;
+    // recordTime(fullPath, (duration.count() / 1000.0), DEBUG);
 
     cudaFree(dA_colchk<T>);
     cudaFree(dA_rowchk<T>);
@@ -4141,33 +4210,33 @@ void abftGemmBiasPassChk(
     printf("m:%d, n:%d, k:%d, m_copy:%d, n_copy:%d\n ", m, n, k, m_copy, n_copy);
   }
   
-  // TORCH_CUDABLAS_CHECK(
-  //   cublasLtMatmulAlgoGetHeuristic(
-  //     ltHandle,
-  //     computeDesc.descriptor(),
-  //     Adesc.descriptor(),
-  //     Bdesc.descriptor(),
-  //     Cdesc.descriptor(),
-  //     Cdesc.descriptor(),
-  //     preference.descriptor(),
-  //     1,
-  //     &heuristicResult,
-  //     &returnedResult)
-  // );
-  // if (returnedResult == 0) {
-  //   TORCH_CUDABLAS_CHECK(CUBLAS_STATUS_NOT_SUPPORTED);
-  // }
+  TORCH_CUDABLAS_CHECK(
+    cublasLtMatmulAlgoGetHeuristic(
+      ltHandle,
+      computeDesc.descriptor(),
+      Adesc.descriptor(),
+      Bdesc.descriptor(),
+      Cdesc.descriptor(),
+      Cdesc.descriptor(),
+      preference.descriptor(),
+      1,
+      &heuristicResult,
+      &returnedResult)
+  );
+  if (returnedResult == 0) {
+    TORCH_CUDABLAS_CHECK(CUBLAS_STATUS_NOT_SUPPORTED);
+  }
   
-  cublasLtMatmulAlgo_t algo;
-  cublasLtMatmulAlgoInit(ltHandle,
-            computeType,
-            scaleType,
-            abcType,
-            abcType,
-            abcType,
-            abcType,
-            0,
-            &algo);
+  // cublasLtMatmulAlgo_t algo;
+  // cublasLtMatmulAlgoInit(ltHandle,
+  //           computeType,
+  //           scaleType,
+  //           abcType,
+  //           abcType,
+  //           abcType,
+  //           abcType,
+  //           0,
+  //           &algo);
   // std::cout << returnedResult << std::endl;
   // std::cout << heuristicResult.algo. algoId << std::endl;
 
@@ -4201,13 +4270,14 @@ void abftGemmBiasPassChk(
   // cublasSetStream(handle_rowchk, stream_rowchk);
 
 
-  cudaEvent_t main_compute_done;
-  cudaEventCreate(&main_compute_done);
+  cudaEvent_t abft_compute_start, abft_compute_done;
+  cudaEventCreate(&abft_compute_start);
+  cudaEventCreate(&abft_compute_done);
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
-  float t, t1, t_Achk, t_Bchk, t_Biasrowchk, t_Biascolchk;
+  float t, t1, t_Achk, t_Bchk;
   int64_t nb = 0;
   fs::path destinationFile, fullPath;
 
@@ -4221,6 +4291,7 @@ void abftGemmBiasPassChk(
   // printf("mat2:\n");
   // outputChk(mat2_ptr,1, mat2_ld, k*n, k, n);
 
+  cudaEventRecord(abft_compute_start, 0);
   // A chk
   if(COL_FT){
     if (DEBUG) std::cout << "dA_checksum" << std::endl;
@@ -4228,12 +4299,6 @@ void abftGemmBiasPassChk(
     nb = m / num_head;
     if(transa == CUBLAS_OP_N){
       if constexpr (std::is_same<T, float>::value) {
-        // for(int i=0; i<m; i+=nb){
-        //   cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, nb, 
-        //               &falpha, chk_v_a, ld_chk_v, 
-        //               mat1_ptr + i, mat1_ld, &fbeta, 
-        //               dA_colchk<T>+(i/nb)*2, ldda_colchk);
-        // }
         cublasSgemmStridedBatched(handle, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, nb,
                                     &falpha, chk_v_a, ld_chk_v, 0,
                                     mat1_ptr, mat1_ld, nb, &fbeta,
@@ -4241,13 +4306,6 @@ void abftGemmBiasPassChk(
                                     num_head);
       }
       else if constexpr(std::is_same<T, at::Half>::value) {
-        // for(int i=0; i<m; i+=nb){
-        //   cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, nb,
-        //               &falpha, chk_v_a, CUDA_R_16F, ld_chk_v, 
-        //               mat1_ptr + i, CUDA_R_16F, mat1_ld,
-        //               &fbeta, dA_colchk<T>+(i/nb)*2, CUDA_R_16F, ldda_colchk,
-        //               CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-        // }
         cublasGemmStridedBatchedEx(handle, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, nb,
                         &falpha, chk_v_a, CUDA_R_16F, ld_chk_v, 0,
                         mat1_ptr, CUDA_R_16F, mat1_ld, nb, &fbeta,
@@ -4278,18 +4336,15 @@ void abftGemmBiasPassChk(
         cudaEventElapsedTime(&t_Achk, start, stop);
     }
 
-    
+    int64_t threadsDim = 16;
+    dim3 threads(threadsDim,threadsDim);
     if(DEBUG) cudaEventRecord(start, stream_main);
     if(transa == CUBLAS_OP_N){
-      int64_t threadsDim = 16;
-      dim3 blocks((m_copy+threadsDim-1)/threadsDim, (k+threadsDim-1)/threadsDim);
-      dim3 threads(threadsDim,threadsDim);
+      dim3 blocks((m_copy+threadsDim-1)/threadsDim, (k+threadsDim-1)/threadsDim);  
       GemmMatrxiColChkMerge_v3<<<blocks, threads, 0, stream_main>>>(mat1_ptr, nb, k, dA_colchk<T>, num_head, A_copy, m_copy, k);
     }
-    else{
-      int64_t threadsDim = 16;
+    else{  
       dim3 blocks((k+threadsDim-1)/threadsDim, (m_copy+threadsDim-1)/threadsDim);
-      dim3 threads(threadsDim,threadsDim);
       GemmMatrxiChkMerge_v3<<<blocks, threads, 0, stream_main>>>(mat1_ptr, k, nb, dA_rowchk<T>, num_head, A_copy, k, m_copy);
     }
     if(DEBUG){
@@ -4420,8 +4475,8 @@ void abftGemmBiasPassChk(
       B_copy, Bdesc.descriptor(), &beta_val,
       C_copy, Cdesc.descriptor(), 
       C_copy, Cdesc.descriptor(),
-      // &heuristicResult.algo, 
-      &algo,
+      &heuristicResult.algo, 
+      // &algo,
       workspace.mutable_get(), workspaceSize, stream_main);
   cudaStreamSynchronize(stream_main);
 
@@ -4579,8 +4634,6 @@ void abftGemmBiasPassChk(
       }
       // printf("K_colchk: \n");
       // outputChk(K_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
-
-
       MatrixTranspose<<<1, num_head*num_batches, 0, stream_main>>>(K_rowchk<T>, K_colchk<T>, m/num_head, 2);
     }
     else {
@@ -4649,6 +4702,15 @@ void abftGemmBiasPassChk(
     // printf("copy back C:\n");
     // outputChk(C_copy, 1, m_copy, 0, m_copy, n_copy);
   }
+
+  cudaEventRecord(abft_compute_done, 0);
+  cudaEventSynchronize(abft_compute_done);
+  cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
+  printf("ABFT Compute Time: %f \n", t1);
+
+  destinationFile = "abftbgemm/records/time/abftBias_Computing.txt";
+  fullPath = homePath / destinationFile;
+  recordTime(fullPath, t1, DEBUG);
 }
 
 template <typename T>
@@ -4919,9 +4981,9 @@ void myGemmBias (
     auto duration = std::chrono::duration_cast<microseconds>(stop - start);
     std::cout << "abftGemmBias: " << duration.count() / 1000.0 << std::endl;
     
-    destinationFile = "abftbgemm/records/time/abftBias.txt";
-    fullPath = homePath / destinationFile;
-    recordTime(fullPath, (duration.count() / 1000.0), DEBUG);
+    // destinationFile = "abftbgemm/records/time/abftBias.txt";
+    // fullPath = homePath / destinationFile;
+    // recordTime(fullPath, (duration.count() / 1000.0), DEBUG);
 
     cudaFree(dA_colchk<T>);
     cudaFree(dA_rowchk<T>);
@@ -5097,8 +5159,9 @@ void abftGemmBias(
   // cublasSetStream(handle_rowchk, stream_rowchk);
 
 
-  cudaEvent_t main_compute_done;
-  cudaEventCreate(&main_compute_done);
+  cudaEvent_t abft_compute_start, abft_compute_done;
+  cudaEventCreate(&abft_compute_start);
+  cudaEventCreate(&abft_compute_done);
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
@@ -5124,6 +5187,7 @@ void abftGemmBias(
   // CuBlasLtMatrixLayout BCdesc(abcType, k, n_copy, mat2_ld, transpose_mat2);
   // CuBlasLtMatrixLayout CCdesc(abcType, m_copy, n_copy, m_copy);
 
+  cudaEventRecord(abft_compute_start, 0);
   // A chk
   if(COL_FT){
     if (DEBUG) std::cout << "dA_checksum" << std::endl;
@@ -5421,6 +5485,15 @@ void abftGemmBias(
       recordTime(fullPath, t1, DEBUG);
     }
   }
+
+  cudaEventRecord(abft_compute_done, 0);
+  cudaEventSynchronize(abft_compute_done);
+  cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
+  printf("ABFT Compute Time: %f \n", t1);
+
+  destinationFile = "abftbgemm/records/time/abftBias_Computing.txt";
+  fullPath = homePath / destinationFile;
+  recordTime(fullPath, t1, DEBUG);
 }
 
 
