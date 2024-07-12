@@ -1403,6 +1403,20 @@ __global__ void BGemmChkMerge_v2(T *inpChk, int64_t R, int64_t C, int64_t num_he
 	}
 }
 
+template <typename T>
+__global__ void MatrixTranspose_v2(T *input, int64_t R, int64_t C,
+								   T *output , int64_t m, int64_t n){
+	int64_t inpC = blockDim.y * blockIdx.y + threadIdx.y;
+	int64_t inpR = blockDim.x * blockIdx.x + threadIdx.x;
+
+	if(inpR < R && inpC < C){
+		int64_t b = inpC / m;
+		int64_t c = inpR;
+		int64_t r = inpC % m;
+
+		output[b*m*n + r+c*m] = input[inpR + inpC * R];
+	} 
+}
 
 template <typename T>
 __global__ void GemmMatrxiChkMerge_v3(T *A, int64_t A_r, int64_t A_c,
