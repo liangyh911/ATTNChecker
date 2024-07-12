@@ -1098,8 +1098,6 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     
     // merage chechk sum
     // MatrixMerge<<<1, dim3(nb, num_head), 0, stream_rowchk>>>(dC_rowchk<T>, tmp_chk<T>, m, 2, m*num_head, 2*nb, num_head);
-    // T *t;
-    // cudaMalloc((void**)&t, 2*lddc_rowchk*num_batches*sizeof(T));
     // for(int c = 0; c < nb; c++){
     //   for(int r = 0; r < num_head; r++){
     //     cublasSetMatrixAsync(m, 2, sizeof(T), 
@@ -1107,10 +1105,11 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     //                     tmp_chk<T>+(r*m + c*(m*num_head)*2), lddc_rowchk*num_head, stream_rowchk);
     //   }
     // }
-    if (DEBUG) cudaEventRecord(start, stream_rowchk);
+    
     int64_t threadsDim = 16;
     dim3 blocks((m*num_head+threadsDim-1)/threadsDim, (2*(num_batches/num_head)+threadsDim-1)/threadsDim);
     dim3 threads(threadsDim, threadsDim);
+    if (DEBUG) cudaEventRecord(start, stream_rowchk);
     // BGemmChkMerge_v2<<<blocks, threads, 0, stream_rowchk>>>(dC_rowchk<T>, m, 2, num_head, 
     //                                                         tmp_chk<T>, (m*num_head), (2*(num_batches/num_head)));
     BGemmChkMerge_v3<<<blocks, threads, 0, stream_rowchk>>>(dC_rowchk<T>, m, 2, num_head, 
@@ -1131,23 +1130,33 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     // outputChk(t, 1, lddc_rowchk*num_head, 0, m*num_head, 2*(num_batches/num_head));
     
     // sum matrix
-    if constexpr (std::is_same<T, float>::value){
-      for(int i = 0; i < 2*nb; i+=2){
-        cublasSgeam(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_N, m*num_head, 2,
-                    &falpha, tmp_chk<T>+i*(lddc_rowchk*num_head), (lddc_rowchk*num_head), &falpha,
-                    CL_rowchk<T>, lddc_rowchk*num_head,
-                    CL_rowchk<T>, lddc_rowchk*num_head);
-      }
-    }
-    else if constexpr(std::is_same<T, at::Half>::value){
-      dim3 blockSize(16, 16);
-      dim3 gridSize((2 + blockSize.x - 1) / blockSize.x, (m + blockSize.y - 1) / blockSize.y);
-      for(int i = 0; i < 2*nb; i+=nb){
-        addVector<T><<<blockSize, gridSize, (num_head*m*2)*sizeof(T), stream_rowchk>>>(CL_rowchk<T>, tmp_chk<T>+i*(lddc_rowchk*num_head), num_head*m, 2);
-      }
-    }
+    dim3 blocks1((m*num_head+threadsDim-1)/threadsDim, ((num_batches/num_head)+threadsDim-1)/threadsDim);
+    MatrixRowReduceSum<<<blocks1, threads, 0, stream_rowchk>>>(tmp_chk<T>, m*num_head, 2*(num_batches/num_head), (num_batches/num_head),
+                                                              CL_rowchk<T>, m*num_head, 2);
+
+    // if constexpr (std::is_same<T, float>::value){
+    //   for(int i = 0; i < 2*nb; i+=2){
+    //     cublasSgeam(handle_rowchk, CUBLAS_OP_N, CUBLAS_OP_N, m*num_head, 2,
+    //                 &falpha, tmp_chk<T>+i*(lddc_rowchk*num_head), (lddc_rowchk*num_head), &falpha,
+    //                 CL_rowchk<T>, lddc_rowchk*num_head,
+    //                 CL_rowchk<T>, lddc_rowchk*num_head);
+    //   }
+    // }
+    // else if constexpr(std::is_same<T, at::Half>::value){
+    //   dim3 blockSize(16, 16);
+    //   dim3 gridSize((2 + blockSize.x - 1) / blockSize.x, (m + blockSize.y - 1) / blockSize.y);
+    //   for(int i = 0; i < 2*nb; i+=nb){
+    //     addVector<T><<<blockSize, gridSize, (num_head*m*2)*sizeof(T), stream_rowchk>>>(CL_rowchk<T>, tmp_chk<T>+i*(lddc_rowchk*num_head), num_head*m, 2);
+    //   }
+    // }
     // printf("CL_rowchk:\n");
-    // outputChk(CL_rowchk<T>, 1, lddc_rowchk*num_head, 0, m*num_head, 2);
+    // outputChk(CL_rowchk<T>, 1, (lddc_rowchk*num_head), 0, m*num_head, 2);
+    
+    // T *t;
+    // cudaMalloc((void**)&t, m*num_head*2*sizeof(T));
+
+    // printf("t:\n");
+    // outputChk(t, 1, (lddc_rowchk*num_head), 0, m*num_head, 2);
   }
   cudaEventRecord(abft_compute_done, 0);
   cudaEventSynchronize(abft_compute_done);

@@ -1403,32 +1403,6 @@ __global__ void BGemmChkMerge_v2(T *inpChk, int64_t R, int64_t C, int64_t num_he
 	}
 }
 
-template <typename T>
-__global__ void BGemmChkMerge_v3(T *inpChk, int64_t R, int64_t C, int64_t num_head,
-							  T *outChk, int64_t M, int64_t N,
-							  int64_t scaleUnit){
-	int64_t outC = blockDim.y * blockIdx.y + threadIdx.y;
-	int64_t outR = blockDim.x * blockIdx.x + threadIdx.x;
-
-	if(outR < M && outC < N){
-		int64_t batchR = outR / R;
-		int64_t batchC = outC / C;
-		int64_t r = outR % R;
-		int64_t c = outC % C;
-
-		int64_t idx = (batchR + batchC * num_head) * (R * C) + (r + c * R); 
-		if(c == 0){
-			outChk[outR + outC * M] = inpChk[idx];
-		}
-		else{
-			int64_t idx1 = (batchR + batchC * num_head) * (R * C) + (r + 0 * R);
-			// T bias = inpChk[idx1] * scaleUnit * batchC;
-			outChk[outR + outC * M] = inpChk[idx] + inpChk[idx1] * scaleUnit * batchC;
-			// outChk[outR + outC * M] = inpChk[idx1] * scaleUnit * batchC;
-		}
-		
-	}
-}
 
 template <typename T>
 __global__ void GemmMatrxiChkMerge_v3(T *A, int64_t A_r, int64_t A_c,
@@ -1583,6 +1557,57 @@ __global__ void BGemmCopyBack_v3(T *inpMatrix, int64_t inp_r, int64_t inp_c, int
 			int64_t c = inpC + b * 2;
 			int64_t r = inpR - m;
 			col_chk[r + inpC * 2] = inpMatrix[inpR + c * inp_r];
+		}
+	}
+}
+
+template <typename T>
+__global__ void BGemmChkMerge_v3(T *inpChk, int64_t R, int64_t C, int64_t num_head,
+							  T *outChk, int64_t M, int64_t N,
+							  int64_t scaleUnit){
+	int64_t outC = blockDim.y * blockIdx.y + threadIdx.y;
+	int64_t outR = blockDim.x * blockIdx.x + threadIdx.x;
+
+	if(outR < M && outC < N){
+		int64_t batchR = outR / R;
+		int64_t batchC = outC / C;
+		int64_t r = outR % R;
+		int64_t c = outC % C;
+
+		int64_t idx = (batchR + batchC * num_head) * (R * C) + (r + c * R); 
+		if(c == 0){
+			outChk[outR + outC * M] = inpChk[idx];
+		}
+		else{
+			int64_t idx1 = (batchR + batchC * num_head) * (R * C) + (r + 0 * R);
+			// T bias = inpChk[idx1] * scaleUnit * batchC;
+			outChk[outR + outC * M] = inpChk[idx] + inpChk[idx1] * scaleUnit * batchC;
+			// outChk[outR + outC * M] = inpChk[idx1] * scaleUnit * batchC;
+		}
+		
+	}
+}
+
+template <typename T>
+__global__ void MatrixRowReduceSum(T *input, int64_t R, int64_t C, int64_t nb, 
+								T *output, int64_t m, int64_t n){
+	int64_t outC = blockDim.y * blockIdx.y + threadIdx.y;
+	int64_t outR = blockDim.x * blockIdx.x + threadIdx.x;
+
+	if(outC < C && outR < R){
+		int64_t batchIdx = outC / n;
+		int64_t i = 2 * batchIdx;
+		int64_t c = outC % n;
+
+		for(int64_t stride = 1; stride < nb; stride*=2){
+			if(batchIdx % stride == 0 && i + stride < nb){
+				input[(i*m*n) + outR + c * m] += input[(i+stride)*m*n + outR + c * m];
+			}
+		}
+		__syncthreads();
+
+		if(batchIdx == 0){
+			output[outR + c * m] = input[outR + c * m];
 		}
 	}
 }
