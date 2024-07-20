@@ -919,10 +919,10 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
         num_batches);
   } else if constexpr(std::is_same<T, at::Half>::value) {
     cublasGemmStridedBatchedEx(
-      handle, transA, transB, m, n, k,
-      &falpha, dA, CUDA_R_16F, ldda, stridea,
-      dB, CUDA_R_16F, lddb, strideb, &fbeta,
-      dC, CUDA_R_16F, lddc, stridec,
+      handle, transA, transB, m_copy, n_copy, k,
+      &falpha, A_copy, CUDA_R_16F, m_copy, stridea_copy,
+      B_copy, CUDA_R_16F, lddb, strideb_copy, &fbeta,
+      C_copy, CUDA_R_16F, m_copy, stridec_copy,
       num_batches, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
   }
   // cudaStreamSynchronize(stream_main);
@@ -1450,7 +1450,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
     B_copy = A_copy + stridea_copy*num_batches;
   }
   
-  auto start = high_resolution_clock::now();
+  // auto start = high_resolution_clock::now();
   if constexpr (std::is_same<T, float>::value) {
     if (m == 72 && k == 64){
       abftbgemm<float, 72, 72, 64>(transa, transb, m, n, k,
@@ -1671,10 +1671,10 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
     }
   }
-  cudaDeviceSynchronize();
-  auto stop = high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<microseconds>(stop - start);
-  std::cout << "abftbgemm: " << duration.count() / 1000.0 << std::endl;
+  // cudaDeviceSynchronize();
+  // auto stop = high_resolution_clock::now();
+  // auto duration = std::chrono::duration_cast<microseconds>(stop - start);
+  // std::cout << "abftbgemm: " << duration.count() / 1000.0 << std::endl;
   // destinationFile = "abftbgemm/records/time/abftbgemm.txt";
   // fullPath = homePath / destinationFile;
   // recordTime(fullPath, (duration.count() / 1000.0), DEBUG);
@@ -1999,7 +1999,7 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
     B_copy = A_copy + m_copy*k;
   }
 
-  auto start = high_resolution_clock::now();
+  // auto start = high_resolution_clock::now();
   if constexpr (std::is_same<T, float>::value) {
     abftGemmPassChk<float>(transa, transb, m, n, k,
       alpha, dA_, lda,
@@ -2022,11 +2022,10 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
       m_copy, n_copy,
       COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER,QKV, INJECTION, homePath);
   }
-  cudaDeviceSynchronize();
-  
-  auto stop = high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<microseconds>(stop - start);
-  std::cout << "abftGemm: " << duration.count() / 1000.0 << std::endl;
+  // cudaDeviceSynchronize();
+  // auto stop = high_resolution_clock::now();
+  // auto duration = std::chrono::duration_cast<microseconds>(stop - start);
+  // std::cout << "abftGemm: " << duration.count() / 1000.0 << std::endl;
   // destinationFile = "abftbgemm/records/time/abftgemm.txt";
   // fullPath = homePath / destinationFile;
   // recordTime(fullPath, (duration.count() / 1000.0), DEBUG);
@@ -2418,10 +2417,10 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
                     B_copy, ldb, &beta, 
                     C_copy, m_copy);
   } else if constexpr(std::is_same<T, at::Half>::value) {
-      cublasGemmEx(handle, opa, opb, m, n, k,
-        &alpha, a, CUDA_R_16F, lda, 
-        b, CUDA_R_16F, ldb,
-        &beta, c, CUDA_R_16F, ldc,
+      cublasGemmEx(handle, opa, opb, m_copy, n_copy, k,
+        &alpha, A_copy, CUDA_R_16F, lda, 
+        B_copy, CUDA_R_16F, ldb,
+        &beta, C_copy, CUDA_R_16F, m_copy,
         CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
   }
   // cudaStreamSynchronize(stream_main);
@@ -2827,7 +2826,7 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   }
   DebugFile.close();
   
-  auto start = high_resolution_clock::now();
+  // auto start = high_resolution_clock::now();
   if constexpr (std::is_same<T, float>::value) {
     abftGemm<float>(transa, transb, m, n, k,
       alpha, dA_, lda,
@@ -2844,10 +2843,10 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
       chk_v_a, chk_v_b, ld_chk_v,
       COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, QKV, INJECTION, homePath);
   }
-  cudaDeviceSynchronize();
-  auto stop = high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<microseconds>(stop - start);
-  std::cout << "abftGemm: " << duration.count() / 1000.0 << std::endl;
+  // cudaDeviceSynchronize();
+  // auto stop = high_resolution_clock::now();
+  // auto duration = std::chrono::duration_cast<microseconds>(stop - start);
+  // std::cout << "abftGemm: " << duration.count() / 1000.0 << std::endl;
   
   // destinationFile = "abftbgemm/records/time/abftgemm.txt";
   // fullPath = homePath / destinationFile;
@@ -4020,7 +4019,7 @@ void myGemmBiasPassChk (
     // printf("bias_copy:\n");
     // outputChk(bias_copy, 1, m_copy, m_copy, m_copy, 1);
 
-    auto start = high_resolution_clock::now();
+    // auto start = high_resolution_clock::now();
     if constexpr (std::is_same<T, float>::value) {
       abftGemmBiasPassChk<float>(transpose_mat1, transpose_mat2, m, n, k,
         alpha_val, mat1_ptr_, mat1_ld,
@@ -4047,10 +4046,10 @@ void myGemmBiasPassChk (
         num_batches, num_head,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, QKV, INJECTION, Together, homePath);
     }
-    cudaDeviceSynchronize();
-    auto stop = high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<microseconds>(stop - start);
-    std::cout << "abftGemmBias: " << duration.count() / 1000.0 << std::endl;
+    // cudaDeviceSynchronize();
+    // auto stop = high_resolution_clock::now();
+    // auto duration = std::chrono::duration_cast<microseconds>(stop - start);
+    // std::cout << "abftGemmBias: " << duration.count() / 1000.0 << std::endl;
     // destinationFile = "abftbgemm/records/time/abftBias.txt";
     // fullPath = homePath / destinationFile;
     // recordTime(fullPath, (duration.count() / 1000.0), DEBUG);
@@ -4505,7 +4504,7 @@ void abftGemmBiasPassChk(
       &heuristicResult.algo, 
       // &algo,
       workspace.mutable_get(), workspaceSize, stream_main);
-  cudaStreamSynchronize(stream_main);
+  // cudaStreamSynchronize(stream_main);
 
   // printf("result:\n");
   // outputChk(result_ptr, 1, result_ld, 0, m, n);
@@ -4719,8 +4718,8 @@ void abftGemmBiasPassChk(
     recordTime(fullPath, t1, DEBUG);
 
     // MatrixTranspose<<<1, head*num_batches, 0, stream_main>>>(K_rowchk<T>, K_colchk<T>, m/num_head, 2);
-    dim3 blocks1(((m/num_head)+threadsDim-1)/threadsDim, ((2*num_batches*num_head)+threadsDim-1)/threadsDim);
-    MatrixTranspose_v2<<<blocks1, threads, 0, stream_main>>>(K_rowchk<T>, m/num_head, 2*num_batches*num_head, 
+    dim3 blocks1(((m/num_head)+threadsDim-1)/threadsDim, ((2*num_batches*head)+threadsDim-1)/threadsDim);
+    MatrixTranspose_v2<<<blocks1, threads, 0, stream_main>>>(K_rowchk<T>, m/num_head, 2*num_batches*head, 
                                                              K_colchk<T>, 2, m/num_head);
 
     // printf("q_chk: \n");
@@ -4984,7 +4983,7 @@ void myGemmBias (
       B_copy = A_copy + m_copy*k;
     }
 
-    auto start = high_resolution_clock::now();
+    // auto start = high_resolution_clock::now();
     if constexpr (std::is_same<T, float>::value) {
       abftGemmBias<float>(transpose_mat1, transpose_mat2, m, n, k,
         alpha_val, mat1_ptr_, mat1_ld,
@@ -5009,10 +5008,10 @@ void myGemmBias (
         // dBias_colchk, dBias_rowchk, dBias_colchk_r, dBias_rowchk_r,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, QKV, INJECTION, homePath);
     }
-    cudaDeviceSynchronize();
-    auto stop = high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<microseconds>(stop - start);
-    std::cout << "abftGemmBias: " << duration.count() / 1000.0 << std::endl;
+    // cudaDeviceSynchronize();
+    // auto stop = high_resolution_clock::now();
+    // auto duration = std::chrono::duration_cast<microseconds>(stop - start);
+    // std::cout << "abftGemmBias: " << duration.count() / 1000.0 << std::endl;
     
     // destinationFile = "abftbgemm/records/time/abftBias.txt";
     // fullPath = homePath / destinationFile;
@@ -5362,7 +5361,7 @@ void abftGemmBias(
       C_copy, Cdesc.descriptor(), 
       C_copy, Cdesc.descriptor(),
       &heuristicResult.algo, workspace.mutable_get(), workspaceSize, stream_main);
-  cudaStreamSynchronize(stream_main);
+  // cudaStreamSynchronize(stream_main);
   // printf("C_copy:\n");
   // outputChk(C_copy, 1, m_copy, m_copy*n_copy, m_copy, n_copy);
 
@@ -5707,7 +5706,7 @@ void gemm_and_bias(
       computeType,
       " scaleType ",
       scaleType);
-  cudaDeviceSynchronize();
+  // cudaDeviceSynchronize();
   // auto stop = high_resolution_clock::now();
   // auto duration = std::chrono::duration_cast<microseconds>(stop - start);
   // std::cout << "Bias Gemm: " << duration.count() / 1000.0 << std::endl;
