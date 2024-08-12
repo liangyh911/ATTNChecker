@@ -1462,7 +1462,7 @@ __global__ void GemmMatrxiColChkMerge_v3(T *A, int64_t A_r, int64_t A_c,
 		// copy from col chk
 		else if((r >= A_r && r < aR) && (inpC < A_c)){
 			r -= A_r;
-			int64_t idx = (batchR + 0 * num_head) * (2*A_c) + (r + A_c * 2);
+			int64_t idx = (batchR + 0 * num_head) * (2*A_c) + (r + inpC * 2);
 			outMatrix[inpR + inpC * out_r] = chk[idx];
 		}
 	}

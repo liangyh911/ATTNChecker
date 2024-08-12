@@ -690,9 +690,9 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   cudaEventCreate(&col_compute_done);
   cudaEventCreate(&row_compute_done);
 
-  cudaEvent_t abft_compute_start, abft_compute_done;
-  cudaEventCreate(&abft_compute_start, 0);
-  cudaEventCreate(&abft_compute_done, 0);
+  // cudaEvent_t abft_compute_start, abft_compute_done;
+  // cudaEventCreate(&abft_compute_start, 0);
+  // cudaEventCreate(&abft_compute_done, 0);
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
@@ -724,7 +724,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   // int64_t stridea_copy = stridea;
   // int64_t strideb_copy = strideb;
   // int64_t stridec_copy = stridec;
-  cudaEventRecord(abft_compute_start, 0);
+  // cudaEventRecord(abft_compute_start, 0);
   if (COL_FT){
     if (DEBUG) std::cout << "dA Col Chk." << std::endl;
     if (DEBUG) {
@@ -762,9 +762,11 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
       t_Achk /= 1.0;
       // printf("dA_chk_gemm: %f (%f)(%f)\n", t, (double)num_batches*m*2*k*2/t/1e6, (double)num_batches*(2*k+2*m+k*m)/t/1e6);
     }
-    // printf("dA_colchk: \n");
-    // outputChk(dA_colchk<T>, num_batches, ldda_colchk, 2*k, 2, k);
-
+    // if(QKV == 'v'){
+    //   printf("dA_colchk: \n");
+    //   outputChk(dA_colchk<T>, num_batches, ldda_colchk, 2*k, 2, k);
+    // }
+   
     // size_t size = (m+2)*k*num_batches*sizeof(T);
     // cudaMalloc((void**)&A_copy, size);
     // cudaMalloc((void**)&A_copy1, size);
@@ -1158,14 +1160,14 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     // printf("t:\n");
     // outputChk(t, 1, (lddc_rowchk*num_head), 0, m*num_head, 2);
   }
-  cudaEventRecord(abft_compute_done, 0);
-  cudaEventSynchronize(abft_compute_done);
-  cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
-  printf("ABFT Compute Time: %f\n", t1);
+  // cudaEventRecord(abft_compute_done, 0);
+  // cudaEventSynchronize(abft_compute_done);
+  // cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
+  // printf("ABFT Compute Time: %f\n", t1);
   
-  destinationFile = "abftbgemm/records/time/abftbgemm_Computing.txt";
-  fullPath = homePath / destinationFile;
-  recordTime(fullPath, t1, DEBUG);
+  // destinationFile = "abftbgemm/records/time/abftbgemm_Computing.txt";
+  // fullPath = homePath / destinationFile;
+  // recordTime(fullPath, t1, DEBUG);
 }
 
 template <typename T>
@@ -2114,9 +2116,9 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   // cudaEventCreate(&col_compute_done);
   // cudaEventCreate(&row_compute_done);
 
-  cudaEvent_t abft_compute_start, abft_compute_done;
-  cudaEventCreate(&abft_compute_start);
-  cudaEventCreate(&abft_compute_done);
+  // cudaEvent_t abft_compute_start, abft_compute_done;
+  // cudaEventCreate(&abft_compute_start);
+  // cudaEventCreate(&abft_compute_done);
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
@@ -2157,7 +2159,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   // cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
   // printf("ABFT Prepare Time: %f \n", t1);
   
-  cudaEventRecord(abft_compute_start,0);
+  // cudaEventRecord(abft_compute_start,0);
 
   //A check col
   if (COL_FT){
@@ -2635,14 +2637,14 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     // printf("dC_colchk: \n");
     // outputChk(dC_colchk<T>, num_head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
   }
-  cudaEventRecord(abft_compute_done, 0);
-  cudaEventSynchronize(abft_compute_done);
-  cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
-  printf("ABFT Compute Time: %f \n", t1);
+  // cudaEventRecord(abft_compute_done, 0);
+  // cudaEventSynchronize(abft_compute_done);
+  // cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
+  // printf("ABFT Compute Time: %f \n", t1);
 
-  destinationFile = "abftbgemm/records/time/abftgemm_Computing.txt";
-  fullPath = homePath / destinationFile;
-  recordTime(fullPath, t1, DEBUG);
+  // destinationFile = "abftbgemm/records/time/abftgemm_Computing.txt";
+  // fullPath = homePath / destinationFile;
+  // recordTime(fullPath, t1, DEBUG);
 }
 
 template<typename T>
@@ -4203,7 +4205,14 @@ void abftGemmBiasPassChk(
     computeDesc.setAttribute(CUBLASLT_MATMUL_DESC_EPILOGUE, epilogue);
     computeDesc.setAttribute(CUBLASLT_MATMUL_DESC_BIAS_POINTER, bias_copy);
   }
-  CuBlasLtMatrixLayout Adesc(abcType, m_copy, k, mat1_ld, transpose_mat1);
+
+  // printf("mat1_ld: %d, mat2_ld: %d\n", mat1_ld, mat2_ld);
+  int64_t mat1_ld_tmp = mat1_ld;
+  if(COL_FT && transa == CUBLAS_OP_N){
+    mat1_ld_tmp = m_copy;
+    // printf("new mat1_ld: %d\n", mat1_ld_tmp);
+  }
+  CuBlasLtMatrixLayout Adesc(abcType, m_copy, k, mat1_ld_tmp, transpose_mat1);
   CuBlasLtMatrixLayout Bdesc(abcType, k, n_copy, mat2_ld, transpose_mat2);
   CuBlasLtMatrixLayout Cdesc(abcType, m_copy, n_copy, m_copy);
 
@@ -4214,9 +4223,9 @@ void abftGemmBiasPassChk(
   preference.setAttribute(CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES, workspaceSize);
 
 #ifndef USE_ROCM
-  uint32_t a_alignment = _getAlignment(reinterpret_cast<uintptr_t>(A_copy));
-  uint32_t b_alignment = _getAlignment(reinterpret_cast<uintptr_t>(B_copy));
-  uint32_t c_alignment = _getAlignment(reinterpret_cast<uintptr_t>(C_copy));
+  uint32_t a_alignment = _getAlignment(reinterpret_cast<uintptr_t>(mat1_ptr));
+  uint32_t b_alignment = _getAlignment(reinterpret_cast<uintptr_t>(mat2_ptr));
+  uint32_t c_alignment = _getAlignment(reinterpret_cast<uintptr_t>(result_ptr));
   uint32_t d_alignment = _getAlignment(reinterpret_cast<uintptr_t>(bias_copy));
   preference.setAttribute(CUBLASLT_MATMUL_PREF_MIN_ALIGNMENT_A_BYTES, a_alignment);
   preference.setAttribute(CUBLASLT_MATMUL_PREF_MIN_ALIGNMENT_B_BYTES, b_alignment);
@@ -4296,9 +4305,9 @@ void abftGemmBiasPassChk(
   // cublasSetStream(handle_rowchk, stream_rowchk);
 
 
-  cudaEvent_t abft_compute_start, abft_compute_done;
-  cudaEventCreate(&abft_compute_start);
-  cudaEventCreate(&abft_compute_done);
+  // cudaEvent_t abft_compute_start, abft_compute_done;
+  // cudaEventCreate(&abft_compute_start);
+  // cudaEventCreate(&abft_compute_done);
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
@@ -4313,11 +4322,11 @@ void abftGemmBiasPassChk(
   // printf("alpha: %f, beta: %f \n", alpha_val, beta_val);
 
   // printf("mat1: \n");
-  // outputChk(mat1_ptr, 1, mat1_ld, m*k, k, m);
+  // outputChk(mat1_ptr, 1, mat1_ld, m*k, m, k);
   // printf("mat2:\n");
   // outputChk(mat2_ptr,1, mat2_ld, k*n, k, n);
 
-  cudaEventRecord(abft_compute_start, 0);
+  // cudaEventRecord(abft_compute_start, 0);
   // A chk
   if(COL_FT){
     if (DEBUG) std::cout << "dA_checksum" << std::endl;
@@ -4325,14 +4334,14 @@ void abftGemmBiasPassChk(
     nb = m / num_head;
     if(transa == CUBLAS_OP_N){
       if constexpr (std::is_same<T, float>::value) {
-        cublasSgemmStridedBatched(handle, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, nb,
+        cublasSgemmStridedBatched(handle, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, nb,
                                     &falpha, chk_v_a, ld_chk_v, 0,
                                     mat1_ptr, mat1_ld, nb, &fbeta,
                                     dA_colchk<T>, 2, k*2,
                                     num_head);
       }
       else if constexpr(std::is_same<T, at::Half>::value) {
-        cublasGemmStridedBatchedEx(handle, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, nb,
+        cublasGemmStridedBatchedEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, nb,
                         &falpha, chk_v_a, CUDA_R_16F, ld_chk_v, 0,
                         mat1_ptr, CUDA_R_16F, mat1_ld, nb, &fbeta,
                         dA_colchk<T>, CUDA_R_16F, 2, k*2,
@@ -4384,11 +4393,11 @@ void abftGemmBiasPassChk(
       recordTime(fullPath, t1, DEBUG);
     }
 
-    // printf("dA_rowchk: \n");
-    // outputChk(dA_rowchk_r<T>, num_head, ldda_rowchk_r, 2*k, k, 2);
+    // printf("dA_colchk: \n");
+    // outputChk(dA_colchk<T>, num_head, 2, 2*k, 2, k);
 
     // printf("A_copy: \n");
-    // outputChk(A_copy, 1, mat1_ld, m_copy*k, k, m_copy);
+    // outputChk(A_copy, 1, mat1_ld_tmp, m_copy*k, m_copy, k);
   }
   else{
     A_copy = mat1_ptr;
@@ -4711,11 +4720,11 @@ void abftGemmBiasPassChk(
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
       printf("C and QKV_ch+bias Copy Back: %f, (%f) \n", t1, (double)(2*(m*n+2*m*num_batches*2+2*n*num_head)+m_copy)*sizeof(T)/t1/1e6);
-    }
 
-    destinationFile = "abftbgemm/records/time/V.txt";
-    fullPath = homePath / destinationFile;
-    recordTime(fullPath, t1, DEBUG);
+      destinationFile = "abftbgemm/records/time/V.txt";
+      fullPath = homePath / destinationFile;
+      recordTime(fullPath, t1, DEBUG);
+    }
 
     // MatrixTranspose<<<1, head*num_batches, 0, stream_main>>>(K_rowchk<T>, K_colchk<T>, m/num_head, 2);
     dim3 blocks1(((m/num_head)+threadsDim-1)/threadsDim, ((2*num_batches*head)+threadsDim-1)/threadsDim);
@@ -4728,21 +4737,21 @@ void abftGemmBiasPassChk(
     // printf("k_chk: \n");
     // outputChk(k_chk, head*num_batches, m/num_head, 2*m/num_head, m/num_head, 2);
 
-    // printf("k_chk: \n");
-    // outputChk(v_chk, head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
+    // printf("v_chk: \n");
+    // outputChk(V_colchk<T>, head*num_batches, 2, 2*n/num_batches, 2, n/num_batches);
 
     // printf("copy back C:\n");
     // outputChk(C_copy, 1, m_copy, 0, m_copy, n_copy);
   }
 
-  cudaEventRecord(abft_compute_done, 0);
-  cudaEventSynchronize(abft_compute_done);
-  cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
-  printf("ABFT Compute Time: %f \n", t1);
+  // cudaEventRecord(abft_compute_done, 0);
+  // cudaEventSynchronize(abft_compute_done);
+  // cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
+  // printf("ABFT Compute Time: %f \n", t1);
 
-  destinationFile = "abftbgemm/records/time/abftBias_Computing.txt";
-  fullPath = homePath / destinationFile;
-  recordTime(fullPath, t1, DEBUG);
+  // destinationFile = "abftbgemm/records/time/abftBias_Computing.txt";
+  // fullPath = homePath / destinationFile;
+  // recordTime(fullPath, t1, DEBUG);
 }
 
 template <typename T>
@@ -5191,9 +5200,9 @@ void abftGemmBias(
   // cublasSetStream(handle_rowchk, stream_rowchk);
 
 
-  cudaEvent_t abft_compute_start, abft_compute_done;
-  cudaEventCreate(&abft_compute_start);
-  cudaEventCreate(&abft_compute_done);
+  // cudaEvent_t abft_compute_start, abft_compute_done;
+  // cudaEventCreate(&abft_compute_start);
+  // cudaEventCreate(&abft_compute_done);
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
@@ -5219,7 +5228,7 @@ void abftGemmBias(
   // CuBlasLtMatrixLayout BCdesc(abcType, k, n_copy, mat2_ld, transpose_mat2);
   // CuBlasLtMatrixLayout CCdesc(abcType, m_copy, n_copy, m_copy);
 
-  cudaEventRecord(abft_compute_start, 0);
+  // cudaEventRecord(abft_compute_start, 0);
   // A chk
   if(COL_FT){
     if (DEBUG) std::cout << "dA_checksum" << std::endl;
@@ -5518,14 +5527,14 @@ void abftGemmBias(
     }
   }
 
-  cudaEventRecord(abft_compute_done, 0);
-  cudaEventSynchronize(abft_compute_done);
-  cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
-  printf("ABFT Compute Time: %f \n", t1);
+  // cudaEventRecord(abft_compute_done, 0);
+  // cudaEventSynchronize(abft_compute_done);
+  // cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
+  // printf("ABFT Compute Time: %f \n", t1);
 
-  destinationFile = "abftbgemm/records/time/abftBias_Computing.txt";
-  fullPath = homePath / destinationFile;
-  recordTime(fullPath, t1, DEBUG);
+  // destinationFile = "abftbgemm/records/time/abftBias_Computing.txt";
+  // fullPath = homePath / destinationFile;
+  // recordTime(fullPath, t1, DEBUG);
 }
 
 
@@ -5626,7 +5635,8 @@ void gemm_and_bias(
   cublasLtMatmulHeuristicResult_t heuristicResult = {};
   int returnedResult = 0;
   cublasLtHandle_t ltHandle = at::cuda::getCurrentCUDABlasLtHandle();
-  TORCH_CUDABLAS_CHECK(cublasLtMatmulAlgoGetHeuristic(
+  TORCH_CUDABLAS_CHECK(
+    cublasLtMatmulAlgoGetHeuristic(
       ltHandle,
       computeDesc.descriptor(),
       Adesc.descriptor(),
@@ -5636,7 +5646,8 @@ void gemm_and_bias(
       preference.descriptor(),
       1,
       &heuristicResult,
-      &returnedResult));
+      &returnedResult);
+      );
   if (returnedResult == 0) {
     TORCH_CUDABLAS_CHECK(CUBLAS_STATUS_NOT_SUPPORTED);
   }
