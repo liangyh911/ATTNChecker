@@ -335,7 +335,8 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 				if(fabs((float)*(dA+i)) > 1e10){
 					counter++;
 					if(counter > 1){
-						printf("[col check]col chksum error, more than one large number.\n");
+						printf("[col check]col chksum error, more than one large number. (d1 = %.6f, d2 = %.6f, iter = %d)\n",
+									(float)d1, (float)d2, i);
 						return;
 					}
 				}
@@ -345,7 +346,7 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 			printf("[col check]error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n",  (float)d1, (float)d2, loc);
 			//correction
 			// *(dA+loc) += d1;
-			if(abs_d1 > (float)1e5){
+			if(abs_d1 > (float)1e3){
 				// printf("d1 > threshold.\n");
 				T sum = 0.0;
 				for(int i = 0; i < ldda; i++) {
@@ -383,7 +384,7 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 					if(fabs((float)*(dA+i)) > 1e10){
 						counter++;
 						if(counter > 1){
-							printf("[col check]col chksum error, more than one large number.\n");
+							printf("[col check]col chksum error, more than one large number. (d1 = %.6f, d2 = %.6f)\n",(float)d1, (float)d2);
 							return;
 						}
 					}
@@ -394,7 +395,7 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 				printf("[col check]chk inf error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
 				//correction
 				// *(dA+loc) += d1;
-				if(abs_d1 > (float)1e5){
+				if(abs_d1 > (float)1e3){
 					// printf("d1 > threshold.\n");
 					T sum = 0.0;
 					for(int i = 0; i < ldda; i++) {
@@ -428,7 +429,8 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 			if(isinf(*(dA+i)) || fabs((float)*(dA+i)) > 1e10){
 				counter++;
 				if(counter > 1){
-					printf("[col check]Multi INFs or Large Number detected in one column.\n");
+					printf("[col check]Multi INFs or Large Number detected in one column.(d1 = %.6f, d2 = %.6f, iter = %d)\n",
+										(float)d1, (float)d2, i);
 					return;
 				}
 			}
@@ -470,18 +472,21 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 			if(isinf(*(dA+i))){
 				counter++;
 			}
+			if(fabs((float)*(dA+i)) > 1e10){
+				counter++;
+			}
 			if(counter > 1){
-				printf("[col check]Multi INF or NAN detected in one column. \n");
+				printf("[col check]Multi INF, NAN or Large Number detected in one column. (iter = %d)\n", i);
 				return;
 			}
 		}
-		if(loc == -1){
-			printf("[col check]No found NAN for d1 = NAN (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",
-															blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
-			return;
-		}
-		printf("[col check]NAN detected (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",  
-											blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
+		// if(loc == -1){
+			// printf("[col check]No found NAN for d1 = NAN (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d, chk = %.6f, chk_r = %.6f) \n",
+			// 								blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc, (float)(*dA_colchk), (float)(*dA_colchk_r));
+			// return;
+		// }
+		// printf("[col check]NAN detected (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",  
+		// 									blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
 		//the sum of the rest correct number except the error one
 		T sum = 0.0;
 		for(int i = 0; i < ldda; i++) {
@@ -552,7 +557,7 @@ detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea, int64_t col,
 			printf("[row check]error detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
 			//correction
 			// *(dA + loc * ldda) += d1;
-			if(abs_d1 > (float)1e5){
+			if(abs_d1 > (float)1e3){
 				// printf("d1 > threshold.\n");
 				T sum = 0.0;
 				for (int i = 0; i < col; i++) {
@@ -617,7 +622,7 @@ detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea, int64_t col,
 				//correction
 				// *(dA + loc * ldda) += d1;
 				// correction
-				if(abs_d1 > (float)1e5){
+				if(abs_d1 > (float)1e3){
 					// printf("d1 > threshold.\n");
 					T sum = 0.0;
 					for (int i = 0; i < col; i++) {
@@ -801,7 +806,7 @@ detect_correct_col_Gemm(T * dA, int64_t ldda, T E, int64_t num_col,
 					loc = i;
 					counter++;
 				}
-				if(isinf(*(dA+i))){
+				if(isinf(*(dA+i)) || fabs((float)*(dA+i) > 1e10)){
 					counter++;
 				}
 				if(counter > 1){
@@ -809,13 +814,13 @@ detect_correct_col_Gemm(T * dA, int64_t ldda, T E, int64_t num_col,
 					return;
 				}
 			}
-			if(loc == -1){
-				printf("[col check]No found NAN for d1 = NAN (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",
-																blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
-				printf("(C0: %.6f, C1: %.6f, R1: %.6f, R2: %.6f) \n", (float)(*(dA_colchk)), (float)(*(dA_colchk + 1)),
-																(float)(*(dA_colchk_r)), (float)(*(dA_colchk_r + 1)));
-				return;
-			}
+			// if(loc == -1){
+			// 	printf("[col check]No found NAN for d1 = NAN (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",
+			// 													blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
+			// 	printf("(C0: %.6f, C1: %.6f, R1: %.6f, R2: %.6f) \n", (float)(*(dA_colchk)), (float)(*(dA_colchk + 1)),
+			// 													(float)(*(dA_colchk_r)), (float)(*(dA_colchk_r + 1)));
+			// 	return;
+			// }
 			printf("[col check]NAN detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);
 			//the sum of the rest correct number except the error one
 			T sum = 0.0;
@@ -859,7 +864,7 @@ detect_correct_col_Gemm(T * dA, int64_t ldda, T E, int64_t num_col,
 				}
 			}
 			// correction
-			if(abs_d1 > (float)1e5){
+			if(abs_d1 > (float)1e3){
 				// printf("d1 > threshold.\n");
 				T sum = 0.0;
 				for (int i = 0; i < ldda; i++) {
@@ -992,7 +997,7 @@ detect_correct_row_Gemm(T * dA, int64_t ldda, T E, int64_t num_row, int64_t num_
 					// *(dA + loc * ldda) += d1;
 				}
 			}
-			if(abs_d1 > (float)1e5){
+			if(abs_d1 > (float)1e3){
 				// printf("d1 > threshold.\n");
 				T sum = 0.0;
 				for (int i = 0; i < num_col; i++) {
@@ -1119,22 +1124,22 @@ __global__ void bitflip(T *dA, int64_t idx){
 	// int stride = row * col;
 	// int idx = batch * stride + row + col * lda;
 	
-	T value = NAN;
+	// T value = NAN;
 	// T value = (T)1e10;
 	// T value = INFINITY;
-	*(dA + idx) = value;
+	// *(dA + idx) = value;
 
-	// int64_t flipBit = 0;
-	// float orgValue = (float)*(dA + idx);
-	// if(fabs(orgValue) >= 2){
-	// 	flipBit = 29;
-	// }
-	// else{
-	// 	flipBit = 30;
-	// }
-	// uint32_t* intValue = reinterpret_cast<uint32_t*>(&orgValue);
-    // *intValue ^= (1u << flipBit);
-	// *(dA + idx) = (T) *reinterpret_cast<float*>(intValue);
+	int64_t flipBit = 0;
+	float orgValue = (float)*(dA + idx);
+	if(fabs(orgValue) >= 2){
+		flipBit = 29;
+	}
+	else{
+		flipBit = 30;
+	}
+	uint32_t* intValue = reinterpret_cast<uint32_t*>(&orgValue);
+    *intValue ^= (1u << flipBit);
+	*(dA + idx) = (T) *reinterpret_cast<float*>(intValue);
 	// printf("%.6f\n", (float)*(dA + idx));
 }
 
