@@ -300,7 +300,7 @@ __global__ void update_row_v5(int64_t num_batches,
 
 template <typename T>
 __global__ void
-detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
+detect_correct_col(T * dA, int64_t ldda, float E, int64_t stridea,
 						     T * dA_colchk, 	int64_t ldda_colchk,	int64_t stride_colchk,
 						     T * dA_colchk_r, int64_t ldda_colchk_r,	int64_t stride_colchk_r){
     //printf("col_chk kernel func. \n");
@@ -316,7 +316,7 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
     dA_colchk   = dA_colchk   + threadIdx.x * ldda_colchk;
     dA_colchk_r = dA_colchk_r + threadIdx.x * ldda_colchk_r;
 	
-    float d1 = (float)(*dA_colchk)       - (*dA_colchk_r);
+    float d1 = (float)((*dA_colchk)       - (*dA_colchk_r));
     float d2 = (float)(*(dA_colchk + 1)) - (*(dA_colchk_r + 1));
 	float abs_d1 = fabs(d1);
 	int loc = -1;
@@ -485,8 +485,8 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 			// 								blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc, (float)(*dA_colchk), (float)(*dA_colchk_r));
 			// return;
 		// }
-		// printf("[col check]NAN detected (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",  
-		// 									blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
+		printf("[col check]NAN detected (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",  
+											blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
 		//the sum of the rest correct number except the error one
 		T sum = 0.0;
 		for(int i = 0; i < ldda; i++) {
@@ -502,7 +502,7 @@ detect_correct_col(T * dA, int64_t ldda, T E, int64_t stridea,
 
 template<typename T>
 __global__ void
-detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea, int64_t col,
+detect_correct_row(T * dA, int64_t ldda, float E, int64_t stridea, int64_t col,
 						    T * dA_rowchk, 	int64_t ldda_rowchk,	int64_t stride_rowchk,
 						     T * dA_rowchk_r, int64_t ldda_rowchk_r,	int64_t stride_rowchk_r){
     // printf("row_chk kernel func. \n");
@@ -741,7 +741,7 @@ detect_correct_row(T * dA, int64_t ldda, T E, int64_t stridea, int64_t col,
 
 template<typename T>
 __global__ void 
-detect_correct_col_Gemm(T * dA, int64_t ldda, T E, int64_t num_col,
+detect_correct_col_Gemm(T * dA, int64_t ldda, float E, int64_t num_col,
 								T * dA_colchk, 	int64_t ldda_colchk,
 								T * dA_colchk_r, int64_t ldda_colchk_r){
 	int col_batchid = blockIdx.x * blockDim.x;
@@ -815,8 +815,8 @@ detect_correct_col_Gemm(T * dA, int64_t ldda, T E, int64_t num_col,
 				}
 			}
 			// if(loc == -1){
-			// 	printf("[col check]No found NAN for d1 = NAN (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",
-			// 													blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
+				printf("[col check]No found NAN for d1 = NAN (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",
+																blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
 			// 	printf("(C0: %.6f, C1: %.6f, R1: %.6f, R2: %.6f) \n", (float)(*(dA_colchk)), (float)(*(dA_colchk + 1)),
 			// 													(float)(*(dA_colchk_r)), (float)(*(dA_colchk_r + 1)));
 			// 	return;
@@ -885,7 +885,7 @@ detect_correct_col_Gemm(T * dA, int64_t ldda, T E, int64_t num_col,
 
 template <typename T>
 __global__ void 
-detect_correct_row_Gemm(T * dA, int64_t ldda, T E, int64_t num_row, int64_t num_col,
+detect_correct_row_Gemm(T * dA, int64_t ldda, float E, int64_t num_row, int64_t num_col,
 						    	T * dA_rowchk, 	int64_t ldda_rowchk,
 						    	T * dA_rowchk_r, int64_t ldda_rowchk_r){
 	int row_batchid = blockIdx.x * blockDim.x;
@@ -958,8 +958,8 @@ detect_correct_row_Gemm(T * dA, int64_t ldda, T E, int64_t num_row, int64_t num_
 			if(loc == -1){
 				printf("[row check]No found NAN for d1 = NAN (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",
 																blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
-				printf("(C0: %.6f, C1: %.6f, R1: %.6f, R2: %.6f) \n", (float)(*(dA_rowchk)), (float)(*(dA_rowchk + ldda_rowchk)),
-																(float)(*(dA_rowchk_r)), (float)(*(dA_rowchk_r + ldda_rowchk_r)));
+				// printf("(C0: %.6f, C1: %.6f, R1: %.6f, R2: %.6f) \n", (float)(*(dA_rowchk)), (float)(*(dA_rowchk + ldda_rowchk)),
+				// 												(float)(*(dA_rowchk_r)), (float)(*(dA_rowchk_r + ldda_rowchk_r)));
 				return;
 			}
 			printf("[col check]NAN detected (d1 = %.6f, d2 = %.6f, loc = %d) \n", (float)d1, (float)d2, loc);

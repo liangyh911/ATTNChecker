@@ -476,7 +476,7 @@ void outputChk(T *A, int64_t nb, int64_t ld, int64_t stride, int64_t row, int64_
     for(int r = 0; r < row; r++){
       printf("|");
       for(int c = 0; c < col; c++){
-        printf("%.6f", T(tensor[i*stride + c*ld + r]));
+        printf("%.6f", (float)(tensor[i*stride + c*ld + r]));
         printf(", ");
       }
       printf("!\n");
@@ -1041,7 +1041,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
                     dC_colchk_r<T>, lddc_colchk_r, (2*n));
 
     if (DEBUG) cudaEventRecord(start, stream_main);
-    T E = 1;
+    float E = 1;
     detect_correct_col<T><<<dim3(num_batches), dim3(n), 0, stream_main>>>(dC, lddc, E, stridec,
                                             dC_colchk<T>,      lddc_colchk,    (2*n),
                                             dC_colchk_r<T>,    lddc_colchk_r,  (2*n));
@@ -1070,7 +1070,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     encode_row_v5<T, M, N><<<num_batches, dim3(M*2, 1, 1), 0, stream_main>>>(num_batches,
                     dC, lddc, stridec,
                     dC_rowchk_r<T>, lddc_rowchk_r, (2*m));
-    T E = 1;
+    float E = 1;
     if (DEBUG) cudaEventRecord(start, stream_main);
     detect_correct_row<T><<<dim3(num_batches), dim3(m), 0, stream_main>>>(dC, lddc, E, stridec, n,
                                           dC_rowchk<T>, lddc_rowchk,     (2*m),
@@ -1672,7 +1672,19 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
           COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
       }
       else if(m == 74 && k == 64){
-      abftbgemm<at::Half, 74, 74, 64>(transa, transb, m, n, k,
+        abftbgemm<at::Half, 74, 74, 64>(transa, transb, m, n, k,
+          alpha, dA_, ldda, stridea,
+          dB_, lddb, strideb, beta,
+          dC, lddc, stridec,
+          chk_v_a, chk_v_b, ld_chk_v,
+          A_copy, stridea_copy,
+          B_copy, strideb_copy,
+          C_copy, stridec_copy,
+          num_batches, m_copy, n_copy,
+          COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
+    }
+    else if(m == 64 && k == 74){
+      abftbgemm<at::Half, 64, 74, 74>(transa, transb, m, n, k,
         alpha, dA_, ldda, stridea,
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
@@ -1683,8 +1695,20 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
         num_batches, m_copy, n_copy,
         COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
     }
-    else if(m == 64 && k == 74){
-      abftbgemm<at::Half, 64, 74, 74>(transa, transb, m, n, k,
+    else if(m == 5 && k == 4){
+      abftbgemm<at::Half, 5, 5, 4>(transa, transb, m, n, k,
+        alpha, dA_, ldda, stridea,
+        dB_, lddb, strideb, beta,
+        dC, lddc, stridec,
+        chk_v_a, chk_v_b, ld_chk_v,
+        A_copy, stridea_copy,
+        B_copy, strideb_copy,
+        C_copy, stridec_copy,
+        num_batches, m_copy, n_copy,
+        COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER, ifPassChk, QKV, num_head, INJECTION, homePath);
+    }
+    else if(m == 4 && k == 5){
+      abftbgemm<at::Half, 4, 5, 5>(transa, transb, m, n, k,
         alpha, dA_, ldda, stridea,
         dB_, lddb, strideb, beta,
         dC, lddc, stridec,
@@ -2234,7 +2258,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
                                     num_head);
       }
       else if constexpr(std::is_same<T, at::Half>::value) {
-        cublasGemmStridedBatchedEx(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, nb,
+        cublasGemmStridedBatchedEx(handle_colchk, CUBLAS_OP_N, CUBLAS_OP_T, 2, k, nb,
                                     &falpha, chk_v_a, CUDA_R_16F, ld_chk_v, 0,
                                     a, CUDA_R_16F, (lda), nb, &fbeta,
                                     dA_colchk<T>, CUDA_R_16F, ldda_colchk, k*2,
@@ -3281,7 +3305,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
                       &fbeta, dC_colchk_r<T>, CUDA_R_16F, lddc_colchk_r,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
     }
-    T E = 1;
+    float E = 1;
     detect_correct_col_Gemm<T><<<dim3(128), dim3(threadNum), 0, stream_colchk>>>(c ,ldc, E, n,
                                                                                       dC_colchk<T>, lddc_colchk,
                                                                                       dC_colchk_r<T>, lddc_colchk_r);
@@ -3321,7 +3345,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
     }
     
-    T E = 1;
+    float E = 1;
     threadNum = (m+128-1)/128;
     detect_correct_row_Gemm<T><<<dim3(128), dim3(threadNum), 0, stream_rowchk>>>(c, ldc, E, m, n,
                                                                           dC_rowchk<T>, lddc_rowchk,
@@ -3921,7 +3945,7 @@ void myGemmBiasPassChk (
     }
     cudaMemcpy(chk_v_a, h_matrix, size, cudaMemcpyHostToDevice);
     // std::cout << "chk_v_a: " << std::endl;
-    // outputChk(chk_v_a, 1, ld_chk_v, 0, 2, m);
+    // outputChk(chk_v_a, 1, ld_chk_v, 0, 2, len);
     free(h_matrix);
 
     len = n / num_batches;
@@ -3937,7 +3961,7 @@ void myGemmBiasPassChk (
     }
     cudaMemcpy(chk_v_b, h_matrix, size, cudaMemcpyHostToDevice);
     // std::cout << "chk_v_b: " << std::endl;
-    // outputChk(chk_v_a, 1, ld_chk_v, 0, 2, len);
+    // outputChk(chk_v_b, 1, ld_chk_v, 0, 2, len);
     free(h_matrix);
     //std::cout << "  finish chk_v." << std::endl;
 
@@ -4049,10 +4073,10 @@ void myGemmBiasPassChk (
                                       num_head);
       }
       else if constexpr(std::is_same<T, at::Half>::value) {
-        cublasGemmStridedBatchedEx(handle, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, nb,
+        cublasGemmStridedBatchedEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, 2, 1, nb,
                         &falpha, chk_v_a, CUDA_R_16F, ld_chk_v, 0,
                         bias_copy, CUDA_R_16F, nb, nb+2, &fbeta,
-                        bias_copy, CUDA_R_16F, nb, nb+2,
+                        bias_copy+nb, CUDA_R_16F, 2, nb+2,
                         num_head, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
       } 
     }
@@ -4079,10 +4103,10 @@ void myGemmBiasPassChk (
                                       num_head);
       }
       else if constexpr(std::is_same<T, at::Half>::value) {
-        cublasGemmStridedBatchedEx(handle, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, nb,
+        cublasGemmStridedBatchedEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, 2, 1, nb,
                         &falpha, chk_v_a, CUDA_R_16F, ld_chk_v, 0,
                         bias_copy, CUDA_R_16F, nb, nb+2, &fbeta,
-                        bias_copy, CUDA_R_16F, nb, nb+2,
+                        bias_copy+nb, CUDA_R_16F, 2, nb+2,
                         num_head, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
       } 
     }
@@ -4309,9 +4333,9 @@ void abftGemmBiasPassChk(
   preference.setAttribute(CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES, workspaceSize);
 
 #ifndef USE_ROCM
-  uint32_t a_alignment = _getAlignment(reinterpret_cast<uintptr_t>(mat1_ptr));
-  uint32_t b_alignment = _getAlignment(reinterpret_cast<uintptr_t>(mat2_ptr));
-  uint32_t c_alignment = _getAlignment(reinterpret_cast<uintptr_t>(result_ptr));
+  uint32_t a_alignment = _getAlignment(reinterpret_cast<uintptr_t>(A_copy));
+  uint32_t b_alignment = _getAlignment(reinterpret_cast<uintptr_t>(B_copy));
+  uint32_t c_alignment = _getAlignment(reinterpret_cast<uintptr_t>(C_copy));
   uint32_t d_alignment = _getAlignment(reinterpret_cast<uintptr_t>(bias_copy));
   preference.setAttribute(CUBLASLT_MATMUL_PREF_MIN_ALIGNMENT_A_BYTES, a_alignment);
   preference.setAttribute(CUBLASLT_MATMUL_PREF_MIN_ALIGNMENT_B_BYTES, b_alignment);
@@ -4331,7 +4355,7 @@ void abftGemmBiasPassChk(
     printf("m:%d, n:%d, k:%d, m_copy:%d, n_copy:%d\n ", m, n, k, m_copy, n_copy);
   }
   
-  TORCH_CUDABLAS_CHECK(
+  // TORCH_CUDABLAS_CHECK(
     cublasLtMatmulAlgoGetHeuristic(
       ltHandle,
       computeDesc.descriptor(),
@@ -4342,11 +4366,11 @@ void abftGemmBiasPassChk(
       preference.descriptor(),
       1,
       &heuristicResult,
-      &returnedResult)
-  );
-  if (returnedResult == 0) {
-    TORCH_CUDABLAS_CHECK(CUBLAS_STATUS_NOT_SUPPORTED);
-  }
+      &returnedResult);
+  // );
+  // if (returnedResult == 0) {
+    // TORCH_CUDABLAS_CHECK(CUBLAS_STATUS_NOT_SUPPORTED);
+  // }
   
   // cublasLtMatmulAlgo_t algo;
   // cublasLtMatmulAlgoInit(ltHandle,
@@ -4972,7 +4996,7 @@ void myGemmBias (
     }
     cudaMemcpy(chk_v_a, h_matrix, size, cudaMemcpyHostToDevice);
     // std::cout << "chk_v_a: " << std::endl;
-    // outputChk(chk_v_a, 1, ld_chk_v, 0, 2, m);
+    // outputChk(chk_v_a, 1, ld_chk_v, 2*len, 2, len);
     free(h_matrix);
 
     len = n;
@@ -4988,7 +5012,7 @@ void myGemmBias (
     }
     cudaMemcpy(chk_v_b, h_matrix, size, cudaMemcpyHostToDevice);
     // std::cout << "chk_v_b: " << std::endl;
-    // outputChk(chk_v_a, 1, ld_chk_v, 0, 2, len);
+    // outputChk(chk_v_b, 1, ld_chk_v, 2*len, 2, len);
     free(h_matrix);
     //std::cout << "  finish chk_v." << std::endl;
 
@@ -5462,7 +5486,7 @@ void abftGemmBias(
     dim3 blocks((k+threadsDim-1)/threadsDim, (n_copy+threadsDim-1)/threadsDim);
     dim3 threads(threadsDim,threadsDim);
     if(DEBUG) cudaEventRecord(start, stream_main);
-    GemmMatrxiChkMerge_v3<<<blocks, threads, 0, stream_main>>>(mat2_ptr, k, n, dB_rowchk<T>, 1, B_copy, k, n_copy);
+    GemmMatrxiChkMerge_v3<T><<<blocks, threads, 0, stream_main>>>(mat2_ptr, k, n, dB_rowchk<T>, 1, B_copy, k, n_copy);
     if(DEBUG){
       cudaEventRecord(stop, stream_main);
       cudaEventSynchronize(stop);
@@ -5507,11 +5531,6 @@ void abftGemmBias(
   // printf("tmpC:\n");
   // outputMatrix(tmpC, m, m*n, 1, m, n);
   
-  // printf("result:\n");
-  // outputChk(result_ptr, 1, result_ld, m*n, m, n);
-
-  // printf("Output row_chk: \n");
-  // outputChk(row_chk, 1, m, m*2, m, 2);
   
   if (DEBUG) {
       cudaEventRecord(stop, stream_main);
@@ -5552,7 +5571,7 @@ void abftGemmBias(
   dim3 blocks((m_copy+threadsDim-1)/threadsDim, (n_copy+threadsDim-1)/threadsDim);
   dim3 threads(threadsDim, threadsDim);
   if(DEBUG) cudaEventRecord(start, stream_main);
-  GemmBiasRowCopyBack<<<blocks, threads, 0, stream_main>>>(C_copy, m_copy, n_copy, result_ptr, m, n, dC_rowchk<T>, bias);
+  GemmBiasRowCopyBack<T><<<blocks, threads, 0, stream_main>>>(C_copy, m_copy, n_copy, result_ptr, m, n, dC_rowchk<T>, bias);
   if(DEBUG){
     cudaEventRecord(stop, stream_main);
     cudaEventSynchronize(stop);
@@ -5563,6 +5582,12 @@ void abftGemmBias(
     fullPath = homePath / destinationFile;
     recordTime(fullPath, t1, DEBUG);
   }
+
+  // printf("result:\n");
+  // outputChk(result_ptr, 1, result_ld, m*n, m, n);
+
+  // printf("Output row_chk: \n");
+  // outputChk(dC_rowchk<T>, 1, m, m*2, m, 2);
 
   if(INJECTION){
     if(DEBUG) printf("Injection.\n");
@@ -5584,14 +5609,15 @@ void abftGemmBias(
                       result_ptr, result_ld, &fbeta, 
                       dC_colchk_r<T>, lddc_colchk_r);
     }
-    else if constexpr(std::is_same<T, half>::value){
+    else if constexpr(std::is_same<T, at::Half>::value){
       cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N,  2, mem_col, mem_row,
                       &falpha, chk_v_a, CUDA_R_16F, ld_chk_v, 
                       result_ptr, CUDA_R_16F, result_ld,
                       &fbeta, dC_colchk_r<T>, CUDA_R_16F, lddc_colchk_r,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
     }
-    T E = 1;
+    
+    float E = 1;
     threadNum = (n+128-1)/128;
     detect_correct_col_Gemm<T><<<dim3(128), dim3(threadNum), 0, stream_main>>>(result_ptr, result_ld, E, n,
                                                                                       dC_colchk<T>, lddc_colchk, 
@@ -5627,15 +5653,20 @@ void abftGemmBias(
                       chk_v_b, ld_chk_v, &fbeta, 
                       dC_rowchk_r<T>, lddc_rowchk_r);
     }
-    else if constexpr(std::is_same<T, half>::value){
+    else if constexpr(std::is_same<T, at::Half>::value){
       cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_T,  mem_row, 2, mem_col,
                       &falpha, result_ptr, CUDA_R_16F, result_ld, 
                       chk_v_b, CUDA_R_16F, ld_chk_v,
                       &fbeta, dC_rowchk_r<T>, CUDA_R_16F, lddc_rowchk_r,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
     }
-    T E = 1;
 
+    // printf("Output row_chk: \n");
+    // outputChk(dC_rowchk_r<T>, 1, m, m*2, m, 2);
+
+    // outputChk(chk_v_b, 1, ld_chk_v, 2*n, 2, n); 
+
+    float E = 1;
     detect_correct_row_Gemm<T><<<dim3(128), dim3((m+128-1)/128), 0, stream_main>>>(result_ptr, result_ld, E, m, n,
                                                                           dC_rowchk<T>, lddc_rowchk,
                                                                           dC_rowchk_r<T>, lddc_rowchk_r);
