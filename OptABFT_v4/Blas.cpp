@@ -41,6 +41,9 @@ namespace fs = std::filesystem;
 #include <ATen/ops/vdot_native.h>
 #endif
 
+#include <chrono>
+using namespace std::chrono;
+
 namespace at::native {
 
 namespace {
@@ -390,6 +393,7 @@ Tensor& addmm_out_cuda_impl(Tensor& result, const Tensor& self, const Tensor& ma
             myfile.get(flag);
             myfile.close();
             if(flag == 't'){
+                // auto start = high_resolution_clock::now();
                 flag = 'f';
                 fs::path homePath(homeDir);
                 fs::path destinationFile = "abftbgemm/control/IFPassChk.txt";
@@ -397,6 +401,9 @@ Tensor& addmm_out_cuda_impl(Tensor& result, const Tensor& self, const Tensor& ma
                 std::ifstream isPassChkFile(fullPath);
                 isPassChkFile.get(flag);
                 isPassChkFile.close();
+                // auto stop = high_resolution_clock::now();
+                // auto duration = std::chrono::duration_cast<microseconds>(stop - start);
+                // std::cout << "Blas.cpp Bias Pass: " << duration.count() / 1000.0 << std::endl;
                 if(flag == 't'){
                   // std::cout << "my_gemm_biasPassChk" << std::endl;
                   at::cuda::blas::myGemmBiasPassChk<scalar_t>(
@@ -547,6 +554,7 @@ Tensor& addmm_out_cuda_impl(Tensor& result, const Tensor& self, const Tensor& ma
             myfile.get(flag);
             myfile.close();
             if(flag == 't'){
+              // auto start = high_resolution_clock::now();
               flag = 'f';
               fs::path homePath(homeDir);
               fs::path destinationFile = "abftbgemm/control/IFPassChk.txt";
@@ -554,6 +562,9 @@ Tensor& addmm_out_cuda_impl(Tensor& result, const Tensor& self, const Tensor& ma
               std::ifstream isPassChkFile(fullPath);
               isPassChkFile.get(flag);
               isPassChkFile.close();
+              // auto stop = high_resolution_clock::now();
+              // auto duration = std::chrono::duration_cast<microseconds>(stop - start);
+              // std::cout << "Blas.cpp Gemm Pass: " << duration.count() / 1000.0 << std::endl;
               if(flag == 't'){
                 // std::cout << "Calling myGemmPassChk function" << std::endl;
                 at::cuda::blas::myGemmPassChk<scalar_t>(
@@ -652,7 +663,7 @@ const Tensor& baddbmm_out_cuda_impl(const Tensor& result, const Tensor& self, co
   IntArrayRef result_strides = result.strides();
   IntArrayRef result_sizes = result.sizes();
 
-  std::cout << "baddbmm size: [" << result_sizes[0] << ", "<< result_sizes[1] << ", " << result_sizes[2] << "]" << std::endl;
+  // std::cout << "baddbmm size: [" << result_sizes[0] << ", "<< result_sizes[1] << ", " << result_sizes[2] << "]" << std::endl;
   // std::vector<int64_t> vec = {result_sizes[0], (result_sizes[1]+1), (result_sizes[2]+1)};
   // at::IntArrayRef array_ref(vec);
   // std::cout << "[" << array_ref[0] << ", "<< array_ref[1] << ", " << array_ref[2] << "]" << std::endl;

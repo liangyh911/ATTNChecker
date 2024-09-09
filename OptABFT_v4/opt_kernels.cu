@@ -815,8 +815,8 @@ detect_correct_col_Gemm(T * dA, int64_t ldda, float E, int64_t num_col,
 				}
 			}
 			// if(loc == -1){
-				printf("[col check]No found NAN for d1 = NAN (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",
-																blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
+				// printf("[col check]No found NAN for d1 = NAN (idx = (%d, %d) d1 = %.6f, d2 = %.6f, loc = %d) \n",
+				// 												blockIdx.x, threadIdx.x, (float)d1, (float)d2, loc);
 			// 	printf("(C0: %.6f, C1: %.6f, R1: %.6f, R2: %.6f) \n", (float)(*(dA_colchk)), (float)(*(dA_colchk + 1)),
 			// 													(float)(*(dA_colchk_r)), (float)(*(dA_colchk_r + 1)));
 			// 	return;
