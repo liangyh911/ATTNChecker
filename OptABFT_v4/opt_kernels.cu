@@ -1041,10 +1041,12 @@ __global__ void addVector(T *dA_chk, T *biasMatrix, int row, int col) {
 }
 
 template<typename T>
-__global__ void getBiasMatrix(T *biasVector, T *biasMatrix, int64_t row){
+__global__ void getBiasMatrix(T *biasVector, T *biasMatrix, int64_t row, int col){
 	int colIdx = blockIdx.x * blockDim.x + threadIdx.x;
-	for(int r = 0; r < row; r++){
-		biasMatrix[colIdx * row + r] = biasVector[r];
+	if(colIdx < col){
+		for(int r = 0; r < row; r++){
+			biasMatrix[colIdx * row + r] = biasVector[r];
+		}
 	}
 }
 
