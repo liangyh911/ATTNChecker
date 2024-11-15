@@ -543,12 +543,12 @@ int64_t getInjPos() {
   homeDir = getenv("HOME");
   // if (homeDir != nullptr) {
   fs::path homePath(homeDir);
-  fs::path destinationFile = "abftbgemm/control/pos.txt";
+  fs::path destinationFile = "../control/pos.txt";
   fs::path fullPath = homePath / destinationFile;
   
   int lineNumber = 0;
 
-  std::ifstream inFile(fullPath);
+  std::ifstream inFile(destinationFile);
   std::vector<string> lines;
   string line;
 
@@ -1242,10 +1242,9 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   fs::path homePath(homeDir);
   
   char QKV;
-  fs::path destinationFile = "abftbgemm/control/QKV.txt";
-  fs::path fullPath = homePath / destinationFile;
-  std::ifstream qkvFile(fullPath);
-
+  fs::path destinationFile = "../control/QKV.txt";
+  // fs::path fullPath = homePath / destinationFile;
+  std::ifstream qkvFile(destinationFile);
   if(qkvFile.is_open()){
     qkvFile.get(QKV);
   }
@@ -1254,12 +1253,30 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   }
   qkvFile.close();
 
+  // char QKV2;
+  // std::cout << "Current working directory: " << std::filesystem::current_path() << "\n";
+  // if (std::filesystem::exists("./QKV.txt")){
+  //   printf("file existed \n");
+  // }
+  // else{
+  //   printf("file not existed\n");
+  // }
+  // std::ifstream qkvFile2("../control/QKV.txt");
+  // if(qkvFile2.is_open()){
+  //   qkvFile2.get(QKV2);
+  //   printf("Relative path test: %c \n", QKV2);
+  // }
+  // else{
+  //   printf("QKV2: Cannot open file, using default setting.\n");
+  // }
+  // qkvFile2.close();
+
   std::vector<string> tokens;
   string line, token;
   
-  destinationFile = "abftbgemm/control/Batch.txt";
-  fullPath = homePath / destinationFile;
-  std::ifstream batchFile(fullPath);
+  destinationFile = "../control/Batch.txt";
+  // fullPath = homePath / destinationFile;
+  std::ifstream batchFile(destinationFile);
   while (std::getline(batchFile, line)) {
       std::istringstream iss(line);
 
@@ -1400,10 +1417,10 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   int64_t n_copy = n;
 
   char flag;
-  destinationFile = "abftbgemm/control/abftCOL_FT.txt";
-  fullPath = homePath / destinationFile;
+  destinationFile = "../control/abftCOL_FT.txt";
+  // fullPath = homePath / destinationFile;
   size = 0;
-  std::ifstream colFile(fullPath);
+  std::ifstream colFile(destinationFile);
   if (colFile.is_open()){
     colFile.get(flag);
     if(flag == 'f'){
@@ -1421,9 +1438,9 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   }
   colFile.close();
   
-  destinationFile = "abftbgemm/control/abftROW_FT.txt";
-  fullPath = homePath / destinationFile;
-  std::ifstream rowFile(fullPath);
+  destinationFile = "../control/abftROW_FT.txt";
+  // fullPath = homePath / destinationFile;
+  std::ifstream rowFile(destinationFile);
   if (rowFile.is_open()){
     rowFile.get(flag);
     if(flag == 'f'){
@@ -1441,9 +1458,9 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   }
   rowFile.close();
 
-  destinationFile = "abftbgemm/control/IFPassChk.txt";
-  fullPath = homePath / destinationFile;
-  std::ifstream PassFile(fullPath);
+  destinationFile = "../control/IFPassChk.txt";
+  // fullPath = homePath / destinationFile;
+  std::ifstream PassFile(destinationFile);
   if(PassFile.is_open()){
     PassFile.get(flag);
     if(flag == 't'){
@@ -1455,9 +1472,9 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   }
   PassFile.close();
 
-  destinationFile = "abftbgemm/control/Injection.txt";
-  fullPath = homePath / destinationFile;
-  std::ifstream injFile(fullPath);
+  destinationFile = "../control/Injection.txt";
+  // fullPath = homePath / destinationFile;
+  std::ifstream injFile(destinationFile);
   if (injFile.is_open()){
     injFile.get(flag);
     if(flag == 't'){
@@ -1470,9 +1487,9 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   }
   injFile.close();
 
-  destinationFile = "abftbgemm/control/DEBUG.txt";
-  fullPath = homePath / destinationFile;
-  std::ifstream DebugFile(fullPath);
+  destinationFile = "../control/DEBUG.txt";
+  // fullPath = homePath / destinationFile;
+  std::ifstream DebugFile(destinationFile);
   if (DebugFile.is_open()){
     DebugFile.get(flag);
     if(flag == 'f'){
@@ -1951,11 +1968,11 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   const char* homeDir = nullptr;
   homeDir = getenv("HOME");
   fs::path homePath(homeDir);
-  fs::path destinationFile = "abftbgemm/control/QKV.txt";
+  fs::path destinationFile = "../control/QKV.txt";
   fs::path fullPath = homePath / destinationFile;
 
   char QKV;
-  std::ifstream qkvFile(fullPath);
+  std::ifstream qkvFile(destinationFile);
   if (qkvFile.is_open()){
     qkvFile.get(QKV);
   }
@@ -1966,9 +1983,9 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
 
   std::vector<string> tokens;
   string line, token;
-  destinationFile = "abftbgemm/control/Batch.txt";
+  destinationFile = "../control/Batch.txt";
   fullPath = homePath / destinationFile;
-  std::ifstream batchFile(fullPath);
+  std::ifstream batchFile(destinationFile);
   while (std::getline(batchFile, line)) {
       std::istringstream iss(line);
 
@@ -2113,9 +2130,9 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   size = 0;
 
   char flag;
-  destinationFile = "abftbgemm/control/abftCOL_FT.txt";
+  destinationFile = "../control/abftCOL_FT.txt";
   fullPath = homePath / destinationFile;
-  std::ifstream colFile(fullPath);
+  std::ifstream colFile(destinationFile);
   if (colFile.is_open()){
     colFile.get(flag);
     if(flag == 'f'){
@@ -2132,9 +2149,9 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   }
   colFile.close();
   
-  destinationFile = "abftbgemm/control/abftROW_FT.txt";
+  destinationFile = "../control/abftROW_FT.txt";
   fullPath = homePath / destinationFile;
-  std::ifstream rowFile(fullPath);
+  std::ifstream rowFile(destinationFile);
   if (rowFile.is_open()){
     rowFile.get(flag);
     if(flag == 'f'){
@@ -2151,9 +2168,9 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   }
   rowFile.close();
 
-  destinationFile = "abftbgemm/control/Injection.txt";
+  destinationFile = "../control/Injection.txt";
   fullPath = homePath / destinationFile;
-  std::ifstream injFile(fullPath);
+  std::ifstream injFile(destinationFile);
   if (injFile.is_open()){
     injFile.get(flag);
     if(flag == 't'){
@@ -2166,9 +2183,9 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   }
   injFile.close();
 
-  destinationFile = "abftbgemm/control/DEBUG.txt";
+  destinationFile = "../control/DEBUG.txt";
   fullPath = homePath / destinationFile;
-  std::ifstream DebugFile(fullPath);
+  std::ifstream DebugFile(destinationFile);
   if (DebugFile.is_open()){
     DebugFile.get(flag);
     if(flag == 'f'){
@@ -2181,8 +2198,8 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   }
   DebugFile.close();
 
-  destinationFile = "abftbgemm/records/time/abftgemm.txt";
-  fullPath = homePath / destinationFile;
+  // destinationFile = "abftbgemm/records/time/abftgemm.txt";
+  // fullPath = homePath / destinationFile;
 
   cudaMalloc((void**)&C_copy, size + m_copy*n_copy*sizeof(T));
   if(COL_FT && (!ROW_FT)){
@@ -2871,11 +2888,11 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   const char* homeDir = nullptr;
   homeDir = getenv("HOME");
   fs::path homePath(homeDir);
-  fs::path destinationFile = "abftbgemm/control/QKV.txt";
+  fs::path destinationFile = "../control/QKV.txt";
   fs::path fullPath = homePath / destinationFile;
   
   char QKV;
-  std::ifstream qkvFile(fullPath);
+  std::ifstream qkvFile(destinationFile);
   if (qkvFile.is_open()){
     qkvFile.get(QKV);
   }
@@ -2981,10 +2998,10 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   // bool ifPassChk = false;
   bool INJECTION = false;
 
-  destinationFile = "abftbgemm/control/abftCOL_FT.txt";
+  destinationFile = "../control/abftCOL_FT.txt";
   fullPath = homePath / destinationFile;
   char flag;
-  std::ifstream colFile(fullPath);
+  std::ifstream colFile(destinationFile);
   if (colFile.is_open()){
     colFile.get(flag);
     if(flag == 'f'){
@@ -2997,9 +3014,9 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   }
   colFile.close();
   
-  destinationFile = "abftbgemm/control/abftROW_FT.txt";
+  destinationFile = "../control/abftROW_FT.txt";
   fullPath = homePath / destinationFile;
-  std::ifstream rowFile(fullPath);
+  std::ifstream rowFile(destinationFile);
   if (rowFile.is_open()){
     rowFile.get(flag);
     if(flag == 'f'){
@@ -3012,9 +3029,9 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   }
   rowFile.close();
 
-  destinationFile = "abftbgemm/control/Injection.txt";
+  destinationFile = "../control/Injection.txt";
   fullPath = homePath / destinationFile;
-  std::ifstream injFile(fullPath);
+  std::ifstream injFile(destinationFile);
   if (injFile.is_open()){
     injFile.get(flag);
     if(flag == 't'){
@@ -3027,9 +3044,9 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   }
   injFile.close();
 
-  destinationFile = "abftbgemm/control/DEBUG.txt";
+  destinationFile = "../control/DEBUG.txt";
   fullPath = homePath / destinationFile;
-  std::ifstream DebugFile(fullPath);
+  std::ifstream DebugFile(destinationFile);
   if (DebugFile.is_open()){
     DebugFile.get(flag);
     if(flag == 'f'){
@@ -3887,11 +3904,11 @@ void myGemmBiasPassChk (
     const char* homeDir = nullptr;
     homeDir = getenv("HOME");
     fs::path homePath(homeDir);
-    fs::path destinationFile = "abftbgemm/control/QKV.txt";
+    fs::path destinationFile = "../control/QKV.txt";
     fs::path fullPath = homePath / destinationFile;
 
     char QKV;
-    std::ifstream qkvFile(fullPath);
+    std::ifstream qkvFile(destinationFile);
     if (qkvFile.is_open()){
       qkvFile.get(QKV);
     }
@@ -3902,9 +3919,9 @@ void myGemmBiasPassChk (
 
     bool Together = false;
     char flag;
-    destinationFile = "abftbgemm/control/together.txt";
+    destinationFile = "../control/together.txt";
     fullPath = homePath / destinationFile;
-    std::ifstream togetherFile(fullPath);
+    std::ifstream togetherFile(destinationFile);
     if (togetherFile.is_open()){
       togetherFile.get(flag);
       if(flag == 't'){
@@ -3918,9 +3935,9 @@ void myGemmBiasPassChk (
 
     std::vector<string> tokens;
     string line, token;
-    destinationFile = "abftbgemm/control/Batch.txt";
+    destinationFile = "../control/Batch.txt";
     fullPath = homePath / destinationFile;
-    std::ifstream batchFile(fullPath);
+    std::ifstream batchFile(destinationFile);
     while (std::getline(batchFile, line)) {
         std::istringstream iss(line);
 
@@ -4109,9 +4126,9 @@ void myGemmBiasPassChk (
     T *A_copy, *B_copy, *C_copy, *bias_copy;
     size = 0;
     
-    destinationFile = "abftbgemm/control/abftCOL_FT.txt";
+    destinationFile = "../control/abftCOL_FT.txt";
     fullPath = homePath / destinationFile;
-    std::ifstream colFile(fullPath);
+    std::ifstream colFile(destinationFile);
     if (colFile.is_open()){
       colFile.get(flag);
       if(flag == 'f'){
@@ -4128,9 +4145,9 @@ void myGemmBiasPassChk (
     }
     colFile.close();
 
-    destinationFile = "abftbgemm/control/abftROW_FT.txt";
+    destinationFile = "../control/abftROW_FT.txt";
     fullPath = homePath / destinationFile;
-    std::ifstream rowFile(fullPath);
+    std::ifstream rowFile(destinationFile);
     if (rowFile.is_open()){
       rowFile.get(flag);
       if(flag == 'f'){
@@ -4147,9 +4164,9 @@ void myGemmBiasPassChk (
     }
     rowFile.close();
 
-    destinationFile = "abftbgemm/control/Injection.txt";
+    destinationFile = "../control/Injection.txt";
     fullPath = homePath / destinationFile;
-    std::ifstream injFile(fullPath);
+    std::ifstream injFile(destinationFile);
     if (injFile.is_open()){
       injFile.get(flag);
       if(flag == 't'){
@@ -4162,9 +4179,9 @@ void myGemmBiasPassChk (
     }
     injFile.close();
 
-    destinationFile = "abftbgemm/control/DEBUG.txt";
+    destinationFile = "../control/DEBUG.txt";
     fullPath = homePath / destinationFile;
-    std::ifstream DebugFile(fullPath);
+    std::ifstream DebugFile(destinationFile);
     if (DebugFile.is_open()){
       DebugFile.get(flag);
       if(flag == 'f'){
@@ -5049,11 +5066,11 @@ void myGemmBias (
     const char* homeDir = nullptr;
     homeDir = getenv("HOME");
     fs::path homePath(homeDir);
-    fs::path destinationFile = "abftbgemm/control/QKV.txt";
+    fs::path destinationFile = "../control/QKV.txt";
     fs::path fullPath = homePath / destinationFile;
 
     char QKV;
-    std::ifstream qkvFile(fullPath);
+    std::ifstream qkvFile(destinationFile);
     if (qkvFile.is_open()){
       qkvFile.get(QKV);
     }
@@ -5183,10 +5200,10 @@ void myGemmBias (
     int64_t n_copy = n;
     size = 0;
     
-    destinationFile = "abftbgemm/control/abftCOL_FT.txt";
+    destinationFile = "../control/abftCOL_FT.txt";
     fullPath = homePath / destinationFile;
     char flag;
-    std::ifstream colFile(fullPath);
+    std::ifstream colFile(destinationFile);
     if (colFile.is_open()){
       colFile.get(flag);
       if(flag == 'f'){
@@ -5206,9 +5223,9 @@ void myGemmBias (
     }
     colFile.close();
     
-    destinationFile = "abftbgemm/control/abftROW_FT.txt";
+    destinationFile = "../control/abftROW_FT.txt";
     fullPath = homePath / destinationFile;
-    std::ifstream rowFile(fullPath);
+    std::ifstream rowFile(destinationFile);
     if (rowFile.is_open()){
       rowFile.get(flag);
       if(flag == 'f'){
@@ -5228,9 +5245,9 @@ void myGemmBias (
     }
     rowFile.close();
 
-    destinationFile = "abftbgemm/control/Injection.txt";
+    destinationFile = "../control/Injection.txt";
     fullPath = homePath / destinationFile;
-    std::ifstream injFile(fullPath);
+    std::ifstream injFile(destinationFile);
     if (injFile.is_open()){
       injFile.get(flag);
       if(flag == 't'){
@@ -5243,9 +5260,9 @@ void myGemmBias (
     }
     injFile.close();
 
-    destinationFile = "abftbgemm/control/DEBUG.txt";
+    destinationFile = "../control/DEBUG.txt";
     fullPath = homePath / destinationFile;
-    std::ifstream DebugFile(fullPath);
+    std::ifstream DebugFile(destinationFile);
     if (DebugFile.is_open()){
       DebugFile.get(flag);
       if(flag == 'f'){
