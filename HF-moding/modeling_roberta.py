@@ -201,15 +201,15 @@ class RobertaSelfAttention(nn.Module):
         num_encoderLayer: Optional[int] = None,
     ) -> Tuple[torch.Tensor]:
         
-        LinFP = "/home/yliang/abftbgemm/control/IFLinearABFT.txt"
-        colFP = "/home/yliang/abftbgemm/control/abftCOL_FT.txt"
-        rowFP = "/home/yliang/abftbgemm/control/abftROW_FT.txt"
-        matFP = "/home/yliang/abftbgemm/control/IFABFT.txt"
-        inj = "/home/yliang/abftbgemm/control/Injection.txt"
-        QKV = "/home/yliang/abftbgemm/control/QKV.txt"
-        passChk = "/home/yliang/abftbgemm/control/IFPassChk.txt"
-        batch = "/home/yliang/abftbgemm/control/Batch.txt"
-        together = "/home/yliang/abftbgemm/control/together.txt"
+        LinFP = "../control/IFLinearABFT.txt"
+        colFP = "../control/abftCOL_FT.txt"
+        rowFP = "../control/abftROW_FT.txt"
+        matFP = "../control/IFABFT.txt"
+        inj = "../control/Injection.txt"
+        QKV = "../control/QKV.txt"
+        passChk = "../control/IFPassChk.txt"
+        batch = "../control/Batch.txt"
+        together = "../control/together.txt"
 
         with open(batch, 'w') as F:
             F.truncate(0)
@@ -222,7 +222,7 @@ class RobertaSelfAttention(nn.Module):
 
         with open(LinFP, "w") as frLin:
             frLin.truncate(0)
-            frLin.write('f')
+            frLin.write('t')
         with open(colFP, "w") as frCol:
             frCol.truncate(0)
             frCol.write('f')
@@ -246,9 +246,9 @@ class RobertaSelfAttention(nn.Module):
         #     frinj.truncate(0)
         #     frinj.write('f')
 
-        with open(passChk, 'w') as frPassChk:
-            frPassChk.truncate(0)
-            frPassChk.write('f')
+        # with open(passChk, 'w') as frPassChk:
+        #     frPassChk.truncate(0)
+        #     frPassChk.write('f')
 
         # If this is instantiated as a cross-attention module, the keys
         # and values come from an encoder; the attention mask needs to be
@@ -327,7 +327,7 @@ class RobertaSelfAttention(nn.Module):
 
         with open(matFP, "w") as fr:
             fr.truncate(0)
-            fr.write('f')
+            fr.write('t')
         with open(QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('s')
@@ -387,7 +387,7 @@ class RobertaSelfAttention(nn.Module):
 
         with open(matFP, "w") as fr:
             fr.truncate(0)
-            fr.write('f')
+            fr.write('t')
         with open(rowFP, 'w') as frRow:
             frRow.truncate(0)
             frRow.write('t')
@@ -435,15 +435,15 @@ class RobertaSelfOutput(nn.Module):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
     def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor, num_encoderLayer: int) -> torch.Tensor:
-        LinFP = "/home/yliang/abftbgemm/control/IFLinearABFT.txt"
-        colFP = "/home/yliang/abftbgemm/control/abftCOL_FT.txt"
-        rowFP = "/home/yliang/abftbgemm/control/abftROW_FT.txt"
-        QKV = "/home/yliang/abftbgemm/control/QKV.txt"
-        inj = "/home/yliang/abftbgemm/control/Injection.txt"
+        LinFP = "../control/IFLinearABFT.txt"
+        colFP = "../control/abftCOL_FT.txt"
+        rowFP = "../control/abftROW_FT.txt"
+        QKV = "../control/QKV.txt"
+        inj = "../control/Injection.txt"
 
         with open(LinFP, "w") as frLin:
             frLin.truncate(0)
-            frLin.write('f')
+            frLin.write('t')
         with open(colFP, 'w') as frCol:
             frCol.truncate(0)
             frCol.write('f')

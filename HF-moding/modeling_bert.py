@@ -104,6 +104,9 @@ BERT_PRETRAINED_MODEL_ARCHIVE_LIST = [
     # See all BERT models at https://huggingface.co/models?filter=bert
 ]
 
+def get_home_directory_with_expanduser():
+    return os.path.expanduser("~")
+
 
 def load_tf_weights_in_bert(model, config, tf_checkpoint_path):
     """Load tf checkpoints in a pytorch model."""
@@ -290,15 +293,25 @@ class BertSelfAttention(nn.Module):
         num_encoderLayer: Optional[int] = None,
     ) -> Tuple[torch.Tensor]:
         # print("**************** Start Attention *****************")
-        LinFP = "/home/yliang/abftbgemm/control/IFLinearABFT.txt"
-        colFP = "/home/yliang/abftbgemm/control/abftCOL_FT.txt"
-        rowFP = "/home/yliang/abftbgemm/control/abftROW_FT.txt"
-        matFP = "/home/yliang/abftbgemm/control/IFABFT.txt"
-        inj = "/home/yliang/abftbgemm/control/Injection.txt"
-        QKV = "/home/yliang/abftbgemm/control/QKV.txt"
-        passChk = "/home/yliang/abftbgemm/control/IFPassChk.txt"
-        batch = "/home/yliang/abftbgemm/control/Batch.txt"
-        together = "/home/yliang/abftbgemm/control/together.txt"
+        # LinFP = "/home/yliang/abftbgemm/control/IFLinearABFT.txt"
+        # colFP = "/home/yliang/abftbgemm/control/abftCOL_FT.txt"
+        # rowFP = "/home/yliang/abftbgemm/control/abftROW_FT.txt"
+        # matFP = "/home/yliang/abftbgemm/control/IFABFT.txt"
+        # inj = "/home/yliang/abftbgemm/control/Injection.txt"
+        # QKV = "/home/yliang/abftbgemm/control/QKV.txt"
+        # passChk = "/home/yliang/abftbgemm/control/IFPassChk.txt"
+        # batch = "/home/yliang/abftbgemm/control/Batch.txt"
+        # together = "/home/yliang/abftbgemm/control/together.txt"
+
+        LinFP = "../control/IFLinearABFT.txt"
+        colFP = "../control/abftCOL_FT.txt"
+        rowFP = "../control/abftROW_FT.txt"
+        matFP = "../control/IFABFT.txt"
+        inj = "../control/Injection.txt"
+        QKV = "../control/QKV.txt"
+        passChk = "../control/IFPassChk.txt"
+        batch = "../control/Batch.txt"
+        together = "../control/together.txt"
 
         with open(batch, 'w') as F:
             F.truncate(0)
@@ -331,7 +344,7 @@ class BertSelfAttention(nn.Module):
         #         frinj.truncate(0)
         #         frinj.write('t')
         # Q*Wq
-        # print("Q")
+        print("Q")
         mixed_query_layer = self.query(hidden_states)
         # with open(inj, 'w') as frinj:
         #     frinj.truncate(0)
@@ -374,7 +387,7 @@ class BertSelfAttention(nn.Module):
             #     with open(inj, 'w') as frinj:
             #         frinj.truncate(0)
             #         frinj.write('t')
-            # print("K")
+            print("K")
             key_layer = self.transpose_for_scores(self.key(hidden_states))
             # with open(inj, 'w') as frinj:
             #     frinj.truncate(0)
@@ -397,7 +410,7 @@ class BertSelfAttention(nn.Module):
             #     with open(inj, 'w') as frinj:
             #         frinj.truncate(0)
             #         frinj.write('t')
-            # print("V")
+            print("V")
             value_layer = self.transpose_for_scores(self.value(hidden_states))
             # with open(inj, 'w') as frinj:
             #     frinj.truncate(0)
@@ -434,7 +447,7 @@ class BertSelfAttention(nn.Module):
         with open(rowFP, "w") as frRow:
             frRow.truncate(0)
             frRow.write('t')
-        # print("AS")
+        print("AS")
         # if(num_encoderLayer == 0):
         #     with open(inj, 'w') as frinj:
         #         frinj.truncate(0)
@@ -513,7 +526,7 @@ class BertSelfAttention(nn.Module):
         #     with open(inj, 'w') as frinj:
         #         frinj.truncate(0)
         #         frinj.write('t')
-        # print("CL")
+        print("CL")
         context_layer = torch.matmul(attention_probs, value_layer)
         # with open(inj, 'w') as frinj:
         #     frinj.truncate(0)
@@ -555,11 +568,11 @@ class BertSelfOutput(nn.Module):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
     def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor, num_encoderLayer: int) -> torch.Tensor:
-        LinFP = "/home/yliang/abftbgemm/control/IFLinearABFT.txt"
-        colFP = "/home/yliang/abftbgemm/control/abftCOL_FT.txt"
-        rowFP = "/home/yliang/abftbgemm/control/abftROW_FT.txt"
-        QKV = "/home/yliang/abftbgemm/control/QKV.txt"
-        inj = "/home/yliang/abftbgemm/control/Injection.txt"
+        LinFP = "../control/IFLinearABFT.txt"
+        colFP = "../control/abftCOL_FT.txt"
+        rowFP = "../control/abftROW_FT.txt"
+        QKV = "../control/QKV.txt"
+        inj = "../control/Injection.txt"
 
         with open(LinFP, "w") as frLin:
             frLin.truncate(0)
@@ -701,7 +714,7 @@ class BertLayer(nn.Module):
         # decoder uni-directional self-attention cached key/values tuple is at positions 1,2
         self_attn_past_key_value = past_key_value[:2] if past_key_value is not None else None
         
-        start_time = time.time()
+        # start_time = time.time()
         self_attention_outputs = self.attention(
             hidden_states,
             attention_mask,
@@ -710,9 +723,9 @@ class BertLayer(nn.Module):
             past_key_value=self_attn_past_key_value,
             num_encoderLayer = num_encoderLayer,
         )
-        elapsed_time = time.time() - start_time
-        with open("/home/yliang/abftbgemm/records/time/attn.txt", 'a') as fr:
-            fr.write(str(elapsed_time)+"\n")
+        # elapsed_time = time.time() - start_time
+        # with open("/home/yliang/AttnChecker/abftbgemm/records/time/attn.txt", 'a') as fr:
+        #     fr.write(str(elapsed_time)+"\n")
         
         attention_output = self_attention_outputs[0]
 

@@ -170,15 +170,15 @@ class GPT2Attention(nn.Module):
 
         self.pruned_heads = set()
 
-        self.LinFP = "/home/yliang/abftbgemm/control/IFLinearABFT.txt"
-        self.colFP = "/home/yliang/abftbgemm/control/abftCOL_FT.txt"
-        self.rowFP = "/home/yliang/abftbgemm/control/abftROW_FT.txt"
-        self.matFP = "/home/yliang/abftbgemm/control/IFABFT.txt"
-        self.inj = "/home/yliang/abftbgemm/control/Injection.txt"
-        self.passChk = "/home/yliang/abftbgemm/control/IFPassChk.txt"
-        self.QKV = "/home/yliang/abftbgemm/control/QKV.txt"
-        self.batch = "/home/yliang/abftbgemm/control/Batch.txt"
-        self.together = "/home/yliang/abftbgemm/control/together.txt"
+        self.LinFP = "../control/IFLinearABFT.txt"
+        self.colFP = "../control/abftCOL_FT.txt"
+        self.rowFP = "../control/abftROW_FT.txt"
+        self.matFP = "../control/IFABFT.txt"
+        self.inj = "../control/Injection.txt"
+        self.passChk = "../control/IFPassChk.txt"
+        self.QKV = "../control/QKV.txt"
+        self.batch = "../control/Batch.txt"
+        self.together = "../control/together.txt"
 
     def prune_heads(self, heads):
         if len(heads) == 0:
@@ -390,7 +390,7 @@ class GPT2Attention(nn.Module):
             frRow.write('t')
         with open(self.passChk, 'w') as frPassChk:
             frPassChk.truncate(0)
-            frPassChk.write('f')
+            frPassChk.write('t')
         
         if encoder_hidden_states is not None:
             if not hasattr(self, "q_attn"):

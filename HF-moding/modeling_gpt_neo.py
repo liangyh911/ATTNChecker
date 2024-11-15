@@ -205,15 +205,15 @@ class GPTNeoSelfAttention(nn.Module):
         self.q_proj = nn.Linear(self.embed_dim, self.embed_dim, bias=False)
         self.out_proj = nn.Linear(self.embed_dim, self.embed_dim, bias=True)
 
-        self.LinFP = "/home/yliang/abftbgemm/control/IFLinearABFT.txt"
-        self.colFP = "/home/yliang/abftbgemm/control/abftCOL_FT.txt"
-        self.rowFP = "/home/yliang/abftbgemm/control/abftROW_FT.txt"
-        self.matFP = "/home/yliang/abftbgemm/control/IFABFT.txt"
-        self.inj = "/home/yliang/abftbgemm/control/Injection.txt"
-        self.passChk = "/home/yliang/abftbgemm/control/IFPassChk.txt"
-        self.QKV = "/home/yliang/abftbgemm/control/QKV.txt"
-        self.batch = "/home/yliang/abftbgemm/control/Batch.txt"
-        self.together = "/home/yliang/abftbgemm/control/together.txt"
+        self.LinFP = "../control/IFLinearABFT.txt"
+        self.colFP = "../control/abftCOL_FT.txt"
+        self.rowFP = "../control/abftROW_FT.txt"
+        self.matFP = "../control/IFABFT.txt"
+        self.inj = "../control/Injection.txt"
+        self.passChk = "../control/IFPassChk.txt"
+        self.QKV = "../control/QKV.txt"
+        self.batch = "../control/Batch.txt"
+        self.together = "../control/together.txt"
 
     def _split_heads(self, tensor, num_heads, attn_head_size):
         """
@@ -240,7 +240,7 @@ class GPTNeoSelfAttention(nn.Module):
 
         with open(self.matFP, "w") as fr:
             fr.truncate(0)
-            fr.write('f')
+            fr.write('t')
         with open(self.QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('s')
@@ -283,7 +283,7 @@ class GPTNeoSelfAttention(nn.Module):
 
         with open(self.matFP, "w") as fr:
             fr.truncate(0)
-            fr.write('f')
+            fr.write('t')
         with open(self.rowFP, 'w') as frRow:
             frRow.truncate(0)
             frRow.write('t')
@@ -333,7 +333,7 @@ class GPTNeoSelfAttention(nn.Module):
 
         with open(self.LinFP, "w") as frLin:
             frLin.truncate(0)
-            frLin.write('f')
+            frLin.write('t')
         with open(self.colFP, "w") as frCol:
             frCol.truncate(0)
             frCol.write('f')
@@ -417,7 +417,7 @@ class GPTNeoSelfAttention(nn.Module):
         attn_output = self._merge_heads(attn_output, self.num_heads, self.head_dim)
         
         with open(self.LinFP, "w") as frLin:
-            frLin.write('f')
+            frLin.write('t')
         with open(self.colFP, "w") as frCol:
             frCol.write('f')
         with open(self.rowFP, "w") as frRow:
