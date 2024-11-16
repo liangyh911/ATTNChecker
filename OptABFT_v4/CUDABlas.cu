@@ -1061,7 +1061,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     // }         
 
     if (DEBUG) cudaEventRecord(start, stream_colchk);
-    float E = 100;
+    float E = 1;
     detect_correct_col<T><<<dim3(num_batches), dim3(n), 0, stream_colchk>>>(dC, lddc, E, stridec,
                                             dC_colchk<T>,      lddc_colchk,    (2*n),
                                             dC_colchk_r<T>,    lddc_colchk_r,  (2*n));
@@ -1104,7 +1104,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     //                           dC_rowchk_r<T>, CUDA_R_16F, lddc_rowchk_r, 2*m,
     //                           num_batches, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
     // }
-    float E = 100;
+    float E = 1;
     if (DEBUG) cudaEventRecord(start, stream_rowchk);
     detect_correct_row<T><<<dim3(num_batches), dim3(m), 0, stream_rowchk>>>(dC, lddc, E, stridec, n,
                                           dC_rowchk<T>, lddc_rowchk,     (2*m),
@@ -3454,7 +3454,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
                       &fbeta, dC_colchk_r<T>, CUDA_R_16F, lddc_colchk_r,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
     }
-    float E = 100;
+    float E = 1;
     detect_correct_col_Gemm<T><<<dim3(128), dim3(threadNum), 0, stream_colchk>>>(c ,ldc, E, n,
                                                                                       dC_colchk<T>, lddc_colchk,
                                                                                       dC_colchk_r<T>, lddc_colchk_r);
@@ -3494,7 +3494,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
     }
     
-    float E = 100;
+    float E = 1;
     threadNum = (m+128-1)/128;
     detect_correct_row_Gemm<T><<<dim3(128), dim3(threadNum), 0, stream_rowchk>>>(c, ldc, E, m, n,
                                                                           dC_rowchk<T>, lddc_rowchk,
@@ -5795,7 +5795,7 @@ void abftGemmBias(
                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
     }
     
-    float E = 100;
+    float E = 1;
     threadNum = (n+128-1)/128;
     detect_correct_col_Gemm<T><<<dim3(128), dim3(threadNum), 0, stream_main>>>(result_ptr, result_ld, E, n,
                                                                                       dC_colchk<T>, lddc_colchk, 
@@ -5844,7 +5844,7 @@ void abftGemmBias(
 
     // outputChk(chk_v_b, 1, ld_chk_v, 2*n, 2, n); 
 
-    float E = 100;
+    float E = 1;
     detect_correct_row_Gemm<T><<<dim3(128), dim3((m+128-1)/128), 0, stream_main>>>(result_ptr, result_ld, E, m, n,
                                                                           dC_rowchk<T>, lddc_rowchk,
                                                                           dC_rowchk_r<T>, lddc_rowchk_r);
