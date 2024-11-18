@@ -647,9 +647,9 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   // std::cout << "globalContext. \n";
 
   cudaEvent_t abft_prepare_start, abft_prepare_end;
-  cudaEventCreate(&abft_prepare_start,0);
-  cudaEventCreate(&abft_prepare_end,0);
   if(DEBUG){
+    cudaEventCreate(&abft_prepare_start,0);
+    cudaEventCreate(&abft_prepare_end,0);
     cudaEventRecord(abft_prepare_start, 0);
   }
 
@@ -693,8 +693,10 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   cudaEventCreate(&row_compute_done);
 
   cudaEvent_t abft_compute_start, abft_compute_done;
-  cudaEventCreate(&abft_compute_start, 0);
-  cudaEventCreate(&abft_compute_done, 0);
+  if(DEBUG){
+    cudaEventCreate(&abft_compute_start, 0);
+    cudaEventCreate(&abft_compute_done, 0);
+  }
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
@@ -1230,11 +1232,30 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
               T *dC, int64_t lddc, int64_t stridec,                                                
               int64_t num_batches) {
   // std::cout << "Using mybgemm-T function." << std::endl;
+  bool DEBUG = true;
+  char flag;
+
+  fs::path destinationFile = "../control/DEBUG.txt";
+  // fullPath = homePath / destinationFile;
+  std::ifstream DebugFile(destinationFile);
+  if (DebugFile.is_open()){
+    DebugFile.get(flag);
+    if(flag == 'f'){
+      DEBUG = false;
+    }
+    // printf("%c", flag);
+  }
+  else{
+    printf("DEBUG: Cannot open file, using default setting.\n");
+  }
+  DebugFile.close();
 
   cudaEvent_t abft_prepare_start, abft_prepare_end;
-  cudaEventCreate(&abft_prepare_start,0);
-  cudaEventCreate(&abft_prepare_end,0);
-  cudaEventRecord(abft_prepare_start, 0);
+  if (DEBUG){
+    cudaEventCreate(&abft_prepare_start,0);
+    cudaEventCreate(&abft_prepare_end,0);
+    cudaEventRecord(abft_prepare_start, 0);
+  }
 
   float t1;
 
@@ -1251,7 +1272,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   fs::path homePath(homeDir);
   
   char QKV;
-  fs::path destinationFile = "../control/QKV.txt";
+  destinationFile = "../control/QKV.txt";
   // fs::path fullPath = homePath / destinationFile;
   std::ifstream qkvFile(destinationFile);
   if(qkvFile.is_open()){
@@ -1415,7 +1436,6 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
 
   bool COL_FT = true;
   bool ROW_FT = true;
-  bool DEBUG = true;
   bool CHECK_BEFORE = true;
   bool CHECK_AFTER = true;
   bool ifPassChk = false;
@@ -1425,7 +1445,6 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   int64_t m_copy = m;
   int64_t n_copy = n;
 
-  char flag;
   destinationFile = "../control/abftCOL_FT.txt";
   // fullPath = homePath / destinationFile;
   size = 0;
@@ -1495,21 +1514,6 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
     printf("Injection: Cannot open file, using default setting.\n");
   }
   injFile.close();
-
-  destinationFile = "../control/DEBUG.txt";
-  // fullPath = homePath / destinationFile;
-  std::ifstream DebugFile(destinationFile);
-  if (DebugFile.is_open()){
-    DebugFile.get(flag);
-    if(flag == 'f'){
-      DEBUG = false;
-    }
-    // printf("%c", flag);
-  }
-  else{
-    printf("DEBUG: Cannot open file, using default setting.\n");
-  }
-  DebugFile.close();
 
   // std::cout << "Calling abftgemm-T function." << std::endl;
 
@@ -1974,17 +1978,36 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
 
   // printf("m:%d, n:%d, k:%d\n", m, n, k);
   // printf("%d, %d, %d\n", lda, ldb, ldc);
+  bool DEBUG = true;
+  char flag;
+  fs::path destinationFile = "../control/DEBUG.txt";
+  // fullPath = homePath / destinationFile;
+  std::ifstream DebugFile(destinationFile);
+  if (DebugFile.is_open()){
+    DebugFile.get(flag);
+    if(flag == 'f'){
+      DEBUG = false;
+    }
+    // printf("%c", flag);
+  }
+  else{
+    printf("DEBUG: Cannot open file, using default setting.\n");
+  }
+  DebugFile.close();
+
   cudaEvent_t abft_prepare_start, abft_prepare_end;
-  cudaEventCreate(&abft_prepare_start,0);
-  cudaEventCreate(&abft_prepare_end,0);
-  cudaEventRecord(abft_prepare_start, 0);
+  if (DEBUG){
+    cudaEventCreate(&abft_prepare_start,0);
+    cudaEventCreate(&abft_prepare_end,0);
+    cudaEventRecord(abft_prepare_start, 0);
+  }
   
   float t1;
 
   const char* homeDir = nullptr;
   homeDir = getenv("HOME");
   fs::path homePath(homeDir);
-  fs::path destinationFile = "../control/QKV.txt";
+  destinationFile = "../control/QKV.txt";
   fs::path fullPath = homePath / destinationFile;
 
   char QKV;
@@ -2135,7 +2158,6 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   
   bool COL_FT = true;
   bool ROW_FT = true;
-  bool DEBUG = true;
   bool CHECK_BEFORE = true;
   bool CHECK_AFTER = true;
   bool INJECTION = false;
@@ -2145,7 +2167,6 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   int64_t n_copy = n;
   size = 0;
 
-  char flag;
   destinationFile = "../control/abftCOL_FT.txt";
   fullPath = homePath / destinationFile;
   std::ifstream colFile(destinationFile);
@@ -2198,21 +2219,6 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
     printf("Injection: Cannot open file, using default setting.\n");
   }
   injFile.close();
-
-  destinationFile = "../control/DEBUG.txt";
-  fullPath = homePath / destinationFile;
-  std::ifstream DebugFile(destinationFile);
-  if (DebugFile.is_open()){
-    DebugFile.get(flag);
-    if(flag == 'f'){
-      DEBUG = false;
-    }
-    // printf("%c", flag);
-  }
-  else{
-    printf("DEBUG: Cannot open file, using default setting.\n");
-  }
-  DebugFile.close();
 
   // destinationFile = "../records/time/abftgemm.txt";
   // fullPath = homePath / destinationFile;
@@ -2342,9 +2348,11 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       char QKV, bool INJECTION, fs::path homePath){
   
   cudaEvent_t abft_prepare_start, abft_prepare_end;
-  cudaEventCreate(&abft_prepare_start,0);
-  cudaEventCreate(&abft_prepare_end,0);
-  cudaEventRecord(abft_prepare_start, 0);
+  if (DEBUG){
+    cudaEventCreate(&abft_prepare_start,0);
+    cudaEventCreate(&abft_prepare_end,0);
+    cudaEventRecord(abft_prepare_start, 0);
+  }
   
   globalContext().alertCuBLASConfigNotDeterministic();
   cublasHandle_t handle = at::cuda::getCurrentCUDABlasHandle();
@@ -2369,8 +2377,10 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   // cudaEventCreate(&row_compute_done);
 
   cudaEvent_t abft_compute_start, abft_compute_done;
-  cudaEventCreate(&abft_compute_start);
-  cudaEventCreate(&abft_compute_done);
+  if (DEBUG){
+    cudaEventCreate(&abft_compute_start);
+    cudaEventCreate(&abft_compute_done);
+  }
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
@@ -3921,10 +3931,29 @@ void myGemmBiasPassChk (
   int64_t result_ld,
   GEMMAndBiasActivationEpilogue activation){
 
+    bool DEBUG = true;
+    char flag;
+    fs::path destinationFile = "../control/DEBUG.txt";
+    std::ifstream DebugFile(destinationFile);
+    if (DebugFile.is_open()){
+      DebugFile.get(flag);
+      if(flag == 'f'){
+        DEBUG = false;
+      }
+      // printf("%c", flag);
+    }
+    else{
+      printf("DEBUG: Cannot open file, using default setting.\n");
+    }
+    DebugFile.close();
+
     cudaEvent_t abft_prepare_start, abft_prepare_end;
-    cudaEventCreate(&abft_prepare_start,0);
-    cudaEventCreate(&abft_prepare_end,0);
-    cudaEventRecord(abft_prepare_start, 0);
+    if(DEBUG){
+      cudaEventCreate(&abft_prepare_start,0);
+      cudaEventCreate(&abft_prepare_end,0);
+      cudaEventRecord(abft_prepare_start, 0);
+    }
+    
     float t1;
 
     T *mat1_ptr_ = const_cast<T*>(mat1_ptr);
@@ -3934,7 +3963,7 @@ void myGemmBiasPassChk (
     const char* homeDir = nullptr;
     homeDir = getenv("HOME");
     fs::path homePath(homeDir);
-    fs::path destinationFile = "../control/QKV.txt";
+    destinationFile = "../control/QKV.txt";
     fs::path fullPath = homePath / destinationFile;
 
     char QKV;
@@ -3948,7 +3977,6 @@ void myGemmBiasPassChk (
     qkvFile.close();
 
     bool Together = false;
-    char flag;
     destinationFile = "../control/together.txt";
     fullPath = homePath / destinationFile;
     std::ifstream togetherFile(destinationFile);
@@ -4146,7 +4174,6 @@ void myGemmBiasPassChk (
 
     bool COL_FT = true;
     bool ROW_FT = true;
-    bool DEBUG = true;
     bool CHECK_BEFORE = true;
     bool CHECK_AFTER = true;
     bool INJECTION = false;
@@ -4209,20 +4236,6 @@ void myGemmBiasPassChk (
     }
     injFile.close();
 
-    destinationFile = "../control/DEBUG.txt";
-    fullPath = homePath / destinationFile;
-    std::ifstream DebugFile(destinationFile);
-    if (DebugFile.is_open()){
-      DebugFile.get(flag);
-      if(flag == 'f'){
-        DEBUG = false;
-      }
-      // printf("%c", flag);
-    }
-    else{
-      printf("DEBUG: Cannot open file, using default setting.\n");
-    }
-    DebugFile.close();
 
     cudaMalloc((void**)&C_copy, size + m_copy*n_copy*sizeof(T));
 
@@ -4443,9 +4456,9 @@ void abftGemmBiasPassChk(
     char QKV, bool INJECTION, bool Together, fs::path homePath) {
   
   cudaEvent_t abft_prepare_start, abft_prepare_end;
-  cudaEventCreate(&abft_prepare_start,0);
-  cudaEventCreate(&abft_prepare_end,0);
   if (DEBUG){
+    cudaEventCreate(&abft_prepare_start,0);
+    cudaEventCreate(&abft_prepare_end,0);
     cudaEventRecord(abft_prepare_start, 0);
   }
 
@@ -4604,8 +4617,10 @@ void abftGemmBiasPassChk(
 
 
   cudaEvent_t abft_compute_start, abft_compute_done;
-  cudaEventCreate(&abft_compute_start);
-  cudaEventCreate(&abft_compute_done);
+  if(DEBUG){
+    cudaEventCreate(&abft_compute_start);
+    cudaEventCreate(&abft_compute_done);
+  }
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
@@ -5102,16 +5117,35 @@ void myGemmBias (
   int64_t result_ld,
   GEMMAndBiasActivationEpilogue activation){
 
+    bool DEBUG = true;
+    char flag;
+    fs::path destinationFile = "../control/DEBUG.txt";
+    // fullPath = homePath / destinationFile;
+    std::ifstream DebugFile(destinationFile);
+    if (DebugFile.is_open()){
+      DebugFile.get(flag);
+      if(flag == 'f'){
+        DEBUG = false;
+      }
+      // printf("%c", flag);
+    }
+    else{
+      printf("DEBUG: Cannot open file, using default setting.\n");
+    }
+    DebugFile.close();
+
     cudaEvent_t abft_prepare_start, abft_prepare_end;
-    cudaEventCreate(&abft_prepare_start,0);
-    cudaEventCreate(&abft_prepare_end,0);
-    cudaEventRecord(abft_prepare_start, 0);
+    if(DEBUG){
+      cudaEventCreate(&abft_prepare_start,0);
+      cudaEventCreate(&abft_prepare_end,0);
+      cudaEventRecord(abft_prepare_start, 0);
+    }
     float t1;
 
     const char* homeDir = nullptr;
     homeDir = getenv("HOME");
     fs::path homePath(homeDir);
-    fs::path destinationFile = "../control/QKV.txt";
+    destinationFile = "../control/QKV.txt";
     fs::path fullPath = homePath / destinationFile;
 
     char QKV;
@@ -5235,7 +5269,6 @@ void myGemmBias (
 
     bool COL_FT = true;
     bool ROW_FT = true;
-    bool DEBUG = true;
     bool CHECK_BEFORE = true;
     bool CHECK_AFTER = true;
     bool INJECTION = false;
@@ -5247,7 +5280,6 @@ void myGemmBias (
     
     destinationFile = "../control/abftCOL_FT.txt";
     fullPath = homePath / destinationFile;
-    char flag;
     std::ifstream colFile(destinationFile);
     if (colFile.is_open()){
       colFile.get(flag);
@@ -5304,21 +5336,6 @@ void myGemmBias (
       printf("Injection: Cannot open file, using default setting.\n");
     }
     injFile.close();
-
-    destinationFile = "../control/DEBUG.txt";
-    fullPath = homePath / destinationFile;
-    std::ifstream DebugFile(destinationFile);
-    if (DebugFile.is_open()){
-      DebugFile.get(flag);
-      if(flag == 'f'){
-        DEBUG = false;
-      }
-      // printf("%c", flag);
-    }
-    else{
-      printf("DEBUG: Cannot open file, using default setting.\n");
-    }
-    DebugFile.close();
 
     cudaMalloc((void**)&C_copy, size + m_copy*n_copy*sizeof(T));
     if(COL_FT && (!ROW_FT)){
@@ -5450,9 +5467,11 @@ void abftGemmBias(
     char QKV, bool INJECTION, fs::path homePath) {
 
   cudaEvent_t abft_prepare_start, abft_prepare_end;
-  cudaEventCreate(&abft_prepare_start,0);
-  cudaEventCreate(&abft_prepare_end,0);
-  cudaEventRecord(abft_prepare_start, 0);
+  if(DEBUG){
+    cudaEventCreate(&abft_prepare_start,0);
+    cudaEventCreate(&abft_prepare_end,0);
+    cudaEventRecord(abft_prepare_start, 0);
+  }
 
   // std::cout << "Using gemm_and_bias." << std::endl;
   using opmath_t = at::opmath_type<T>;
@@ -5569,8 +5588,10 @@ void abftGemmBias(
 
 
   cudaEvent_t abft_compute_start, abft_compute_done;
-  cudaEventCreate(&abft_compute_start);
-  cudaEventCreate(&abft_compute_done);
+  if (DEBUG){
+    cudaEventCreate(&abft_compute_start);
+    cudaEventCreate(&abft_compute_done);
+  }
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
