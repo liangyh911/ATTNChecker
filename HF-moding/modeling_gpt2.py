@@ -180,6 +180,9 @@ class GPT2Attention(nn.Module):
         self.batch = "../control/Batch.txt"
         self.together = "../control/together.txt"
 
+        # get AttnChecker Model
+        self.mod_map = self.AttnChecker_Mod()
+
     def prune_heads(self, heads):
         if len(heads) == 0:
             return
@@ -198,16 +201,25 @@ class GPT2Attention(nn.Module):
     def _attn(self, query, key, value, attention_mask=None, head_mask=None, num_encoderLayer=None):
         with open(self.matFP, "w") as fr:
             fr.truncate(0)
-            fr.write('t')
+            if self.mod_map["AS_abft"]:
+                fr.write('t')
+            else:
+                fr.write('f')
         with open(self.QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('s')
         with open(self.colFP, "w") as frCol:
             frCol.truncate(0)
-            frCol.write('t')
+            if self.mod_map["AS_colchk"]:
+                frCol.write('t')
+            else:
+                frCol.write('t')
         with open(self.rowFP, "w") as frRow:
             frRow.truncate(0)
-            frRow.write('t')
+            if self.mod_map["AS_rowchk"]:
+                frRow.write('t')
+            else:
+                frRow.write('f')
         print("AS")
         # if(num_encoderLayer == 0):
         #     with open(self.inj, 'w') as frinj:
@@ -258,13 +270,22 @@ class GPT2Attention(nn.Module):
         
         with open(self.matFP, "w") as fr:
             fr.truncate(0)
-            fr.write('t')
+            if self.mod_map["CL_abft"]:
+                fr.write('t')
+            else:
+                fr.write('f')
         with open(self.rowFP, 'w') as frRow:
             frRow.truncate(0)
-            frRow.write('t')
+            if self.mod_map["CL_rowchk"]:
+                frRow.write('t')
+            else:
+                frRow.write('f')
         with open(self.colFP, 'w') as frCol:
             frCol.truncate(0)
-            frCol.write('t')
+            if self.mod_map["CL_colchk"]:
+                frCol.write('t')
+            else:
+                frCol.write('f')
         with open(self.QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('v')
@@ -357,6 +378,45 @@ class GPT2Attention(nn.Module):
         tensor = tensor.permute(0, 2, 1, 3).contiguous()
         new_shape = tensor.size()[:-2] + (num_heads * attn_head_size,)
         return tensor.view(new_shape)
+    
+    def AttnChecker_Mod(self,):
+        mod_map = {
+            "QKV_abft": True,
+            "QKV_passChk": True,
+            "QKV_colchk": True,
+            "QKV_rowchk": True,
+            
+            "AS_abft": True,
+            "AS_passChk": True,
+            "AS_colchk": True,
+            "AS_rowchk": True,
+
+            "CL_abft": True,
+            "CL_passChk": True,
+            "CL_colchk": True,
+            "CL_rowchk": True,
+
+            "OUT_abft": True,
+            "OUT_colchk": False,
+            "OUT_rowchk": True,
+        }
+        with open("../control/AttnChecker_Mod.txt", 'r') as file:
+            mod = file.read()
+        # no AttnChecker applied
+        if mod == "0":
+            for key in mod_map:
+                mod_map[key] = False
+            return mod_map
+        # naive AttnChecker applied
+        elif mod == "1":
+            mod_map["QKV_passChk"] = False
+            mod_map["AS_passChk"] = False
+            mod_map["CL_passChk"] = False
+            mod_map["OUT_colchk"] = True
+            return mod_map
+        # AttnChecker applied
+        else:
+            return mod_map
 
     def forward(
         self,
@@ -381,16 +441,28 @@ class GPT2Attention(nn.Module):
         
         with open(self.LinFP, "w") as frLin:
             frLin.truncate(0)
-            frLin.write('t')
+            if self.mod_map["QKV_abft"]:
+                frLin.write('t')
+            else:
+                frLin.write('f')
         with open(self.colFP, "w") as frCol:
             frCol.truncate(0)
-            frCol.write('t')
+            if self.mod_map["QKV_colchk"]:
+                frCol.write('t')
+            else:
+                frCol.write('f')
         with open(self.rowFP, "w") as frRow:
             frRow.truncate(0)
-            frRow.write('t')
+            if self.mod_map["QKV_rowchk"]:
+                frRow.write('t')
+            else:
+                frRow.write('f')
         with open(self.passChk, 'w') as frPassChk:
             frPassChk.truncate(0)
-            frPassChk.write('t')
+            if self.mod_map["QKV_passChk"]:
+                frPassChk.write('t')
+            else:
+                frPassChk.write('f')
         
         if encoder_hidden_states is not None:
             if not hasattr(self, "q_attn"):
@@ -448,11 +520,24 @@ class GPT2Attention(nn.Module):
         attn_output = self._merge_heads(attn_output, self.num_heads, self.head_dim)
         
         with open(self.LinFP, "w") as frLin:
-            frLin.write('t')
+            frLin.truncate(0)
+            if self.mod_map["OUT_abft"]:
+                frLin.write('t')
+            else:
+                frLin.write('f')
         with open(self.colFP, "w") as frCol:
-            frCol.write('f')
+            frCol.truncate(0)
+            if self.mod_map["OUT_colchk"]:
+                frCol.write('t')
+            else:
+                frCol.write('f')
         with open(self.rowFP, "w") as frRow:
-            frRow.write('t')
+            frRow.truncate(0)
+            if self.mod_map["OUT_rowchk"]:
+                frRow.write('t')
+            else:
+                frRow.write('f')
+            
         with open(self.QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('f')

@@ -215,6 +215,9 @@ class GPTNeoSelfAttention(nn.Module):
         self.batch = "../control/Batch.txt"
         self.together = "../control/together.txt"
 
+        # get AttnChecker Model
+        self.mod_map = self.AttnChecker_Mod()
+
     def _split_heads(self, tensor, num_heads, attn_head_size):
         """
         Splits hidden_size dim into attn_head_size and num_heads
@@ -240,16 +243,25 @@ class GPTNeoSelfAttention(nn.Module):
 
         with open(self.matFP, "w") as fr:
             fr.truncate(0)
-            fr.write('t')
+            if self.mod_map['AS_abft']:
+                fr.write('t')
+            else:
+                fr.write('f')
+        with open(self.colFP, "w") as frCol:
+            frCol.truncate(0)
+            if self.mod_map["AS_colchk"]:
+                frCol.write('t')
+            else:
+                frCol.write('f')
+        with open(self.rowFP, "w") as frRow:
+            frRow.truncate(0)
+            if self.mod_map['AS_rowchk']:
+                frRow.write('t')
+            else:
+                frRow.write('f')
         with open(self.QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('s')
-        with open(self.colFP, "w") as frCol:
-            frCol.truncate(0)
-            frCol.write('t')
-        with open(self.rowFP, "w") as frRow:
-            frRow.truncate(0)
-            frRow.write('t')
         # print("AS")
         # if(num_encoderLayer == 0):
         #     with open(self.inj, 'w') as frinj:
@@ -283,13 +295,22 @@ class GPTNeoSelfAttention(nn.Module):
 
         with open(self.matFP, "w") as fr:
             fr.truncate(0)
-            fr.write('t')
+            if self.mod_map["CL_abft"]:
+                fr.write('t')
+            else:
+                fr.write('f')
         with open(self.rowFP, 'w') as frRow:
             frRow.truncate(0)
-            frRow.write('t')
+            if self.mod_map["CL_rowchk"]:
+                frRow.write('t')
+            else:
+                frRow.write('f')
         with open(self.colFP, 'w') as frCol:
             frCol.truncate(0)
-            frCol.write('t')
+            if self.mod_map["CL_colchk"]:
+                frCol.write('t')
+            else:
+                frCol.write('f')
         with open(self.QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('v')
@@ -312,6 +333,61 @@ class GPTNeoSelfAttention(nn.Module):
 
         return attn_output, attn_weights
 
+    def AttnChecker_Mod(self,):
+        mod_map = {
+            "Q_abft": True,
+            "Q_passChk": True,
+            "Q_colchk": False,
+            "Q_rowchk": True,
+            
+            # "K_abft": True,
+            "K_passChk": True,
+            "K_colchk": False,
+            "K_rowchk": True,
+            
+            "V_abft": True,
+            "V_passChk": True,
+            "V_colchk": True,
+            "V_rowchk": False,
+            
+            "AS_abft": True,
+            "AS_passChk": True,
+            "AS_colchk": True,
+            "AS_rowchk": True,
+
+            "CL_abft": True,
+            "CL_passChk": True,
+            "CL_colchk": True,
+            "CL_rowchk": True,
+
+            "OUT_abft": True,
+            "OUT_colchk": False,
+            "OUT_rowchk": True,
+        }
+        with open("../control/AttnChecker_Mod.txt", 'r') as file:
+            mod = file.read()
+        # no AttnChecker applied
+        if mod == "0":
+            for key in mod_map:
+                mod_map[key] = False
+            return mod_map
+        # naive AttnChecker applied
+        elif mod == "1":
+            mod_map["Q_passChk"] = False
+            mod_map["Q_colchk"] = True
+            mod_map["K_passChk"] = False
+            mod_map["K_colchk"] = True
+            mod_map["V_passChk"] = False
+            mod_map["V_rowchk"] = True
+            mod_map["AS_passChk"] = False
+            mod_map["CL_passChk"] = False
+            mod_map["OUT_colchk"] = True
+            return mod_map
+        # AttnChecker applied
+        else:
+            return mod_map
+
+
     def forward(
         self,
         hidden_states,
@@ -333,16 +409,28 @@ class GPTNeoSelfAttention(nn.Module):
 
         with open(self.LinFP, "w") as frLin:
             frLin.truncate(0)
-            frLin.write('t')
-        with open(self.colFP, "w") as frCol:
-            frCol.truncate(0)
-            frCol.write('f')
-        with open(self.rowFP, "w") as frRow:
-            frRow.truncate(0)
-            frRow.write('t')
+            if self.mod_map["Q_abft"]:
+                frLin.write('t')
+            else:
+                frLin.write('f')
         with open(self.passChk, 'w') as frPassChk:
             frPassChk.truncate(0)
-            frPassChk.write('t')
+            if self.mod_map["Q_passChk"]:
+                frPassChk.write('t')
+            else:
+                frPassChk.write('f')
+        with open(self.colFP, "w") as frCol:
+            frCol.truncate(0)
+            if self.mod_map["Q_colchk"]:
+                frCol.write('t')
+            else:
+                frCol.write('f')
+        with open(self.rowFP, "w") as frRow:
+            frRow.truncate(0)
+            if self.mod_map["Q_rowchk"]:
+                frRow.write('t')
+            else:
+                frRow.write('f')
         with open(self.QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('q')
@@ -359,10 +447,16 @@ class GPTNeoSelfAttention(nn.Module):
         
         with open(self.colFP, "w") as frCol:
             frCol.truncate(0)
-            frCol.write('f')
+            if self.mod_map["K_colchk"]:
+                frCol.write('t')
+            else:
+                frCol.write('f')
         with open(self.rowFP, "w") as frRow:
             frRow.truncate(0)
-            frRow.write('t')
+            if self.mod_map["K_rowchk"]:
+                frRow.write('t')
+            else:
+                frRow.write('f')
         with open(self.QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('k')
@@ -376,12 +470,24 @@ class GPTNeoSelfAttention(nn.Module):
         #         frinj.truncate(0)
         #         frinj.write('f')
         
+        with open(self.LinFP, "w") as frLin:
+            frLin.truncate(0)
+            if self.mod_map["V_abft"]:
+                frLin.write('t')
+            else:
+                frLin.write('f')
         with open(self.colFP, "w") as frCol:
             frCol.truncate(0)
-            frCol.write('t')
+            if self.mod_map["V_colchk"]:
+                frCol.write('t')
+            else:
+                frCol.write('t')
         with open(self.rowFP, "w") as frRow:
             frRow.truncate(0)
-            frRow.write('f')
+            if self.mod_map["V_rowchk"]:
+                frRow.write('t')
+            else:
+                frRow.write('f')
         with open(self.QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('v')
@@ -417,11 +523,23 @@ class GPTNeoSelfAttention(nn.Module):
         attn_output = self._merge_heads(attn_output, self.num_heads, self.head_dim)
         
         with open(self.LinFP, "w") as frLin:
-            frLin.write('t')
-        with open(self.colFP, "w") as frCol:
-            frCol.write('f')
-        with open(self.rowFP, "w") as frRow:
-            frRow.write('t')
+            frLin.truncate(0)
+            if self.mod_map["OUT_abft"]:
+                frLin.write('t')
+            else:
+                frLin.write('f')
+        with open(self.colFP, 'w') as frCol:
+            frCol.truncate(0)
+            if self.mod_map["OUT_colchk"]:
+                frCol.write('f')
+            else:
+                frCol.write('f')
+        with open(self.rowFP, 'w') as frRow:
+            frRow.truncate(0)
+            if self.mod_map["OUT_rowchk"]:
+                frRow.write('t')
+            else:
+                frRow.write('t')
         with open(self.QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('c')

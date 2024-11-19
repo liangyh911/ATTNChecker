@@ -184,10 +184,63 @@ class RobertaSelfAttention(nn.Module):
 
         self.is_decoder = config.is_decoder
 
+        # get AttnChecker Model
+        self.mod_map = self.AttnChecker_Mod()
+
+
     def transpose_for_scores(self, x: torch.Tensor) -> torch.Tensor:
         new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size)
         x = x.view(new_x_shape)
         return x.permute(0, 2, 1, 3)
+
+    def AttnChecker_Mod(self,):
+        mod_map = {
+            "Q_abft": True,
+            "Q_passChk": True,
+            "Q_colchk": False,
+            "Q_rowchk": True,
+            
+            # "K_abft": True,
+            "K_passChk": True,
+            "K_colchk": False,
+            "K_rowchk": True,
+            
+            "V_abft": True,
+            "V_passChk": True,
+            "V_colchk": True,
+            "V_rowchk": False,
+            
+            "AS_abft": True,
+            "AS_passChk": True,
+            "AS_colchk": True,
+            "AS_rowchk": True,
+
+            "CL_abft": True,
+            "CL_passChk": True,
+            "CL_colchk": True,
+            "CL_rowchk": True,
+        }
+        with open("../control/AttnChecker_Mod.txt", 'r') as file:
+            mod = file.read()
+        # no AttnChecker applied
+        if mod == "0":
+            for key in mod_map:
+                mod_map[key] = False
+            return mod_map
+        # naive AttnChecker applied
+        elif mod == "1":
+            mod_map["Q_passChk"] = False
+            mod_map["Q_colchk"] = True
+            mod_map["K_passChk"] = False
+            mod_map["K_colchk"] = True
+            mod_map["V_passChk"] = False
+            mod_map["V_rowchk"] = True
+            mod_map["AS_passChk"] = False
+            mod_map["CL_passChk"] = False
+            return mod_map
+        # AttnChecker applied
+        else:
+            return mod_map
 
     def forward(
         self,
@@ -222,16 +275,28 @@ class RobertaSelfAttention(nn.Module):
 
         with open(LinFP, "w") as frLin:
             frLin.truncate(0)
-            frLin.write('t')
-        with open(colFP, "w") as frCol:
-            frCol.truncate(0)
-            frCol.write('f')
-        with open(rowFP, "w") as frRow:
-            frRow.truncate(0)
-            frRow.write('t')
+            if self.mod_map["Q_abft"]:
+                frLin.write('t')
+            else:
+                frLin.write('f')
         with open(passChk, 'w') as frPassChk:
             frPassChk.truncate(0)
-            frPassChk.write('t')
+            if self.mod_map["Q_passChk"]:
+                frPassChk.write('t')
+            else:
+                frPassChk.write('f')
+        with open(colFP, "w") as frCol:
+            frCol.truncate(0)
+            if self.mod_map["Q_colchk"]:
+                frCol.write('t')
+            else:
+                frCol.write('f')
+        with open(rowFP, "w") as frRow:
+            frRow.truncate(0)
+            if self.mod_map["Q_rowchk"]:
+                frRow.write('t')
+            else:
+                frRow.write('f')
         with open(QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('q')
@@ -240,7 +305,7 @@ class RobertaSelfAttention(nn.Module):
         #     with open(inj, 'w') as frinj:
         #         frinj.truncate(0)
         #         frinj.write('t')
-        # print("Q")
+        print("Q")
         mixed_query_layer = self.query(hidden_states)
         # with open(inj, 'w') as frinj:
         #     frinj.truncate(0)
@@ -270,12 +335,24 @@ class RobertaSelfAttention(nn.Module):
             key_layer = torch.cat([past_key_value[0], key_layer], dim=2)
             value_layer = torch.cat([past_key_value[1], value_layer], dim=2)
         else:
+            with open(passChk, 'w') as frPassChk:
+                frPassChk.truncate(0)
+                if self.mod_map["K_passChk"]:
+                    frPassChk.write('t')
+                else:
+                    frPassChk.write('f')
             with open(colFP, "w") as frCol:
                 frCol.truncate(0)
-                frCol.write('f')
+                if self.mod_map["K_colchk"]:
+                    frCol.write('t')
+                else:
+                    frCol.write('f')
             with open(rowFP, "w") as frRow:
                 frRow.truncate(0)
-                frRow.write('t')
+                if self.mod_map["K_rowchk"]:
+                    frRow.write('t')
+                else:
+                    frRow.write('f')
             with open(QKV, 'w') as frQKV:
                 frQKV.truncate(0)
                 frQKV.write('k')
@@ -283,18 +360,30 @@ class RobertaSelfAttention(nn.Module):
             #     with open(inj, 'w') as frinj:
             #         frinj.truncate(0)
             #         frinj.write('t')
-            # print("K")
+            print("K")
             key_layer = self.transpose_for_scores(self.key(hidden_states))
             # with open(inj, 'w') as frinj:
             #     frinj.truncate(0)
             #     frinj.write('f')
 
+            with open(LinFP, "w") as frLin:
+                frLin.truncate(0)
+                if self.mod_map["V_abft"]:
+                    frLin.write('t')
+                else:
+                    frLin.write('f')
             with open(colFP, "w") as frCol:
                 frCol.truncate(0)
-                frCol.write('t')
+                if self.mod_map["V_colchk"]:
+                    frCol.write('t')
+                else:
+                    frCol.write('t')
             with open(rowFP, "w") as frRow:
                 frRow.truncate(0)
-                frRow.write('f')
+                if self.mod_map["V_rowchk"]:
+                    frRow.write('t')
+                else:
+                    frRow.write('f')
             with open(QKV, 'w') as frQKV:
                 frQKV.truncate(0)
                 frQKV.write('v')
@@ -327,17 +416,26 @@ class RobertaSelfAttention(nn.Module):
 
         with open(matFP, "w") as fr:
             fr.truncate(0)
-            fr.write('t')
+            if self.mod_map['AS_abft']:
+                fr.write('t')
+            else:
+                fr.write('f')
+        with open(colFP, "w") as frCol:
+            frCol.truncate(0)
+            if self.mod_map["AS_colchk"]:
+                frCol.write('t')
+            else:
+                frCol.write('f')
+        with open(rowFP, "w") as frRow:
+            frRow.truncate(0)
+            if self.mod_map['AS_rowchk']:
+                frRow.write('t')
+            else:
+                frRow.write('f')
         with open(QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('s')
-        with open(colFP, "w") as frCol:
-            frCol.truncate(0)
-            frCol.write('t')
-        with open(rowFP, "w") as frRow:
-            frRow.truncate(0)
-            frRow.write('t')
-        # print("AS")
+        print("AS")
         # if(num_encoderLayer == 0):
         #         with open(inj, 'w') as frinj:
         #             frinj.truncate(0)
@@ -387,18 +485,27 @@ class RobertaSelfAttention(nn.Module):
 
         with open(matFP, "w") as fr:
             fr.truncate(0)
-            fr.write('t')
+            if self.mod_map["CL_abft"]:
+                fr.write('t')
+            else:
+                fr.write('f')
         with open(rowFP, 'w') as frRow:
             frRow.truncate(0)
-            frRow.write('t')
+            if self.mod_map["CL_rowchk"]:
+                frRow.write('t')
+            else:
+                frRow.write('f')
         with open(colFP, 'w') as frCol:
             frCol.truncate(0)
-            frCol.write('t')
+            if self.mod_map["CL_colchk"]:
+                frCol.write('t')
+            else:
+                frCol.write('f')
         with open(QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('v')
         
-        # print("CL")
+        print("CL")
         # if(num_encoderLayer == 0):
         #         with open(inj, 'w') as frinj:
         #             frinj.truncate(0)
@@ -433,6 +540,29 @@ class RobertaSelfOutput(nn.Module):
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.mod_map = self.AttnChecker_Mod()
+    
+    def AttnChecker_Mod (self,):
+        mod_map = {
+            "OUT_abft": True,
+            "OUT_colchk": False,
+            "OUT_rowchk": True,
+        }
+        with open("../control/AttnChecker_Mod.txt", 'r') as file:
+            mod = file.read()
+        
+        # no AttnChecker applied
+        if mod == "0":
+            for key in mod_map:
+                mod_map[key] = False
+            return mod_map
+        # naive AttnChecker applied
+        elif mod == "1":
+            mod_map["OUT_colchk"] = True
+            return mod_map
+        # AttnChecker applied
+        else:
+            return mod_map
 
     def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor, num_encoderLayer: int) -> torch.Tensor:
         LinFP = "../control/IFLinearABFT.txt"
@@ -443,13 +573,22 @@ class RobertaSelfOutput(nn.Module):
 
         with open(LinFP, "w") as frLin:
             frLin.truncate(0)
-            frLin.write('t')
+            if self.mod_map["OUT_abft"]:
+                frLin.write('t')
+            else:
+                frLin.write('f')
         with open(colFP, 'w') as frCol:
             frCol.truncate(0)
-            frCol.write('f')
+            if self.mod_map["OUT_colchk"]:
+                frCol.write('f')
+            else:
+                frCol.write('f')
         with open(rowFP, 'w') as frRow:
             frRow.truncate(0)
-            frRow.write('t')
+            if self.mod_map["OUT_rowchk"]:
+                frRow.write('t')
+            else:
+                frRow.write('t')
         with open(QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('c')
@@ -457,7 +596,7 @@ class RobertaSelfOutput(nn.Module):
         #     with open(inj, 'w') as frinj:
         #         frinj.truncate(0)
         #         frinj.write('t')
-        # print("OUT(CL)")
+        print("OUT(CL)")
         hidden_states = self.dense(hidden_states)
         # with open(inj, 'w') as frinj:
         #         frinj.truncate(0)
