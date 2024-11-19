@@ -313,12 +313,12 @@ void bgemm<float>(CUDABLAS_BGEMM_ARGTYPES(float)) {
   // cudaEventElapsedTime(&t, start, stop);
 
   // std::cout << "abftbgemm: " << t<< std::endl;
-  // fs::path destinationFile = "../records/time/abftbgemm.txt";
+  // fs::path destinationFile = "./records/time/abftbgemm.txt";
   // cudaDeviceSynchronize();
   // auto stop = high_resolution_clock::now();
   // auto duration = std::chrono::duration_cast<microseconds>(stop - start);
   // std::cout << "abftbgemm: " << duration.count() / 1000.0 << std::endl;
-  // fs::path destinationFile = "../records/time/abftbgemm.txt";
+  // fs::path destinationFile = "./records/time/abftbgemm.txt";
   // fs::path fullPath = homePath / destinationFile;
   // recordTime(destinationFile, (duration.count() / 1000.0), false);
 }
@@ -543,7 +543,7 @@ int64_t getInjPos() {
   homeDir = getenv("HOME");
   // if (homeDir != nullptr) {
   fs::path homePath(homeDir);
-  fs::path destinationFile = "../control/pos.txt";
+  fs::path destinationFile = "./control/pos.txt";
   fs::path fullPath = homePath / destinationFile;
   
   int lineNumber = 0;
@@ -710,7 +710,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     cudaEventSynchronize(abft_prepare_end);
     cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
     printf("ABFT Prepare Time: %f \n", t1);
-    destinationFile = "../records/time/preparation.txt";
+    destinationFile = "./records/time/preparation.txt";
     // fullPath = homePath / destinationFile;
     recordTime(destinationFile, t1, DEBUG);
   }
@@ -807,8 +807,8 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
       cudaEventElapsedTime(&t1, start, stop);
       printf("   dA and dA_colchk merge: %f, (%f)\n", t1, (double)2*m_copy*k*num_batches*sizeof(T)/t1/1e6);
 
-      // destinationFile = "../records/effeciency/abftbgemm.txt";
-      destinationFile = "../records/time/cpy.txt";
+      // destinationFile = "./records/effeciency/abftbgemm.txt";
+      destinationFile = "./records/time/cpy.txt";
       fullPath = homePath / destinationFile;
       recordTime(destinationFile, t1, DEBUG);
       // recordEffeciency(fullPath, t1, 0, 0, (double)2*m_copy*k*num_batches*sizeof(T)/t1/1e6);
@@ -889,8 +889,8 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
       cudaEventElapsedTime(&t1, start, stop);
       printf("   dB and dB_rowchk merge: %f, (%f) \n", t1, (double)2*n_copy*k*num_batches*sizeof(T)/t1/1e6);
 
-      // destinationFile = "../records/effeciency/abftbgemm.txt";
-      destinationFile = "../records/time/cpy.txt";
+      // destinationFile = "./records/effeciency/abftbgemm.txt";
+      destinationFile = "./records/time/cpy.txt";
       fullPath = homePath / destinationFile;
       recordTime(destinationFile, t1, DEBUG);
       // recordEffeciency(fullPath, t1, 0, 0, (double)2*n_copy*k*num_batches*sizeof(T)/t1/1e6);
@@ -955,7 +955,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&t, start, stop);
 
-    destinationFile = "../records/effeciency/abftbgemm.txt";
+    destinationFile = "./records/effeciency/abftbgemm.txt";
     fullPath = homePath / destinationFile;
     printf("  gemm: %f (%f)(%f)\n", t, (double)num_batches*m_copy*n_copy*k*2/t/1e6, (double)num_batches*(m_copy*k+k*n_copy+m_copy*n_copy)/t/1e6);
     recordEffeciency(destinationFile, t, 1, (double)num_batches*m_copy*n_copy*k*2/t/1e6, (double)num_batches*(m_copy*k+k*n_copy+m_copy*n_copy)/t/1e6);
@@ -1005,8 +1005,8 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     cudaEventElapsedTime(&t1, start, stop);
     printf("dC, dC_colchk and dC_rowchk Copy Back: %f, (%f) \n", t1, (double)2*(m_copy*n_copy-4)*num_batches*sizeof(T)/t1/1e6);
 
-    // destinationFile = "../records/effeciency/abftbgemm.txt";
-    destinationFile = "../records/time/cpy.txt";
+    // destinationFile = "./records/effeciency/abftbgemm.txt";
+    destinationFile = "./records/time/cpy.txt";
     fullPath = homePath / destinationFile;
     recordTime(destinationFile, t1, DEBUG);
     // recordEffeciency(fullPath, t1, 0, 0, (double)2*(m_copy*n_copy-4)*num_batches*sizeof(T)/t1/1e6);
@@ -1077,8 +1077,8 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
       cudaEventRecord(stop, stream_colchk);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
-      // destinationFile = "../records/effeciency/abftbgemm.txt";
-      destinationFile = "../records/time/BGemmCorrect.txt";
+      // destinationFile = "./records/effeciency/abftbgemm.txt";
+      destinationFile = "./records/time/BGemmCorrect.txt";
       fullPath = homePath / destinationFile;
 
       printf("gemm-col-chk: %f (%f)(%f)(%f)\n", t1, t1/t, (double)(num_batches)*2*n*m*2/t1/1e6, (double)num_batches*(m*n+2*m+2*n)/t1/1e6);
@@ -1122,8 +1122,8 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
       
-      // destinationFile = "../records/effeciency/abftbgemm.txt";
-      destinationFile = "../records/time/BGemmCorrect.txt";
+      // destinationFile = "./records/effeciency/abftbgemm.txt";
+      destinationFile = "./records/time/BGemmCorrect.txt";
       fullPath = homePath / destinationFile;
       printf("gemm-row-chk: %f (%f)(%f)(%f)\n", t1, t1/t, (double)(num_batches)*m*2*n*2/t1/1e6, (double)num_batches*(m*n+2*n+2*m)/t1/1e6);
       // recordEffeciency(fullPath, t1, t1/t, (double)(num_batches)*m*2*n*2/t1/1e6, (double)num_batches*(m*n+2*n+2*m)/t1/1e6);
@@ -1181,8 +1181,8 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
       cudaEventElapsedTime(&t1, start, stop);
       printf("dC_rowchk Merge for attn_out: %f, (%f) \n", t1, (double)2*m*num_head*2*(num_batches/num_head)*sizeof(T)/t1/1e6);
 
-      // destinationFile = "../records/effeciency/abftbgemm.txt";
-      destinationFile = "../records/time/cpy.txt";
+      // destinationFile = "./records/effeciency/abftbgemm.txt";
+      destinationFile = "./records/time/cpy.txt";
       fullPath = homePath / destinationFile;
       recordTime(destinationFile, t1, DEBUG);
       // recordEffeciency(fullPath, t1, 0, 0, (double)2*m*num_head*2*(num_batches/num_head)*sizeof(T)/t1/1e6);
@@ -1219,7 +1219,7 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
     printf("ABFT Compute Time: %f\n", t1);
     
-    destinationFile = "../records/time/abftbgemm_Computing.txt";
+    destinationFile = "./records/time/abftbgemm_Computing.txt";
     fullPath = homePath / destinationFile;
     recordTime(destinationFile, t1, DEBUG);
   }
@@ -1235,7 +1235,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   bool DEBUG = true;
   char flag;
 
-  fs::path destinationFile = "../control/DEBUG.txt";
+  fs::path destinationFile = "./control/DEBUG.txt";
   // fullPath = homePath / destinationFile;
   std::ifstream DebugFile(destinationFile);
   if (DebugFile.is_open()){
@@ -1272,7 +1272,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   fs::path homePath(homeDir);
   
   char QKV;
-  destinationFile = "../control/QKV.txt";
+  destinationFile = "./control/QKV.txt";
   // fs::path fullPath = homePath / destinationFile;
   std::ifstream qkvFile(destinationFile);
   if(qkvFile.is_open()){
@@ -1291,7 +1291,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   // else{
   //   printf("file not existed\n");
   // }
-  // std::ifstream qkvFile2("../control/QKV.txt");
+  // std::ifstream qkvFile2("./control/QKV.txt");
   // if(qkvFile2.is_open()){
   //   qkvFile2.get(QKV2);
   //   printf("Relative path test: %c \n", QKV2);
@@ -1304,7 +1304,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   std::vector<string> tokens;
   string line, token;
   
-  destinationFile = "../control/Batch.txt";
+  destinationFile = "./control/Batch.txt";
   // fullPath = homePath / destinationFile;
   std::ifstream batchFile(destinationFile);
   while (std::getline(batchFile, line)) {
@@ -1445,7 +1445,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   int64_t m_copy = m;
   int64_t n_copy = n;
 
-  destinationFile = "../control/abftCOL_FT.txt";
+  destinationFile = "./control/abftCOL_FT.txt";
   // fullPath = homePath / destinationFile;
   size = 0;
   std::ifstream colFile(destinationFile);
@@ -1466,7 +1466,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   }
   colFile.close();
   
-  destinationFile = "../control/abftROW_FT.txt";
+  destinationFile = "./control/abftROW_FT.txt";
   // fullPath = homePath / destinationFile;
   std::ifstream rowFile(destinationFile);
   if (rowFile.is_open()){
@@ -1486,7 +1486,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   }
   rowFile.close();
 
-  destinationFile = "../control/IFPassChk.txt";
+  destinationFile = "./control/IFPassChk.txt";
   // fullPath = homePath / destinationFile;
   std::ifstream PassFile(destinationFile);
   if(PassFile.is_open()){
@@ -1500,7 +1500,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   }
   PassFile.close();
 
-  destinationFile = "../control/Injection.txt";
+  destinationFile = "./control/Injection.txt";
   // fullPath = homePath / destinationFile;
   std::ifstream injFile(destinationFile);
   if (injFile.is_open()){
@@ -1538,7 +1538,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
     cudaEventSynchronize(abft_prepare_end);
     cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
     printf("myABFT Prepare Time: %f \n", t1);
-    destinationFile = "../records/time/preparation.txt";
+    destinationFile = "./records/time/preparation.txt";
     // fullPath = homePath / destinationFile;
     recordTime(destinationFile, t1, DEBUG);
   }
@@ -1888,7 +1888,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
   // auto stop = high_resolution_clock::now();
   // auto duration = std::chrono::duration_cast<microseconds>(stop - start);
   // std::cout << "abftbgemm: " << duration.count() / 1000.0 << std::endl;
-  // destinationFile = "../records/time/abftbgemm.txt";
+  // destinationFile = "./records/time/abftbgemm.txt";
   // fullPath = homePath / destinationFile;
   // recordTime(destinationFile, (duration.count() / 1000.0), DEBUG);
 
@@ -1919,7 +1919,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
     cudaEventSynchronize(abft_prepare_end);
     cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
     printf("myABFT Free Time: %f \n", t1);
-    destinationFile = "../records/time/preparation.txt";
+    destinationFile = "./records/time/preparation.txt";
     // fullPath = homePath / destinationFile;
     recordTime(destinationFile, t1, DEBUG);
   }
@@ -1980,7 +1980,7 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   // printf("%d, %d, %d\n", lda, ldb, ldc);
   bool DEBUG = true;
   char flag;
-  fs::path destinationFile = "../control/DEBUG.txt";
+  fs::path destinationFile = "./control/DEBUG.txt";
   // fullPath = homePath / destinationFile;
   std::ifstream DebugFile(destinationFile);
   if (DebugFile.is_open()){
@@ -2007,7 +2007,7 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   const char* homeDir = nullptr;
   homeDir = getenv("HOME");
   fs::path homePath(homeDir);
-  destinationFile = "../control/QKV.txt";
+  destinationFile = "./control/QKV.txt";
   fs::path fullPath = homePath / destinationFile;
 
   char QKV;
@@ -2022,7 +2022,7 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
 
   std::vector<string> tokens;
   string line, token;
-  destinationFile = "../control/Batch.txt";
+  destinationFile = "./control/Batch.txt";
   fullPath = homePath / destinationFile;
   std::ifstream batchFile(destinationFile);
   while (std::getline(batchFile, line)) {
@@ -2167,7 +2167,7 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   int64_t n_copy = n;
   size = 0;
 
-  destinationFile = "../control/abftCOL_FT.txt";
+  destinationFile = "./control/abftCOL_FT.txt";
   fullPath = homePath / destinationFile;
   std::ifstream colFile(destinationFile);
   if (colFile.is_open()){
@@ -2186,7 +2186,7 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   }
   colFile.close();
   
-  destinationFile = "../control/abftROW_FT.txt";
+  destinationFile = "./control/abftROW_FT.txt";
   fullPath = homePath / destinationFile;
   std::ifstream rowFile(destinationFile);
   if (rowFile.is_open()){
@@ -2205,7 +2205,7 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   }
   rowFile.close();
 
-  destinationFile = "../control/Injection.txt";
+  destinationFile = "./control/Injection.txt";
   fullPath = homePath / destinationFile;
   std::ifstream injFile(destinationFile);
   if (injFile.is_open()){
@@ -2220,7 +2220,7 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   }
   injFile.close();
 
-  // destinationFile = "../records/time/abftgemm.txt";
+  // destinationFile = "./records/time/abftgemm.txt";
   // fullPath = homePath / destinationFile;
 
   cudaMalloc((void**)&C_copy, size + m_copy*n_copy*sizeof(T));
@@ -2240,7 +2240,7 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
     cudaEventSynchronize(abft_prepare_end);
     cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
     printf("myABFT Prepare Time: %f \n", t1);
-    destinationFile = "../records/time/preparation.txt";
+    destinationFile = "./records/time/preparation.txt";
     // fullPath = homePath / destinationFile;
     recordTime(destinationFile, t1, DEBUG);
   }
@@ -2272,7 +2272,7 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
   // auto stop = high_resolution_clock::now();
   // auto duration = std::chrono::duration_cast<microseconds>(stop - start);
   // std::cout << "abftGemm: " << duration.count() / 1000.0 << std::endl;
-  // destinationFile = "../records/time/abftgemm.txt";
+  // destinationFile = "./records/time/abftgemm.txt";
   // fullPath = homePath / destinationFile;
   // recordTime(destinationFile, (duration.count() / 1000.0), DEBUG);
 
@@ -2305,7 +2305,7 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
     cudaEventSynchronize(abft_prepare_end);
     cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
     printf("myABFT Free Time: %f \n", t1);
-    destinationFile = "../records/time/preparation.txt";
+    destinationFile = "./records/time/preparation.txt";
     // fullPath = homePath / destinationFile;
     recordTime(destinationFile, t1, DEBUG);
   }
@@ -2421,7 +2421,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     cudaEventSynchronize(abft_prepare_end);
     cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
     printf("ABFT Prepare Time: %f \n", t1);
-    destinationFile = "../records/time/preparation.txt";
+    destinationFile = "./records/time/preparation.txt";
     // fullPath = homePath / destinationFile;
     recordTime(destinationFile, t1, DEBUG);
   }
@@ -2514,7 +2514,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventElapsedTime(&t1, start, stop);
       printf("  AT and dA_rowchk Merge: %f, (%f)\n", t1, (double)2*k*m_copy*sizeof(T)/t1/1e6);
 
-      destinationFile = "../records/time/V.txt";
+      destinationFile = "./records/time/V.txt";
       fullPath = homePath / destinationFile;
       recordTime(destinationFile, t1, DEBUG);
     }
@@ -2632,17 +2632,17 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       printf("  B and dB_rowchk Merge: %f, (%f)\n", t1, (double)2*k*n_copy*sizeof(T)/t1/1e6);
       
       if(QKV == 'q'){
-        destinationFile = "../records/time/Q.txt";
+        destinationFile = "./records/time/Q.txt";
         fullPath = homePath / destinationFile;
         recordTime(destinationFile, t1, DEBUG);
       }
       else if(QKV == 'k'){
-        destinationFile = "../records/time/K.txt";
+        destinationFile = "./records/time/K.txt";
         fullPath = homePath / destinationFile;
         recordTime(destinationFile, t1, DEBUG);
       }
       else if(QKV == 'v'){
-        destinationFile = "../records/time/V.txt";
+        destinationFile = "./records/time/V.txt";
         fullPath = homePath / destinationFile;
         recordTime(destinationFile, t1, DEBUG);
       }     
@@ -2700,20 +2700,20 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     cudaEventRecord(stop, stream_main);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&t, start, stop);
-    destinationFile = "../records/effeciency/abftgemm.txt";
+    destinationFile = "./records/effeciency/abftgemm.txt";
     fullPath = homePath / destinationFile;
     
     printf("  gemm: %f (%f)(%f)\n", t, (double)1*m_copy*n_copy*k*2/t/1e6, (double)1*(m_copy*k+k*n_copy+m_copy*n_copy)/t/1e6);
     // recordEffeciency(fullPath, t, 1, (double)1*m_copy*n_copy*k*2/t/1e6, (double)1*(m_copy*k+k*n_copy+m_copy*n_copy)/t/1e6);
 
     if(QKV == 'q'){
-      destinationFile = "../records/time/Q.txt";
+      destinationFile = "./records/time/Q.txt";
     }
     else if(QKV == 'k'){
-      destinationFile = "../records/time/K.txt";
+      destinationFile = "./records/time/K.txt";
     }
     else if(QKV == 'v'){
-      destinationFile = "../records/time/V.txt";
+      destinationFile = "./records/time/V.txt";
     }
     fullPath = homePath / destinationFile;
     recordTime(destinationFile, t, DEBUG);
@@ -2723,7 +2723,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
               t_Achk, t_Achk/t, (double)1*m*2*k*2/t_Achk/1e6, (double)1*(2*k+2*m+k*m)*sizeof(T)/t_Achk/1e6);
       // recordEffeciency(fullPath, 
       //         t_Achk, t_Achk/t, (double)1*m*2*k*2/t_Achk/1e6, (double)1*(2*k+2*m+k*m)*sizeof(T)/t_Achk/1e6);
-      destinationFile = "../records/time/V.txt";
+      destinationFile = "./records/time/V.txt";
       fullPath = homePath / destinationFile;
       recordTime(destinationFile, t_Achk, DEBUG);
 
@@ -2734,12 +2734,12 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       // recordEffeciency(fullPath, 
       //         t_Bchk, t_Bchk/t, (double)1*2*n*k*2/t_Bchk/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t_Bchk/1e6);
       if(QKV == 'q'){
-        destinationFile = "../records/time/Q.txt";
+        destinationFile = "./records/time/Q.txt";
         fullPath = homePath / destinationFile;
         recordTime(destinationFile, t_Bchk, DEBUG);
       }
       else if(QKV == 'v'){
-        destinationFile = "../records/time/V.txt";
+        destinationFile = "./records/time/V.txt";
         fullPath = homePath / destinationFile;
         recordTime(destinationFile, t_Bchk, DEBUG);
       }
@@ -2799,7 +2799,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventElapsedTime(&t1, start, stop);
       printf("C and Q_rowchk Copy Back v2: %f, (%f)\n", t1, (double)2*(m_copy*n_copy)*sizeof(T)/t1/1e6);
 
-      destinationFile = "../records/time/Q.txt";
+      destinationFile = "./records/time/Q.txt";
       fullPath = homePath / destinationFile;
       recordTime(destinationFile, t1, DEBUG);
     }
@@ -2841,7 +2841,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventElapsedTime(&t1, start, stop);
       printf("C and K_rowchk Copy Back: %f, (%f)\n", t1, (double)2*m_copy*n_copy*sizeof(T)/t1/1e6);
 
-      destinationFile = "../records/time/K.txt";
+      destinationFile = "./records/time/K.txt";
       fullPath = homePath / destinationFile;
       recordTime(destinationFile, t1, DEBUG);
     }
@@ -2881,7 +2881,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventElapsedTime(&t1, start, stop);
       printf("C and V_colchk Copy Back: %f, (%f)\n", t1, (double)2*m_copy*n_copy*sizeof(T)/t1/1e6);
 
-      destinationFile = "../records/time/V.txt";
+      destinationFile = "./records/time/V.txt";
       fullPath = homePath / destinationFile;
       recordTime(destinationFile, t1, DEBUG);
     }
@@ -2912,7 +2912,7 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
     printf("ABFT Compute Time: %f \n", t1);
 
-    destinationFile = "../records/time/abftgemm_Computing.txt";
+    destinationFile = "./records/time/abftgemm_Computing.txt";
     // fullPath = homePath / destinationFile;
     recordTime(destinationFile, t1, DEBUG);
   }
@@ -2928,7 +2928,7 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   const char* homeDir = nullptr;
   homeDir = getenv("HOME");
   fs::path homePath(homeDir);
-  fs::path destinationFile = "../control/QKV.txt";
+  fs::path destinationFile = "./control/QKV.txt";
   fs::path fullPath = homePath / destinationFile;
   
   char QKV;
@@ -3038,7 +3038,7 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   // bool ifPassChk = false;
   bool INJECTION = false;
 
-  destinationFile = "../control/abftCOL_FT.txt";
+  destinationFile = "./control/abftCOL_FT.txt";
   fullPath = homePath / destinationFile;
   char flag;
   std::ifstream colFile(destinationFile);
@@ -3054,7 +3054,7 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   }
   colFile.close();
   
-  destinationFile = "../control/abftROW_FT.txt";
+  destinationFile = "./control/abftROW_FT.txt";
   fullPath = homePath / destinationFile;
   std::ifstream rowFile(destinationFile);
   if (rowFile.is_open()){
@@ -3069,7 +3069,7 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   }
   rowFile.close();
 
-  destinationFile = "../control/Injection.txt";
+  destinationFile = "./control/Injection.txt";
   fullPath = homePath / destinationFile;
   std::ifstream injFile(destinationFile);
   if (injFile.is_open()){
@@ -3084,7 +3084,7 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   }
   injFile.close();
 
-  destinationFile = "../control/DEBUG.txt";
+  destinationFile = "./control/DEBUG.txt";
   fullPath = homePath / destinationFile;
   std::ifstream DebugFile(destinationFile);
   if (DebugFile.is_open()){
@@ -3121,7 +3121,7 @@ void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmat
   // auto duration = std::chrono::duration_cast<microseconds>(stop - start);
   // std::cout << "abftGemm: " << duration.count() / 1000.0 << std::endl;
   
-  // destinationFile = "../records/time/abftgemm.txt";
+  // destinationFile = "./records/time/abftgemm.txt";
   // fullPath = homePath / destinationFile;
   // recordTime(destinationFile, (duration.count() / 1000.0), DEBUG);
 
@@ -3352,7 +3352,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
     cudaEventRecord(stop, stream_main);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&t, start, stop);
-    destinationFile = "../records/effeciency/abftgemm.txt";
+    destinationFile = "./records/effeciency/abftgemm.txt";
     fullPath = homePath / destinationFile;
 
     printf("  gemm: %f (%f)(%f)\n", t, (double)1*m*n*k*2/t/1e6, (double)1*(m*k+k*n+m*n)/t/1e6);
@@ -3411,7 +3411,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventRecord(stop, stream_colchk);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
-      destinationFile = "../records/effeciency/abftgemm.txt";
+      destinationFile = "./records/effeciency/abftgemm.txt";
       fullPath = homePath / destinationFile;
       printf("  gemm-col-ft: %f (%f)(%f)(%f)\n", t1, t1/t, (double)1*2*n*k*2/t1/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t1/1e6);
       recordEffeciency(destinationFile,  t1, t1/t, (double)1*2*n*k*2/t1/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t1/1e6);
@@ -3462,7 +3462,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
 
-      destinationFile = "../records/effeciency/abftgemm.txt";
+      destinationFile = "./records/effeciency/abftgemm.txt";
       fullPath = homePath / destinationFile;
       printf("  gemm-row-ft: %f (%f)(%f)(%f)\n", t1, t1/t, (double)1*m*2*k*2/t1/1e6, (double)1*(m*k+k*2+m*2)*sizeof(T)/t1/1e6);
       recordEffeciency(destinationFile, t1, t1/t, (double)1*m*2*k*2/t1/1e6, (double)1*(m*k+k*2+m*2)*sizeof(T)/t1/1e6);      
@@ -3506,7 +3506,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
 
-      destinationFile = "../records/effeciency/abftgemm.txt";
+      destinationFile = "./records/effeciency/abftgemm.txt";
       fullPath = homePath / destinationFile;
       printf("gemm-col-chk: %f (%f)(%f)(%f)\n", t1, t1/t, (double)(1)*2*n*m*2/t1/1e6, (double)1*(m*n+2*m+2*n)*sizeof(T)/t1/1e6);
       recordEffeciency(destinationFile,  t1, t1/t, (double)(1)*2*n*m*2/t1/1e6, (double)1*(m*n+2*m+2*n)*sizeof(T)/t1/1e6);      
@@ -3546,7 +3546,7 @@ void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k,
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
 
-      destinationFile = "../records/effeciency/abftgemm.txt";
+      destinationFile = "./records/effeciency/abftgemm.txt";
       fullPath = homePath / destinationFile;
       printf("gemm-row-chk: %f (%f)(%f)(%f)\n", t1, t1/t, (double)(1)*m*2*n*2/t1/1e6, (double)1*(m*n+2*n+2*m)*sizeof(T)/t1/1e6);
       recordEffeciency(destinationFile,  t1, t1/t, (double)(1)*m*2*n*2/t1/1e6, (double)1*(m*n+2*n+2*m)*sizeof(T)/t1/1e6);      
@@ -3610,7 +3610,7 @@ void gemm<float>(CUDABLAS_GEMM_ARGTYPES(float)) {
   // auto duration = std::chrono::duration_cast<microseconds>(stop - start);
   // std::cout << "abftgemm: " << duration.count() / 1000.0 << std::endl;
 
-  // fs::path destinationFile = "../records/time/abftgemm.txt";
+  // fs::path destinationFile = "./records/time/abftgemm.txt";
   // fs::path fullPath = homePath / destinationFile;
   // recordTime(destinationFile, (duration.count() / 1000.0), false);
 }
@@ -3933,7 +3933,7 @@ void myGemmBiasPassChk (
 
     bool DEBUG = true;
     char flag;
-    fs::path destinationFile = "../control/DEBUG.txt";
+    fs::path destinationFile = "./control/DEBUG.txt";
     std::ifstream DebugFile(destinationFile);
     if (DebugFile.is_open()){
       DebugFile.get(flag);
@@ -3963,7 +3963,7 @@ void myGemmBiasPassChk (
     const char* homeDir = nullptr;
     homeDir = getenv("HOME");
     fs::path homePath(homeDir);
-    destinationFile = "../control/QKV.txt";
+    destinationFile = "./control/QKV.txt";
     fs::path fullPath = homePath / destinationFile;
 
     char QKV;
@@ -3977,7 +3977,7 @@ void myGemmBiasPassChk (
     qkvFile.close();
 
     bool Together = false;
-    destinationFile = "../control/together.txt";
+    destinationFile = "./control/together.txt";
     fullPath = homePath / destinationFile;
     std::ifstream togetherFile(destinationFile);
     if (togetherFile.is_open()){
@@ -3993,7 +3993,7 @@ void myGemmBiasPassChk (
 
     std::vector<string> tokens;
     string line, token;
-    destinationFile = "../control/Batch.txt";
+    destinationFile = "./control/Batch.txt";
     fullPath = homePath / destinationFile;
     std::ifstream batchFile(destinationFile);
     while (std::getline(batchFile, line)) {
@@ -4183,7 +4183,7 @@ void myGemmBiasPassChk (
     T *A_copy, *B_copy, *C_copy, *bias_copy;
     size = 0;
     
-    destinationFile = "../control/abftCOL_FT.txt";
+    destinationFile = "./control/abftCOL_FT.txt";
     fullPath = homePath / destinationFile;
     std::ifstream colFile(destinationFile);
     if (colFile.is_open()){
@@ -4202,7 +4202,7 @@ void myGemmBiasPassChk (
     }
     colFile.close();
 
-    destinationFile = "../control/abftROW_FT.txt";
+    destinationFile = "./control/abftROW_FT.txt";
     fullPath = homePath / destinationFile;
     std::ifstream rowFile(destinationFile);
     if (rowFile.is_open()){
@@ -4221,7 +4221,7 @@ void myGemmBiasPassChk (
     }
     rowFile.close();
 
-    destinationFile = "../control/Injection.txt";
+    destinationFile = "./control/Injection.txt";
     fullPath = homePath / destinationFile;
     std::ifstream injFile(destinationFile);
     if (injFile.is_open()){
@@ -4244,7 +4244,7 @@ void myGemmBiasPassChk (
       cudaEventSynchronize(abft_prepare_end);
       cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
       printf("myABFT Prepare Time: %f \n", t1);
-      destinationFile = "../records/time/preparation.txt";
+      destinationFile = "./records/time/preparation.txt";
       // fullPath = homePath / destinationFile;
       recordTime(destinationFile, t1, DEBUG);
     }
@@ -4342,7 +4342,7 @@ void myGemmBiasPassChk (
     // auto stop = high_resolution_clock::now();
     // auto duration = std::chrono::duration_cast<microseconds>(stop - start);
     // std::cout << "abftGemmBias: " << duration.count() / 1000.0 << std::endl;
-    // destinationFile = "../records/time/abftBias.txt";
+    // destinationFile = "./records/time/abftBias.txt";
     // fullPath = homePath / destinationFile;
     // recordTime(destinationFile, (duration.count() / 1000.0), DEBUG);
 
@@ -4377,7 +4377,7 @@ void myGemmBiasPassChk (
       cudaEventSynchronize(abft_prepare_end);
       cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
       printf("myABFT Free Time: %f \n", t1);
-      destinationFile = "../records/time/preparation.txt";
+      destinationFile = "./records/time/preparation.txt";
       // fullPath = homePath / destinationFile;
       recordTime(destinationFile, t1, DEBUG);
     }
@@ -4644,7 +4644,7 @@ void abftGemmBiasPassChk(
     cudaEventSynchronize(abft_prepare_end);
     cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
     printf("ABFT Prepare Time: %f \n", t1);
-    destinationFile = "../records/time/preparation.txt";
+    destinationFile = "./records/time/preparation.txt";
     // fullPath = homePath / destinationFile;
     recordTime(destinationFile, t1, DEBUG);
   }
@@ -4714,10 +4714,10 @@ void abftGemmBiasPassChk(
       cudaEventElapsedTime(&t1, start, stop);
       printf("  A and dA_chk Merge: %f, (%f) \n", t1, (double)2*(k*m_copy)*sizeof(T)/t1/1e6);
 
-      // destinationFile = "../records/time/V.txt";
+      // destinationFile = "./records/time/V.txt";
       // fullPath = homePath / destinationFile;
       // recordTime(destinationFile, t1, DEBUG);
-      destinationFile = "../records/time/cpy.txt";
+      destinationFile = "./records/time/cpy.txt";
       fullPath = homePath / destinationFile;
       recordTime(destinationFile, t1, DEBUG);
     }
@@ -4798,22 +4798,22 @@ void abftGemmBiasPassChk(
       cudaEventElapsedTime(&t1, start, stop);
       printf("  B and dB_rowchk Merge: %f, (%f) \n", t1, (double)2*(k*n_copy)*sizeof(T)/t1/1e6);
 
-      destinationFile = "../records/time/cpy.txt";
+      destinationFile = "./records/time/cpy.txt";
       fullPath = homePath / destinationFile;
       recordTime(destinationFile, t1, DEBUG);
       
       // if(QKV == 'q'){
-      //   destinationFile = "../records/time/Q.txt";
+      //   destinationFile = "./records/time/Q.txt";
       //   fullPath = homePath / destinationFile;
       //   recordTime(destinationFile, t1, DEBUG);
       // }
       // else if(QKV == 'k'){
-      //   destinationFile = "../records/time/K.txt";
+      //   destinationFile = "./records/time/K.txt";
       //   fullPath = homePath / destinationFile;
       //   recordTime(destinationFile, t1, DEBUG);
       // }
       // else if(QKV == 'v'){
-      //   destinationFile = "../records/time/V.txt";
+      //   destinationFile = "./records/time/V.txt";
       //   fullPath = homePath / destinationFile;
       //   recordTime(destinationFile, t1, DEBUG);
       // }
@@ -4864,19 +4864,19 @@ void abftGemmBiasPassChk(
     cudaEventRecord(stop, stream_main);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&t, start, stop);
-    destinationFile = "../records/effeciency/abftBias.txt";
+    destinationFile = "./records/effeciency/abftBias.txt";
     fullPath = homePath / destinationFile;
     printf("  gemm: %f (%f)(%f)\n", t, (double)1*m*n*k*2/t/1e6, (double)1*(m*k+k*n+m*n)/t/1e6);
     // recordEffeciency(fullPath,  t, 1, (double)1*m*n*k*2/t/1e6, (double)1*(m*k+k*n+m*n)/t/1e6);
 
     if(QKV == 'q'){
-      destinationFile = "../records/time/Q.txt";
+      destinationFile = "./records/time/Q.txt";
     }
     else if(QKV == 'k'){
-      destinationFile = "../records/time/K.txt";
+      destinationFile = "./records/time/K.txt";
     }
     else if(QKV == 'v'){
-      destinationFile = "../records/time/V.txt";
+      destinationFile = "./records/time/V.txt";
     }
     fullPath = homePath / destinationFile;
     recordTime(destinationFile, t, DEBUG);
@@ -4888,7 +4888,7 @@ void abftGemmBiasPassChk(
       // recordEffeciency(fullPath,  
       //         t_Achk, t_Achk/t, (double)1*m*2*k*2/t_Achk/1e6, (double)1*(2*k+2*m+k*m)*sizeof(T)/t_Achk/1e6);
 
-      destinationFile = "../records/time/V.txt";
+      destinationFile = "./records/time/V.txt";
       fullPath = homePath / destinationFile;
       recordTime(destinationFile, t_Achk, DEBUG);
       
@@ -4904,12 +4904,12 @@ void abftGemmBiasPassChk(
       //         t_Bchk, t_Bchk/t, (double)1*2*n*k*2/t_Bchk/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t_Bchk/1e6);
 
       if(QKV == 'q'){
-        destinationFile = "../records/time/Q.txt";
+        destinationFile = "./records/time/Q.txt";
         fullPath = homePath / destinationFile;
         recordTime(destinationFile, t_Bchk, DEBUG);
       }
       else if(QKV == 'v'){
-        destinationFile = "../records/time/V.txt";
+        destinationFile = "./records/time/V.txt";
         fullPath = homePath / destinationFile;
         recordTime(destinationFile, t_Bchk, DEBUG);
       }
@@ -4946,10 +4946,10 @@ void abftGemmBiasPassChk(
         cudaEventElapsedTime(&t1, start, stop);
         printf("C and dC_rowchk+bias Copy Back: %f, (%f) \n", t1, (double)(2*(m_copy*n_copy)+m_copy)*sizeof(T)/t1/1e6);
 
-        // destinationFile = "../records/time/Q.txt";
+        // destinationFile = "./records/time/Q.txt";
         // fullPath = homePath / destinationFile;
         // recordTime(fullPath, t1, DEBUG);
-        destinationFile = "../records/time/cpy.txt";
+        destinationFile = "./records/time/cpy.txt";
         fullPath = homePath / destinationFile;
         recordTime(destinationFile, t1, DEBUG);
       }
@@ -4975,10 +4975,10 @@ void abftGemmBiasPassChk(
         cudaEventElapsedTime(&t1, start, stop);
         printf("C and dC_rowchk+bias Copy Back: %f, (%f) \n", t1, (double)(2*(m_copy*n_copy)+m_copy)*sizeof(T)/t1/1e6);
 
-        // destinationFile = "../records/time/K.txt";
+        // destinationFile = "./records/time/K.txt";
         // fullPath = homePath / destinationFile;
         // recordTime(fullPath, t1, DEBUG);
-        destinationFile = "../records/time/cpy.txt";
+        destinationFile = "./records/time/cpy.txt";
         fullPath = homePath / destinationFile;
         recordTime(destinationFile, t1, DEBUG);
       }
@@ -5004,10 +5004,10 @@ void abftGemmBiasPassChk(
         cudaEventElapsedTime(&t1, start, stop);
         printf("C and dC_colchk+bias Copy Back: %f, (%f) \n", t1, (double)2*(m_copy*n_copy)*sizeof(T)/t1/1e6);
         
-        // destinationFile = "../records/time/V.txt";
+        // destinationFile = "./records/time/V.txt";
         // fullPath = homePath / destinationFile;
         // recordTime(fullPath, t1, DEBUG);
-        destinationFile = "../records/time/cpy.txt";
+        destinationFile = "./records/time/cpy.txt";
         fullPath = homePath / destinationFile;
         recordTime(destinationFile, t1, DEBUG);
       }
@@ -5043,10 +5043,10 @@ void abftGemmBiasPassChk(
       cudaEventElapsedTime(&t1, start, stop);
       printf("C and QKV_ch+bias Copy Back: %f, (%f) \n", t1, (double)(2*(m*n+2*m*num_batches*2+2*n*num_head)+m_copy)*sizeof(T)/t1/1e6);
 
-      // destinationFile = "../records/time/V.txt";
+      // destinationFile = "./records/time/V.txt";
       // fullPath = homePath / destinationFile;
       // recordTime(fullPath, t1, DEBUG);
-      destinationFile = "../records/time/cpy.txt";
+      destinationFile = "./records/time/cpy.txt";
       fullPath = homePath / destinationFile;
       recordTime(destinationFile, t1, DEBUG);
     }
@@ -5097,7 +5097,7 @@ void abftGemmBiasPassChk(
     cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
     printf("ABFT Compute Time: %f \n", t1);
 
-    destinationFile = "../records/time/abftBias_Computing.txt";
+    destinationFile = "./records/time/abftBias_Computing.txt";
     // fullPath = homePath / destinationFile;
     recordTime(destinationFile, t1, DEBUG);
   }
@@ -5119,7 +5119,7 @@ void myGemmBias (
 
     bool DEBUG = true;
     char flag;
-    fs::path destinationFile = "../control/DEBUG.txt";
+    fs::path destinationFile = "./control/DEBUG.txt";
     // fullPath = homePath / destinationFile;
     std::ifstream DebugFile(destinationFile);
     if (DebugFile.is_open()){
@@ -5145,7 +5145,7 @@ void myGemmBias (
     const char* homeDir = nullptr;
     homeDir = getenv("HOME");
     fs::path homePath(homeDir);
-    destinationFile = "../control/QKV.txt";
+    destinationFile = "./control/QKV.txt";
     fs::path fullPath = homePath / destinationFile;
 
     char QKV;
@@ -5278,7 +5278,7 @@ void myGemmBias (
     int64_t n_copy = n;
     size = 0;
     
-    destinationFile = "../control/abftCOL_FT.txt";
+    destinationFile = "./control/abftCOL_FT.txt";
     fullPath = homePath / destinationFile;
     std::ifstream colFile(destinationFile);
     if (colFile.is_open()){
@@ -5300,7 +5300,7 @@ void myGemmBias (
     }
     colFile.close();
     
-    destinationFile = "../control/abftROW_FT.txt";
+    destinationFile = "./control/abftROW_FT.txt";
     fullPath = homePath / destinationFile;
     std::ifstream rowFile(destinationFile);
     if (rowFile.is_open()){
@@ -5322,7 +5322,7 @@ void myGemmBias (
     }
     rowFile.close();
 
-    destinationFile = "../control/Injection.txt";
+    destinationFile = "./control/Injection.txt";
     fullPath = homePath / destinationFile;
     std::ifstream injFile(destinationFile);
     if (injFile.is_open()){
@@ -5354,7 +5354,7 @@ void myGemmBias (
       cudaEventSynchronize(abft_prepare_end);
       cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
       printf("myABFT Prepare Time: %f \n", t1);
-      destinationFile = "../records/time/preparation.txt";
+      destinationFile = "./records/time/preparation.txt";
       // fullPath = homePath / destinationFile;
       recordTime(destinationFile, t1, DEBUG);
     }
@@ -5389,7 +5389,7 @@ void myGemmBias (
     // auto duration = std::chrono::duration_cast<microseconds>(stop - start);
     // std::cout << "abftGemmBias: " << duration.count() / 1000.0 << std::endl;
     
-    // destinationFile = "../records/time/abftBias.txt";
+    // destinationFile = "./records/time/abftBias.txt";
     // fullPath = homePath / destinationFile;
     // recordTime(destinationFile, (duration.count() / 1000.0), DEBUG);
 
@@ -5423,7 +5423,7 @@ void myGemmBias (
       cudaEventSynchronize(abft_prepare_end);
       cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
       printf("myABFT Free Time: %f \n", t1);
-      destinationFile = "../records/time/preparation.txt";
+      destinationFile = "./records/time/preparation.txt";
       // fullPath = homePath / destinationFile;
       recordTime(destinationFile, t1, DEBUG);
     }
@@ -5622,7 +5622,7 @@ void abftGemmBias(
     cudaEventSynchronize(abft_prepare_end);
     cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
     printf("ABFT Prepare Time: %f \n", t1);
-    destinationFile = "../records/time/preparation.txt";
+    destinationFile = "./records/time/preparation.txt";
     // fullPath = homePath / destinationFile;
     recordTime(destinationFile, t1, DEBUG);
   }
@@ -5741,10 +5741,10 @@ void abftGemmBias(
       cudaEventElapsedTime(&t1, start, stop);
       printf("  B and dB_rowchk Merge: %f, (%f) \n", t1, (double)2*(k*n_copy)*sizeof(T)/t1/1e6);
 
-      // destinationFile = "../records/time/OUT.txt";
+      // destinationFile = "./records/time/OUT.txt";
       // fullPath = homePath / destinationFile;
       // recordTime(fullPath, t1, DEBUG);
-      destinationFile = "../records/time/cpy.txt";
+      destinationFile = "./records/time/cpy.txt";
       fullPath = homePath / destinationFile;
       recordTime(destinationFile, t1, DEBUG);
     }
@@ -5788,12 +5788,12 @@ void abftGemmBias(
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t, start, stop);
       
-      destinationFile = "../records/effeciency/abftBias.txt";
+      destinationFile = "./records/effeciency/abftBias.txt";
       fullPath = homePath / destinationFile;
       printf("  gemm: %f (%f)(%f)\n", t, (double)1*m_copy*n_copy*k*2/t/1e6, (double)1*(m_copy*k+k*n_copy+m_copy*n_copy)/t/1e6);
       // recordEffeciency(fullPath,  t, 1, (double)1*m_copy*n_copy*k*2/t/1e6, (double)1*(m_copy*k+k*n_copy+m_copy*n_copy)/t/1e6);
 
-      destinationFile = "../records/time/OUT.txt";
+      destinationFile = "./records/time/OUT.txt";
       fullPath = homePath / destinationFile;
       recordTime(destinationFile, t, DEBUG);
       
@@ -5809,7 +5809,7 @@ void abftGemmBias(
       if(ROW_FT && QKV != 'c'){
         printf("dB_chk_gemm: %f (%f)(%f)(%f)\n",t_Bchk, t_Bchk/t, (double)1*2*n*k*2/t_Bchk/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t_Bchk/1e6);
         // recordEffeciency(fullPath,  t_Bchk, t_Bchk/t, (double)1*2*n*k*2/t_Bchk/1e6, (double)1*(2*k+k*n+2*n)*sizeof(T)/t_Bchk/1e6);
-        destinationFile = "../records/time/OUT.txt";
+        destinationFile = "./records/time/OUT.txt";
         fullPath = homePath / destinationFile;
         recordTime(destinationFile, t_Bchk, DEBUG);
         // printf("dBias_rowchk_gemm: %f (%f)(%f)(%f)\n", t_Biasrowchk, t_Biasrowchk/t, (double)1*2*n*m*2/t_Biasrowchk/1e6, (double)1*(2*m+m*n+2*n)*sizeof(T)/t_Biasrowchk/1e6);
@@ -5829,10 +5829,10 @@ void abftGemmBias(
     cudaEventElapsedTime(&t1, start, stop);
     printf("C and dC_rowchk+bias Copy Back: %f, (%f) \n", t1, (double)(2*(m_copy*n_copy)+m_copy)*sizeof(T)/t1/1e6);
 
-    // destinationFile = "../records/time/OUT.txt";
+    // destinationFile = "./records/time/OUT.txt";
     // fullPath = homePath / destinationFile;
     // recordTime(destinationFile, t1, DEBUG);
-    destinationFile = "../records/time/cpy.txt";
+    destinationFile = "./records/time/cpy.txt";
     fullPath = homePath / destinationFile;
     recordTime(destinationFile, t1, DEBUG);
   }
@@ -5883,12 +5883,12 @@ void abftGemmBias(
       cudaEventRecord(stop, stream_main);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
-      // destinationFile = "../records/effeciency/abftBias.txt";
+      // destinationFile = "./records/effeciency/abftBias.txt";
       // fullPath = homePath / destinationFile;
       printf("gemm-col-chk: %f (%f)(%f)(%f)\n", t1, t1/t, (double)(1)*2*n*m*2/t1/1e6, (double)1*(m*n+2*m+2*n)*sizeof(T)/t1/1e6);
       // recordEffeciency(destinationFile,  t1, t1/t, (double)(1)*2*n*m*2/t1/1e6, (double)1*(m*n+2*m+2*n)*sizeof(T)/t1/1e6);
 
-      destinationFile = "../records/time/OUT.txt";
+      destinationFile = "./records/time/OUT.txt";
       fullPath = homePath / destinationFile;
       recordTime(destinationFile, t1, DEBUG);
     }
@@ -5930,12 +5930,12 @@ void abftGemmBias(
       cudaEventRecord(stop, stream_main);
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&t1, start, stop);
-      // destinationFile = "../records/effeciency/abftBias.txt";
+      // destinationFile = "./records/effeciency/abftBias.txt";
       // fullPath = homePath / destinationFile;
       printf("gemm-row-chk: %f (%f)(%f)(%f)\n", t1, t1/t, (double)(1)*m*2*n*2/t1/1e6, (double)1*(m*n+2*n+2*m)*sizeof(T)/t1/1e6);
       // recordEffeciency(destinationFile,  t1, t1/t, (double)(1)*m*2*n*2/t1/1e6, (double)1*(m*n+2*n+2*m)*sizeof(T)/t1/1e6);
 
-      destinationFile = "../records/time/OUT.txt";
+      destinationFile = "./records/time/OUT.txt";
       fullPath = homePath / destinationFile;
       recordTime(destinationFile, t1, DEBUG);
     }
@@ -5947,7 +5947,7 @@ void abftGemmBias(
     cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
     printf("ABFT Compute Time: %f \n", t1);
 
-    destinationFile = "../records/time/abftBias_Computing.txt";
+    destinationFile = "./records/time/abftBias_Computing.txt";
     // fullPath = homePath / destinationFile;
     recordTime(destinationFile, t1, DEBUG);
   }
@@ -6137,7 +6137,7 @@ void gemm_and_bias(
   // auto stop = high_resolution_clock::now();
   // auto duration = std::chrono::duration_cast<microseconds>(stop - start);
   // std::cout << "Bias Gemm: " << duration.count() / 1000.0 << std::endl;
-  // fs::path destinationFile = "../records/time/abftBias.txt";
+  // fs::path destinationFile = "./records/time/abftBias.txt";
   // fs::path fullPath = homePath / destinationFile;
   // fullPath = homePath / destinationFile;
   // recordTime(destinationFile, (duration.count() / 1000.0), false);
