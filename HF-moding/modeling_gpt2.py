@@ -170,15 +170,15 @@ class GPT2Attention(nn.Module):
 
         self.pruned_heads = set()
 
-        self.LinFP = "../control/IFLinearABFT.txt"
-        self.colFP = "../control/abftCOL_FT.txt"
-        self.rowFP = "../control/abftROW_FT.txt"
-        self.matFP = "../control/IFABFT.txt"
-        self.inj = "../control/Injection.txt"
-        self.passChk = "../control/IFPassChk.txt"
-        self.QKV = "../control/QKV.txt"
-        self.batch = "../control/Batch.txt"
-        self.together = "../control/together.txt"
+        self.LinFP = "./control/IFLinearABFT.txt"
+        self.colFP = "./control/abftCOL_FT.txt"
+        self.rowFP = "./control/abftROW_FT.txt"
+        self.matFP = "./control/IFABFT.txt"
+        self.inj = "./control/Injection.txt"
+        self.passChk = "./control/IFPassChk.txt"
+        self.QKV = "./control/QKV.txt"
+        self.batch = "./control/Batch.txt"
+        self.together = "./control/together.txt"
 
         # get AttnChecker Model
         self.mod_map = self.AttnChecker_Mod()
@@ -220,7 +220,7 @@ class GPT2Attention(nn.Module):
                 frRow.write('t')
             else:
                 frRow.write('f')
-        print("AS")
+        # print("AS")
         # if(num_encoderLayer == 0):
         #     with open(self.inj, 'w') as frinj:
         #         frinj.truncate(0)
@@ -297,7 +297,7 @@ class GPT2Attention(nn.Module):
         #     frPassChk.truncate(0)
         #     frPassChk.write('f')
 
-        print("CL")
+        # print("CL")
         attn_output = torch.matmul(attn_weights, value)
         # with open(self.inj, 'w') as frinj:
         #         frinj.truncate(0)
@@ -400,7 +400,7 @@ class GPT2Attention(nn.Module):
             "OUT_colchk": False,
             "OUT_rowchk": True,
         }
-        with open("../control/AttnChecker_Mod.txt", 'r') as file:
+        with open("./control/AttnChecker_Mod.txt", 'r') as file:
             mod = file.read()
         # no AttnChecker applied
         if mod == "0":
@@ -483,7 +483,7 @@ class GPT2Attention(nn.Module):
             #     with open(self.inj, 'w') as frinj:
             #         frinj.truncate(0)
             #         frinj.write('t')
-            print("QKV")
+            # print("QKV")
             query, key, value = self.c_attn(hidden_states).split(self.split_size, dim=2)
             # with open(self.inj, 'w') as frinj:
             #         frinj.truncate(0)
@@ -546,7 +546,7 @@ class GPT2Attention(nn.Module):
         #     with open(self.inj, 'w') as frinj:
         #         frinj.truncate(0)
         #         frinj.write('t')  
-        print("OUT(CL)")
+        # print("OUT(CL)")
         attn_output = self.c_proj(attn_output)
         # with open(self.inj, 'w') as frinj:
         #         frinj.truncate(0)
@@ -627,7 +627,7 @@ class GPT2Block(nn.Module):
             num_encoderLayer=num_encoderLayer,
         )
         elapsed_time = time.time() - start_time
-        with open("/home/yliang/abftbgemm/records/time/attn.txt", 'a') as fr:
+        with open("./records/time/attn.txt", 'a') as fr:
             fr.write(str(elapsed_time)+"\n")
         
         attn_output = attn_outputs[0]  # output_attn: a, present, (attentions)

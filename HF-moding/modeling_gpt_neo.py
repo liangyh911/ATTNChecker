@@ -205,15 +205,15 @@ class GPTNeoSelfAttention(nn.Module):
         self.q_proj = nn.Linear(self.embed_dim, self.embed_dim, bias=False)
         self.out_proj = nn.Linear(self.embed_dim, self.embed_dim, bias=True)
 
-        self.LinFP = "../control/IFLinearABFT.txt"
-        self.colFP = "../control/abftCOL_FT.txt"
-        self.rowFP = "../control/abftROW_FT.txt"
-        self.matFP = "../control/IFABFT.txt"
-        self.inj = "../control/Injection.txt"
-        self.passChk = "../control/IFPassChk.txt"
-        self.QKV = "../control/QKV.txt"
-        self.batch = "../control/Batch.txt"
-        self.together = "../control/together.txt"
+        self.LinFP = "./control/IFLinearABFT.txt"
+        self.colFP = "./control/abftCOL_FT.txt"
+        self.rowFP = "./control/abftROW_FT.txt"
+        self.matFP = "./control/IFABFT.txt"
+        self.inj = "./control/Injection.txt"
+        self.passChk = "./control/IFPassChk.txt"
+        self.QKV = "./control/QKV.txt"
+        self.batch = "./control/Batch.txt"
+        self.together = "./control/together.txt"
 
         # get AttnChecker Model
         self.mod_map = self.AttnChecker_Mod()
@@ -364,7 +364,7 @@ class GPTNeoSelfAttention(nn.Module):
             "OUT_colchk": False,
             "OUT_rowchk": True,
         }
-        with open("../control/AttnChecker_Mod.txt", 'r') as file:
+        with open("./control/AttnChecker_Mod.txt", 'r') as file:
             mod = file.read()
         # no AttnChecker applied
         if mod == "0":
@@ -863,7 +863,7 @@ class GPTNeoBlock(nn.Module):
             num_encoderLayer=num_encoderLayer,
         )
         elapsed_time = time.time() - start_time
-        with open("/home/yliang/abftbgemm/records/time/attn.txt", 'a') as fr:
+        with open("./records/time/attn.txt", 'a') as fr:
             fr.write(str(elapsed_time)+"\n")
         # print("attn_outputs[0]")  
         attn_output = attn_outputs[0]  # output_attn: a, present, (attentions)

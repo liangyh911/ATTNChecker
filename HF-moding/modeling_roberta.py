@@ -220,7 +220,7 @@ class RobertaSelfAttention(nn.Module):
             "CL_colchk": True,
             "CL_rowchk": True,
         }
-        with open("../control/AttnChecker_Mod.txt", 'r') as file:
+        with open("./control/AttnChecker_Mod.txt", 'r') as file:
             mod = file.read()
         # no AttnChecker applied
         if mod == "0":
@@ -254,15 +254,15 @@ class RobertaSelfAttention(nn.Module):
         num_encoderLayer: Optional[int] = None,
     ) -> Tuple[torch.Tensor]:
         
-        LinFP = "../control/IFLinearABFT.txt"
-        colFP = "../control/abftCOL_FT.txt"
-        rowFP = "../control/abftROW_FT.txt"
-        matFP = "../control/IFABFT.txt"
-        inj = "../control/Injection.txt"
-        QKV = "../control/QKV.txt"
-        passChk = "../control/IFPassChk.txt"
-        batch = "../control/Batch.txt"
-        together = "../control/together.txt"
+        LinFP = "./control/IFLinearABFT.txt"
+        colFP = "./control/abftCOL_FT.txt"
+        rowFP = "./control/abftROW_FT.txt"
+        matFP = "./control/IFABFT.txt"
+        inj = "./control/Injection.txt"
+        QKV = "./control/QKV.txt"
+        passChk = "./control/IFPassChk.txt"
+        batch = "./control/Batch.txt"
+        together = "./control/together.txt"
 
         with open(batch, 'w') as F:
             F.truncate(0)
@@ -305,7 +305,7 @@ class RobertaSelfAttention(nn.Module):
         #     with open(inj, 'w') as frinj:
         #         frinj.truncate(0)
         #         frinj.write('t')
-        print("Q")
+        # print("Q")
         mixed_query_layer = self.query(hidden_states)
         # with open(inj, 'w') as frinj:
         #     frinj.truncate(0)
@@ -360,7 +360,7 @@ class RobertaSelfAttention(nn.Module):
             #     with open(inj, 'w') as frinj:
             #         frinj.truncate(0)
             #         frinj.write('t')
-            print("K")
+            # print("K")
             key_layer = self.transpose_for_scores(self.key(hidden_states))
             # with open(inj, 'w') as frinj:
             #     frinj.truncate(0)
@@ -435,7 +435,7 @@ class RobertaSelfAttention(nn.Module):
         with open(QKV, 'w') as frQKV:
             frQKV.truncate(0)
             frQKV.write('s')
-        print("AS")
+        # print("AS")
         # if(num_encoderLayer == 0):
         #         with open(inj, 'w') as frinj:
         #             frinj.truncate(0)
@@ -505,7 +505,7 @@ class RobertaSelfAttention(nn.Module):
             frQKV.truncate(0)
             frQKV.write('v')
         
-        print("CL")
+        # print("CL")
         # if(num_encoderLayer == 0):
         #         with open(inj, 'w') as frinj:
         #             frinj.truncate(0)
@@ -548,7 +548,7 @@ class RobertaSelfOutput(nn.Module):
             "OUT_colchk": False,
             "OUT_rowchk": True,
         }
-        with open("../control/AttnChecker_Mod.txt", 'r') as file:
+        with open("./control/AttnChecker_Mod.txt", 'r') as file:
             mod = file.read()
         
         # no AttnChecker applied
@@ -565,11 +565,11 @@ class RobertaSelfOutput(nn.Module):
             return mod_map
 
     def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor, num_encoderLayer: int) -> torch.Tensor:
-        LinFP = "../control/IFLinearABFT.txt"
-        colFP = "../control/abftCOL_FT.txt"
-        rowFP = "../control/abftROW_FT.txt"
-        QKV = "../control/QKV.txt"
-        inj = "../control/Injection.txt"
+        LinFP = "./control/IFLinearABFT.txt"
+        colFP = "./control/abftCOL_FT.txt"
+        rowFP = "./control/abftROW_FT.txt"
+        QKV = "./control/QKV.txt"
+        inj = "./control/Injection.txt"
 
         with open(LinFP, "w") as frLin:
             frLin.truncate(0)
@@ -596,7 +596,7 @@ class RobertaSelfOutput(nn.Module):
         #     with open(inj, 'w') as frinj:
         #         frinj.truncate(0)
         #         frinj.write('t')
-        print("OUT(CL)")
+        # print("OUT(CL)")
         hidden_states = self.dense(hidden_states)
         # with open(inj, 'w') as frinj:
         #         frinj.truncate(0)
@@ -734,7 +734,7 @@ class RobertaLayer(nn.Module):
             num_encoderLayer = num_encoderLayer,
         )
         elapsed_time = time.time() - start_time
-        with open("/home/yliang/abftbgemm/records/time/attn.txt", 'a') as fr:
+        with open("./records/time/attn.txt", 'a') as fr:
             fr.write(str(elapsed_time)+"\n")
         attention_output = self_attention_outputs[0]
 
