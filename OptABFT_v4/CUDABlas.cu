@@ -646,8 +646,10 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   // See Note [Writing Nondeterministic Operations]
   // std::cout << "globalContext. \n";
 
+  bool DEBUG2 = DEBUG;
+  DEBUG = false;
   cudaEvent_t abft_prepare_start, abft_prepare_end;
-  if(DEBUG){
+  if(DEBUG2){
     cudaEventCreate(&abft_prepare_start,0);
     cudaEventCreate(&abft_prepare_end,0);
     cudaEventRecord(abft_prepare_start, 0);
@@ -692,11 +694,11 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   cudaEventCreate(&col_compute_done);
   cudaEventCreate(&row_compute_done);
 
-  cudaEvent_t abft_compute_start, abft_compute_done;
-  if(DEBUG){
-    cudaEventCreate(&abft_compute_start, 0);
-    cudaEventCreate(&abft_compute_done, 0);
-  }
+  // cudaEvent_t abft_compute_start, abft_compute_done;
+  // if(DEBUG2){
+  //   cudaEventCreate(&abft_compute_start, 0);
+  //   cudaEventCreate(&abft_compute_done, 0);
+  // }
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
@@ -705,11 +707,11 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
 
   fs::path destinationFile, fullPath;
 
-  if (DEBUG){
+  if (DEBUG2){
     cudaEventRecord(abft_prepare_end, 0);
     cudaEventSynchronize(abft_prepare_end);
     cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
-    printf("ABFT Prepare Time: %f \n", t1);
+    // printf("ABFT Prepare Time: %f \n", t1);
     destinationFile = "./records/time/preparation.txt";
     // fullPath = homePath / destinationFile;
     recordTime(destinationFile, t1, DEBUG);
@@ -733,9 +735,9 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
   // int64_t stridea_copy = stridea;
   // int64_t strideb_copy = strideb;
   // int64_t stridec_copy = stridec;
-  if (DEBUG){
-    cudaEventRecord(abft_compute_start, 0);
-  }
+  // if (DEBUG2){
+  //   cudaEventRecord(abft_compute_start, 0);
+  // }
   if (COL_FT){
     if (DEBUG) std::cout << "dA Col Chk." << std::endl;
     if (DEBUG) {
@@ -1213,16 +1215,16 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
     // outputChk(t, 1, (lddc_rowchk*num_head), 0, m*num_head, 2);
   }
 
-  if(DEBUG){
-    cudaEventRecord(abft_compute_done, 0);
-    cudaEventSynchronize(abft_compute_done);
-    cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
-    printf("ABFT Compute Time: %f\n", t1);
+  // if(DEBUG2){
+  //   cudaEventRecord(abft_compute_done, 0);
+  //   cudaEventSynchronize(abft_compute_done);
+  //   cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
+  //   // printf("ABFT Compute Time: %f\n", t1);
     
-    destinationFile = "./records/time/abftbgemm_Computing.txt";
-    fullPath = homePath / destinationFile;
-    recordTime(destinationFile, t1, DEBUG);
-  }
+  //   destinationFile = "./records/time/abftbgemm_Computing.txt";
+  //   fullPath = homePath / destinationFile;
+  //   recordTime(destinationFile, t1, DEBUG);
+  // }
 }
 
 template <typename T>
@@ -1282,24 +1284,6 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
     printf("QKV: Cannot open file, using default setting.\n");
   }
   qkvFile.close();
-
-  // char QKV2;
-  // std::cout << "Current working directory: " << std::filesystem::current_path() << "\n";
-  // if (std::filesystem::exists("./QKV.txt")){
-  //   printf("file existed \n");
-  // }
-  // else{
-  //   printf("file not existed\n");
-  // }
-  // std::ifstream qkvFile2("./control/QKV.txt");
-  // if(qkvFile2.is_open()){
-  //   qkvFile2.get(QKV2);
-  //   printf("Relative path test: %c \n", QKV2);
-  // }
-  // else{
-  //   printf("QKV2: Cannot open file, using default setting.\n");
-  // }
-  // qkvFile2.close();
 
   std::vector<string> tokens;
   string line, token;
@@ -1537,7 +1521,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
     cudaEventRecord(abft_prepare_end, 0);
     cudaEventSynchronize(abft_prepare_end);
     cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
-    printf("myABFT Prepare Time: %f \n", t1);
+    // printf("myABFT Prepare Time: %f \n", t1);
     destinationFile = "./records/time/preparation.txt";
     // fullPath = homePath / destinationFile;
     recordTime(destinationFile, t1, DEBUG);
@@ -1918,7 +1902,7 @@ void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opma
     cudaEventRecord(abft_prepare_end, 0);
     cudaEventSynchronize(abft_prepare_end);
     cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
-    printf("myABFT Free Time: %f \n", t1);
+    // printf("myABFT Free Time: %f \n", t1);
     destinationFile = "./records/time/preparation.txt";
     // fullPath = homePath / destinationFile;
     recordTime(destinationFile, t1, DEBUG);
@@ -2239,7 +2223,7 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
     cudaEventRecord(abft_prepare_end, 0);
     cudaEventSynchronize(abft_prepare_end);
     cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
-    printf("myABFT Prepare Time: %f \n", t1);
+    // printf("myABFT Prepare Time: %f \n", t1);
     destinationFile = "./records/time/preparation.txt";
     // fullPath = homePath / destinationFile;
     recordTime(destinationFile, t1, DEBUG);
@@ -2304,7 +2288,7 @@ void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at
     cudaEventRecord(abft_prepare_end, 0);
     cudaEventSynchronize(abft_prepare_end);
     cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
-    printf("myABFT Free Time: %f \n", t1);
+    // printf("myABFT Free Time: %f \n", t1);
     destinationFile = "./records/time/preparation.txt";
     // fullPath = homePath / destinationFile;
     recordTime(destinationFile, t1, DEBUG);
@@ -2348,7 +2332,9 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
       char QKV, bool INJECTION, fs::path homePath){
   
   cudaEvent_t abft_prepare_start, abft_prepare_end;
-  if (DEBUG){
+  bool DEBUG2 = DEBUG;
+  DEBUG = false;
+  if (DEBUG2){
     cudaEventCreate(&abft_prepare_start,0);
     cudaEventCreate(&abft_prepare_end,0);
     cudaEventRecord(abft_prepare_start, 0);
@@ -2376,11 +2362,11 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   // cudaEventCreate(&col_compute_done);
   // cudaEventCreate(&row_compute_done);
 
-  cudaEvent_t abft_compute_start, abft_compute_done;
-  if (DEBUG){
-    cudaEventCreate(&abft_compute_start);
-    cudaEventCreate(&abft_compute_done);
-  }
+  // cudaEvent_t abft_compute_start, abft_compute_done;
+  // if (DEBUG2){
+  //   cudaEventCreate(&abft_compute_start);
+  //   cudaEventCreate(&abft_compute_done);
+  // }
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
@@ -2416,19 +2402,19 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
   // int64_t RowOffset = m/num_head;
   // int64_t ColOffset = n/num_batches;
 
-  if (DEBUG){
+  if (DEBUG2){
     cudaEventRecord(abft_prepare_end, 0);
     cudaEventSynchronize(abft_prepare_end);
     cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
-    printf("ABFT Prepare Time: %f \n", t1);
+    // printf("ABFT Prepare Time: %f \n", t1);
     destinationFile = "./records/time/preparation.txt";
     // fullPath = homePath / destinationFile;
     recordTime(destinationFile, t1, DEBUG);
   }
   
-  if (DEBUG){
-    cudaEventRecord(abft_compute_start,0);
-  }
+  // if (DEBUG2){
+  //   cudaEventRecord(abft_compute_start,0);
+  // }
   //A check col
   if (COL_FT){
     if (DEBUG) std::cout << "dA_chk" << std::endl;
@@ -2906,16 +2892,16 @@ void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k,
     bitflip<<<1,1,0,stream_main>>>(c, pos);
   }
 
-  if(DEBUG){
-    cudaEventRecord(abft_compute_done, 0);
-    cudaEventSynchronize(abft_compute_done);
-    cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
-    printf("ABFT Compute Time: %f \n", t1);
+  // if(DEBUG2){
+  //   cudaEventRecord(abft_compute_done, 0);
+  //   cudaEventSynchronize(abft_compute_done);
+  //   cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
+  //   // printf("ABFT Compute Time: %f \n", t1);
 
-    destinationFile = "./records/time/abftgemm_Computing.txt";
-    // fullPath = homePath / destinationFile;
-    recordTime(destinationFile, t1, DEBUG);
-  }
+  //   destinationFile = "./records/time/abftgemm_Computing.txt";
+  //   // fullPath = homePath / destinationFile;
+  //   recordTime(destinationFile, t1, DEBUG);
+  // }
 }
 
 template<typename T>
@@ -4243,7 +4229,7 @@ void myGemmBiasPassChk (
       cudaEventRecord(abft_prepare_end, 0);
       cudaEventSynchronize(abft_prepare_end);
       cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
-      printf("myABFT Prepare Time: %f \n", t1);
+      // printf("myABFT Prepare Time: %f \n", t1);
       destinationFile = "./records/time/preparation.txt";
       // fullPath = homePath / destinationFile;
       recordTime(destinationFile, t1, DEBUG);
@@ -4376,7 +4362,7 @@ void myGemmBiasPassChk (
       cudaEventRecord(abft_prepare_end, 0);
       cudaEventSynchronize(abft_prepare_end);
       cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
-      printf("myABFT Free Time: %f \n", t1);
+      // printf("myABFT Free Time: %f \n", t1);
       destinationFile = "./records/time/preparation.txt";
       // fullPath = homePath / destinationFile;
       recordTime(destinationFile, t1, DEBUG);
@@ -4456,7 +4442,9 @@ void abftGemmBiasPassChk(
     char QKV, bool INJECTION, bool Together, fs::path homePath) {
   
   cudaEvent_t abft_prepare_start, abft_prepare_end;
-  if (DEBUG){
+  bool DEBUG2 = DEBUG;
+  DEBUG = false;
+  if (DEBUG2){
     cudaEventCreate(&abft_prepare_start,0);
     cudaEventCreate(&abft_prepare_end,0);
     cudaEventRecord(abft_prepare_start, 0);
@@ -4616,11 +4604,11 @@ void abftGemmBiasPassChk(
   // cublasSetStream(handle_rowchk, stream_rowchk);
 
 
-  cudaEvent_t abft_compute_start, abft_compute_done;
-  if(DEBUG){
-    cudaEventCreate(&abft_compute_start);
-    cudaEventCreate(&abft_compute_done);
-  }
+  // cudaEvent_t abft_compute_start, abft_compute_done;
+  // if(DEBUG2){
+  //   cudaEventCreate(&abft_compute_start);
+  //   cudaEventCreate(&abft_compute_done);
+  // }
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
@@ -4639,20 +4627,20 @@ void abftGemmBiasPassChk(
   // printf("mat2:\n");
   // outputChk(mat2_ptr,1, mat2_ld, k*n, k, n);
 
-  if (DEBUG){
+  if (DEBUG2){
     cudaEventRecord(abft_prepare_end, 0);
     cudaEventSynchronize(abft_prepare_end);
     cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
-    printf("ABFT Prepare Time: %f \n", t1);
+    // printf("ABFT Prepare Time: %f \n", t1);
     destinationFile = "./records/time/preparation.txt";
     // fullPath = homePath / destinationFile;
     recordTime(destinationFile, t1, DEBUG);
   }
 
 
-  if (DEBUG){
-    cudaEventRecord(abft_compute_start, 0);
-  }
+  // if (DEBUG2){
+  //   cudaEventRecord(abft_compute_start, 0);
+  // }
   // A chk
   if(COL_FT){
     if (DEBUG) std::cout << "dA_checksum" << std::endl;
@@ -5091,16 +5079,16 @@ void abftGemmBiasPassChk(
       bitflip<<<1, 1, 0, stream_main>>>(result_ptr, pos);
     }
   }
-  if (DEBUG){
-    cudaEventRecord(abft_compute_done, 0);
-    cudaEventSynchronize(abft_compute_done);
-    cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
-    printf("ABFT Compute Time: %f \n", t1);
+  // if (DEBUG2){
+  //   cudaEventRecord(abft_compute_done, 0);
+  //   cudaEventSynchronize(abft_compute_done);
+  //   cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
+  //   // printf("ABFT Compute Time: %f \n", t1);
 
-    destinationFile = "./records/time/abftBias_Computing.txt";
-    // fullPath = homePath / destinationFile;
-    recordTime(destinationFile, t1, DEBUG);
-  }
+  //   destinationFile = "./records/time/abftBias_Computing.txt";
+  //   // fullPath = homePath / destinationFile;
+  //   recordTime(destinationFile, t1, DEBUG);
+  // }
 }
 
 template <typename T>
@@ -5353,7 +5341,7 @@ void myGemmBias (
       cudaEventRecord(abft_prepare_end, 0);
       cudaEventSynchronize(abft_prepare_end);
       cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
-      printf("myABFT Prepare Time: %f \n", t1);
+      // printf("myABFT Prepare Time: %f \n", t1);
       destinationFile = "./records/time/preparation.txt";
       // fullPath = homePath / destinationFile;
       recordTime(destinationFile, t1, DEBUG);
@@ -5420,9 +5408,10 @@ void myGemmBias (
     // cudaFree(dBias_rowchk_r);
     // cudaEventRecord(abft_prepare_end, 0);
     if(DEBUG){
+      cudaEventRecord(abft_prepare_end, 0);
       cudaEventSynchronize(abft_prepare_end);
       cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
-      printf("myABFT Free Time: %f \n", t1);
+      // printf("myABFT Free Time: %f \n", t1);
       destinationFile = "./records/time/preparation.txt";
       // fullPath = homePath / destinationFile;
       recordTime(destinationFile, t1, DEBUG);
@@ -5466,8 +5455,11 @@ void abftGemmBias(
     bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, 
     char QKV, bool INJECTION, fs::path homePath) {
 
+  bool DEBUG2 = DEBUG;
+  DEBUG = false;
+
   cudaEvent_t abft_prepare_start, abft_prepare_end;
-  if(DEBUG){
+  if(DEBUG2){
     cudaEventCreate(&abft_prepare_start,0);
     cudaEventCreate(&abft_prepare_end,0);
     cudaEventRecord(abft_prepare_start, 0);
@@ -5586,12 +5578,11 @@ void abftGemmBias(
   // cublasSetStream(handle_colchk, stream_colchk);
   // cublasSetStream(handle_rowchk, stream_rowchk);
 
-
-  cudaEvent_t abft_compute_start, abft_compute_done;
-  if (DEBUG){
-    cudaEventCreate(&abft_compute_start);
-    cudaEventCreate(&abft_compute_done);
-  }
+  // cudaEvent_t abft_compute_start, abft_compute_done;
+  // if (DEBUG2){
+  //   cudaEventCreate(&abft_compute_start);
+  //   cudaEventCreate(&abft_compute_done);
+  // }
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
@@ -5617,19 +5608,19 @@ void abftGemmBias(
   // CuBlasLtMatrixLayout BCdesc(abcType, k, n_copy, mat2_ld, transpose_mat2);
   // CuBlasLtMatrixLayout CCdesc(abcType, m_copy, n_copy, m_copy);
 
-  if(DEBUG){
+  if(DEBUG2){
     cudaEventRecord(abft_prepare_end, 0);
     cudaEventSynchronize(abft_prepare_end);
     cudaEventElapsedTime(&t1, abft_prepare_start, abft_prepare_end);
-    printf("ABFT Prepare Time: %f \n", t1);
+    // printf("ABFT Prepare Time: %f \n", t1);
     destinationFile = "./records/time/preparation.txt";
     // fullPath = homePath / destinationFile;
     recordTime(destinationFile, t1, DEBUG);
   }
   
-  if(DEBUG){
-    cudaEventRecord(abft_compute_start, 0);
-  }
+  // if(DEBUG2){
+  //   cudaEventRecord(abft_compute_start, 0);
+  // }
   // A chk
   if(COL_FT){
     if (DEBUG) std::cout << "dA_checksum" << std::endl;
@@ -5941,16 +5932,16 @@ void abftGemmBias(
     }
   }
 
-  if(DEBUG){
-    cudaEventRecord(abft_compute_done, 0);
-    cudaEventSynchronize(abft_compute_done);
-    cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
-    printf("ABFT Compute Time: %f \n", t1);
+  // if(DEBUG2){
+  //   cudaEventRecord(abft_compute_done, 0);
+  //   cudaEventSynchronize(abft_compute_done);
+  //   cudaEventElapsedTime(&t1, abft_compute_start, abft_compute_done);
+  //   // printf("ABFT Compute Time: %f \n", t1);
 
-    destinationFile = "./records/time/abftBias_Computing.txt";
-    // fullPath = homePath / destinationFile;
-    recordTime(destinationFile, t1, DEBUG);
-  }
+  //   destinationFile = "./records/time/abftBias_Computing.txt";
+  //   // fullPath = homePath / destinationFile;
+  //   recordTime(destinationFile, t1, DEBUG);
+  // }
 }
 
 
