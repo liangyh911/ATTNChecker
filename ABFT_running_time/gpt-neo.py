@@ -13,8 +13,6 @@ def get_attn_time(file):
     cnt = 0
     res = 0
     for idx, line in enumerate(Lines):
-        if idx == 0:
-            continue
         tmp = float(line)
         res += tmp
         cnt += 1
@@ -27,16 +25,15 @@ def prepare_time_attn(file):
     if len(Lines) == 0:
         return 0
     else:
-        # print(mod)
         cnt = 0
         time = 0
-        # res = []
         res = 0
         for idx, line in enumerate(Lines):
+            if idx < 18:
+                continue
             tmp = float(line)
             time += tmp
             if(idx % 18 == 17):
-                # res.append(time)
                 res += time
                 time = 0
                 cnt += 1
@@ -45,7 +42,6 @@ def prepare_time_attn(file):
 
 def preprocess_function(examples):
     return tokenizer(examples["text"], truncation=True, max_length=512)
-    # return tokenizer(examples["sentence1"], examples["sentence2"], truncation=True)
 
 def tokenize_function(example):
     return tokenizer(example["sentence1"], example["sentence2"], truncation=True)
@@ -55,25 +51,18 @@ def compute_metrics(eval_pred):
     predictions = np.argmax(predictions, axis=1)
     return accuracy.compute(predictions=predictions, references=labels)
 
-# checkpoint = "distilbert/distilbert-base-uncased"
 checkpoint = 'EleutherAI/gpt-neo-125M'
-# checkpoint = 'microsoft/phi-1'
-# checkpoint = 'bert-base-uncased'
-
-# data = load_dataset("imdb")
 data = load_dataset("glue", "mrpc")
+
 tokenizer = AutoTokenizer.from_pretrained(checkpoint)
 tokenizer.pad_token = tokenizer.eos_token
 
-# tokenized_imdb = data.map(preprocess_function, batched=True)
 tokenized_imdb = data.map(tokenize_function, batched=True)
 
 data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 
 accuracy = evaluate.load("accuracy")
 
-# id2label = {0: "NEGATIVE", 1: "POSITIVE"}
-# label2id = {"NEGATIVE": 0, "POSITIVE": 1}
 def run_training(iter):
     training_time = 0
     loss = 0
@@ -88,7 +77,7 @@ def run_training(iter):
 
         training_args = TrainingArguments(
             output_dir="my_awesome_model",
-            per_device_train_batch_size=16,
+            per_device_train_batch_size=8,
             # num_train_epochs=1,
             max_steps = 1,
             fp16=False,
@@ -108,18 +97,17 @@ def run_training(iter):
         )
         
         trainer.train()
-        if i != 0:
-            training_time += trainer.state.log_history[1]['train_runtime']
-            loss += trainer.state.log_history[0]['loss']
+        training_time += trainer.state.log_history[1]['train_runtime']
+        loss += trainer.state.log_history[0]['loss']
         
     return training_time, loss
 
-iter = 20
+iter = 50
 # get perpation time
 with open("./control/DEBUG.txt", "w") as fr:
     fr.truncate(0)
     fr.write('t')
-run_training(iter)
+run_training(iter+1)
 
 with open("./records/time/attn.txt", "w") as fr:
     fr.truncate(0)
@@ -141,9 +129,3 @@ AttnTime = get_attn_time(Attn)*1000 - (preparation_time)
 print("Attention Mechanism Running Time: ", AttnTime)
 print("Training Time: ", (T / iter)*1000 - num_attn_heads*preparation_time)
 print("Loss: ", lossLis / iter)
-
-# print("Time: ", T / iter)
-# print("Loss: ", lossLis / iter)
-
-# print('There are ', cnt, 'Injections make loss = 0.')
-# print('P(loss = 0) = ', cnt/iter)
