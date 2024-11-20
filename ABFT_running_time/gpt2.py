@@ -1,0 +1,147 @@
+from datasets import load_dataset, load_metric
+from transformers import AutoTokenizer, DataCollatorWithPadding, AutoModelForSequenceClassification
+from transformers import Trainer, TrainingArguments
+import torch
+import evaluate
+import numpy as np
+import time
+
+def get_attn_time(file):
+    fp = open(file, 'r')
+    Lines = fp.readlines()
+    
+    cnt = 0
+    res = 0
+    for idx, line in enumerate(Lines):
+        if idx == 0:
+            continue
+        tmp = float(line)
+        res += tmp
+        cnt += 1
+    return res / cnt
+
+def prepare_time_attn(file):
+    fp = open(file, 'r')
+    Lines = fp.readlines()
+
+    if len(Lines) == 0:
+        return 0
+    else:
+        # print(mod)
+        cnt = 0
+        time = 0
+        # res = []
+        res = 0
+        for idx, line in enumerate(Lines):
+            tmp = float(line)
+            time += tmp
+            if(idx % 12 == 11):
+                # res.append(time)
+                res += time
+                time = 0
+                cnt += 1
+        
+        return res / cnt
+
+def preprocess_function(examples):
+    return tokenizer(examples["text"], truncation=True, max_length=512)
+    # return tokenizer(examples["sentence1"], examples["sentence2"], truncation=True)
+
+def tokenize_function(example):
+    return tokenizer(example["sentence1"], example["sentence2"], truncation=True)
+
+def compute_metrics(eval_pred):
+    predictions, labels = eval_pred
+    predictions = np.argmax(predictions, axis=1)
+    return accuracy.compute(predictions=predictions, references=labels)
+
+# checkpoint = "distilbert/distilbert-base-uncased"
+checkpoint = 'gpt2'
+# checkpoint = 'microsoft/phi-1'
+# checkpoint = 'bert-base-uncased'
+
+# data = load_dataset("imdb")
+data = load_dataset("glue", "mrpc")
+tokenizer = AutoTokenizer.from_pretrained(checkpoint)
+tokenizer.pad_token = tokenizer.eos_token
+
+# tokenized_imdb = data.map(preprocess_function, batched=True)
+tokenized_imdb = data.map(tokenize_function, batched=True)
+
+data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+
+accuracy = evaluate.load("accuracy")
+
+# id2label = {0: "NEGATIVE", 1: "POSITIVE"}
+# label2id = {"NEGATIVE": 0, "POSITIVE": 1}
+
+
+def run_training(Iter):
+    training_time = 0
+    loss = 0
+    for i in range(Iter):
+        model = AutoModelForSequenceClassification.from_pretrained(
+            checkpoint, 
+            num_labels=2, 
+            # id2label=id2label, 
+            # label2id=label2id, 
+            # attn_implementation="eager", 
+        )
+        model.config.pad_token_id = model.config.eos_token_id       
+
+        training_args = TrainingArguments(
+            output_dir="my_awesome_model",
+            per_device_train_batch_size=8,
+            # num_train_epochs=1,
+            max_steps = 1,
+            fp16=False,
+            evaluation_strategy="no",
+            logging_first_step = True,
+            logging_steps = 1,
+        )
+
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=tokenized_imdb["train"],
+            eval_dataset=tokenized_imdb["test"],
+            tokenizer=tokenizer,
+            data_collator=data_collator,
+            compute_metrics=compute_metrics,
+        )
+
+        trainer.train()
+        if i != 0:
+            training_time += trainer.state.log_history[1]['train_runtime']
+            loss += trainer.state.log_history[0]['loss']
+
+    return training_time, loss
+
+
+Iter = 20
+# get perpation time
+with open("./control/DEBUG.txt", "w") as fr:
+    fr.truncate(0)
+    fr.write('t')
+run_training(Iter)
+
+with open("./records/time/attn.txt", "w") as fr:
+    fr.truncate(0)
+
+# get true training time
+with open("./control/DEBUG.txt", "w") as fr:
+    fr.truncate(0)
+    fr.write('f')
+T, lossLis = run_training(Iter)
+    
+
+num_attn_heads = 12
+Attn = "./records/time/attn.txt"
+prepartion = "./records/time/preparation.txt"
+
+preparation_time = prepare_time_attn(prepartion)
+AttnTime = get_attn_time(Attn)*1000 - (preparation_time)
+
+print("Attention Mechanism Running Time: ", AttnTime)
+print("Training Time: ", (T / Iter)*1000 - num_attn_heads*preparation_time)
+print("Loss: ", lossLis / Iter)
