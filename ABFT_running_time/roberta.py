@@ -66,7 +66,7 @@ def compute_metrics(eval_preds):
 def run_training(Iter):
     training_time = 0
     loss = 0
-    for i in range(Iter+1):
+    for i in range(Iter):
         print(i)
         training_args = TrainingArguments(
                                 output_dir = "test-trainer-Test",
@@ -103,7 +103,7 @@ Iter = 20
 with open("./control/DEBUG.txt", "w") as fr:
     fr.truncate(0)
     fr.write('t')
-run_training(Iter)
+run_training(Iter+1)
 
 with open("./records/time/attn.txt", "w") as fr:
     fr.truncate(0)
