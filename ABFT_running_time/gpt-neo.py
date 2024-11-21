@@ -102,7 +102,7 @@ def run_training(iter):
         
     return training_time, loss
 
-iter = 50
+iter = 20
 # get perpation time
 with open("./control/DEBUG.txt", "w") as fr:
     fr.truncate(0)
