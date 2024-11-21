@@ -347,9 +347,9 @@ Tensor& addmm_out_cuda_impl(Tensor& result, const Tensor& self, const Tensor& ma
         "addmm_cuda_lt",
         [&] {
           fs::path homePath(homeDir);
-          fs::path destinationFile = "abftbgemm/control/IFLinearABFT.txt";
+          fs::path destinationFile = "./control/IFLinearABFT.txt";
           fs::path fullPath = homePath / destinationFile;
-          std::ifstream myfile(fullPath);
+          std::ifstream myfile(destinationFile);
           if (!myfile.is_open()){
             // std::cout << "gemm_bias" << std::endl;
             at::cuda::blas::gemm_and_bias<scalar_t>(
@@ -392,9 +392,9 @@ Tensor& addmm_out_cuda_impl(Tensor& result, const Tensor& self, const Tensor& ma
             if(flag == 't'){
                 flag = 'f';
                 fs::path homePath(homeDir);
-                fs::path destinationFile = "abftbgemm/control/IFPassChk.txt";
+                fs::path destinationFile = "./control/IFPassChk.txt";
                 fs::path fullPath = homePath / destinationFile;
-                std::ifstream isPassChkFile(fullPath);
+                std::ifstream isPassChkFile(destinationFile);
                 isPassChkFile.get(flag);
                 isPassChkFile.close();
                 if(flag == 't'){
@@ -522,9 +522,9 @@ Tensor& addmm_out_cuda_impl(Tensor& result, const Tensor& self, const Tensor& ma
           scalar_t* result_ptr = args.result->mutable_data_ptr<scalar_t>();
 
           fs::path homePath(homeDir);
-          fs::path destinationFile = "abftbgemm/control/IFLinearABFT.txt";
+          fs::path destinationFile = "./control/IFLinearABFT.txt";
           fs::path fullPath = homePath / destinationFile;
-          std::ifstream myfile(fullPath);
+          std::ifstream myfile(destinationFile);
           if (!myfile.is_open()){
             // std::cout << "gemm" << std::endl;
             at::cuda::blas::gemm<scalar_t>(
@@ -549,9 +549,9 @@ Tensor& addmm_out_cuda_impl(Tensor& result, const Tensor& self, const Tensor& ma
             if(flag == 't'){
               flag = 'f';
               fs::path homePath(homeDir);
-              fs::path destinationFile = "abftbgemm/control/IFPassChk.txt";
+              fs::path destinationFile = "./control/IFPassChk.txt";
               fs::path fullPath = homePath / destinationFile;
-              std::ifstream isPassChkFile(fullPath);
+              std::ifstream isPassChkFile(destinationFile);
               isPassChkFile.get(flag);
               isPassChkFile.close();
               if(flag == 't'){
@@ -708,9 +708,9 @@ const Tensor& baddbmm_out_cuda_impl(const Tensor& result, const Tensor& self, co
           result_ptr, ldc);
     } else {
       fs::path homePath(homeDir);
-      fs::path destinationFile = "abftbgemm/control/IFABFT.txt";
+      fs::path destinationFile = "./control/IFABFT.txt";
       fs::path fullPath = homePath / destinationFile;
-      std::ifstream myfile(fullPath);
+      std::ifstream myfile(destinationFile);
       // std::ifstream myfile("/home/yliang/abftbgemm/control/IFABFT.txt");
       if (!myfile.is_open()){
         // std::cout << "Calling bgemm function" << std::endl;
