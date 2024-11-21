@@ -399,6 +399,7 @@ class GPT2Attention(nn.Module):
             "OUT_abft": True,
             "OUT_colchk": False,
             "OUT_rowchk": True,
+            "OUT_passChk": True,
         }
         with open("./control/AttnChecker_Mod.txt", 'r') as file:
             mod = file.read()
@@ -413,6 +414,7 @@ class GPT2Attention(nn.Module):
             mod_map["AS_passChk"] = False
             mod_map["CL_passChk"] = False
             mod_map["OUT_colchk"] = True
+            mod_map["OUT_passChk"] = False
             return mod_map
         # AttnChecker applied
         else:
@@ -540,7 +542,10 @@ class GPT2Attention(nn.Module):
             
         with open(self.QKV, 'w') as frQKV:
             frQKV.truncate(0)
-            frQKV.write('f')
+            if self.mod_map["OUT_passChk"]:
+                frQKV.write('c')
+            else:
+                frQKV.write('f')
         
         # if(num_encoderLayer == 0):
         #     with open(self.inj, 'w') as frinj:

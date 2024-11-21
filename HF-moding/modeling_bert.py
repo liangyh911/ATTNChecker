@@ -666,6 +666,7 @@ class BertSelfOutput(nn.Module):
             "OUT_abft": True,
             "OUT_colchk": False,
             "OUT_rowchk": True,
+            "OUT_passchk": True,
         }
         with open("./control/AttnChecker_Mod.txt", 'r') as file:
             mod = file.read()
@@ -678,6 +679,7 @@ class BertSelfOutput(nn.Module):
         # naive AttnChecker applied
         elif mod == "1":
             mod_map["OUT_colchk"] = True
+            mod_map["OUT_passchk"] = False
             return mod_map
         # AttnChecker applied
         else:
@@ -710,7 +712,10 @@ class BertSelfOutput(nn.Module):
                 frRow.write('t')
         with open(QKV, 'w') as frQKV:
             frQKV.truncate(0)
-            frQKV.write('c')
+            if self.mod_map["OUT_passchk"]:
+                frQKV.write('c')
+            else:
+                frQKV.write('f')
         # if(num_encoderLayer == 0):
         #     with open(inj, 'w') as frinj:
         #         frinj.truncate(0)
