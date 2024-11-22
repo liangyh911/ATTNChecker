@@ -12,18 +12,22 @@
   where Dtype is double, float, at::Half or at::BFloat16 (ROCm, NOT for dot).
   The functions are available in at::cuda::blas namespace.
  */
-#include <string>
-#include <cuda_runtime.h>
-#include <iostream>
-#include <stdio.h>
-#include <stdlib.h>
+// #include <string>
+// #include <cuda_runtime.h>
+// #include <iostream>
+// #include <stdio.h>
+// #include <stdlib.h>
 
-#include <chrono>
-using namespace std::chrono;
+// #include <chrono>
+// using namespace std::chrono;
 
 #include <ATen/cuda/CUDAContext.h>
 #include <ATen/OpMathType.h>
-#include "opt_kernels.cu"
+// #include "opt_kernels.cu"
+
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 namespace at::cuda::blas {
 
@@ -80,26 +84,70 @@ enum GEMMAndBiasActivationEpilogue {
 
 // NOTE: GELU activation is not supported prior to CUDA 11.4 and will
 // do nothing if passed in that case.
-/*
+
 template <typename T>
-void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<Dtype> alpha,
-            const Dtype *a, int64_t lda, const Dtype *b, int64_t ldb, at::opmath_type<Dtype> beta,
-            Dtype *c, int64_t ldc
+void myGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<T> alpha,
+            const T *a, int64_t lda, const T *b, int64_t ldb, at::opmath_type<T> beta,
+            T *c, int64_t ldc);
+
+template <typename T>
+void abftGemmPassChk(char transa, char transb, int64_t m, int64_t n, int64_t k, 
+              at::opmath_type<T> alpha, T *a, int64_t lda, 
+              T *b, int64_t ldb, at::opmath_type<T> beta,
+              T *c, int64_t ldc,
+              T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,
+              T *A_copy, T *B_copy, T *C_copy, 
+              int64_t num_batches, int64_t num_head, 
+              int64_t m_copy, int64_t n_copy,                                    
+              bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, 
+              char QKV, bool INJECTION, fs::path homePath);
+
+
+template <typename T>
+void myGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<T> alpha,
+            const T *a, int64_t lda, const T *b, int64_t ldb, at::opmath_type<T> beta,
+            T *c, int64_t ldc);
+
+template <typename T>
+void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, 
+              at::opmath_type<T> alpha, T *a, int64_t lda, 
+              T *b, int64_t ldb, at::opmath_type<T> beta,
+              T *c, int64_t ldc,
+              T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,                      
+              bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, 
+              char QKV, bool INJECTION, fs::path homePath);
+
+template <typename Dtype>
+void myGemmBiasPassChk(
+  bool transpose_mat1, bool transpose_mat2,
+  int64_t m, int64_t n, int64_t k,
+  at::opmath_type<Dtype> alpha_val,
+  const Dtype* mat1_ptr,
+  int64_t mat1_ld,
+  const Dtype* mat2_ptr,
+  int64_t mat2_ld,
+  const Dtype* bias,
+  Dtype* result_ptr,
+  int64_t result_ld,
+  GEMMAndBiasActivationEpilogue activation
 );
 
-template <typename T, int64_t M, int64_t N, int64_t K>
-void abftGemm(char transa, char transb, int64_t m, int64_t n, int64_t k, 
-              at::opmath_type<T> alpha, const T *a, int64_t lda, 
-              const T *b, int64_t ldb, at::opmath_type<T> beta,\
-              T *c, int64_t ldc,
-              T *dA_colchk, int64_t ldda_colchk, T *dA_rowchk, int64_t ldda_rowchk,             
-              T *dA_colchk_r, int64_t ldda_colchk_r, T *dA_rowchk_r, int64_t ldda_rowchk_r,      
-              T *dB_colchk, int64_t lddb_colchk, T *dB_rowchk, int64_t lddb_rowchk,            
-              T *dB_colchk_r, int64_t lddb_colchk_r, T *dB_rowchk_r, int64_t lddb_rowchk_r,      
-              T *dC_colchk, int64_t lddc_colchk, T *dC_rowchk, int64_t lddc_rowchk,           
-              T *dC_colchk_r, int64_t lddc_colchk_r, T *dC_rowchk_r, int64_t lddc_rowchk_r,   
-              T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,                                      
-              bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER);
+template <typename Dtype, int64_t M, int64_t N, int64_t K>
+void abftGemmBiasPassChk(
+    bool transpose_mat1, bool transpose_mat2,
+    int64_t m, int64_t n, int64_t k,
+    at::opmath_type<Dtype> alpha_val, Dtype* mat1_ptr, int64_t mat1_ld,
+    Dtype* mat2_ptr, int64_t mat2_ld, Dtype* bias, Dtype *bias_copy,
+    Dtype* result_ptr, int64_t result_ld,
+    GEMMAndBiasActivationEpilogue activation,
+    Dtype *chk_v_a, Dtype *chk_v_b, int64_t ld_chk_v,
+    Dtype *A_copy, Dtype *B_copy, Dtype *C_copy,
+    int64_t m_copy, int64_t n_copy,   
+    // Dtype *dBias_colchk, Dtype *dBias_rowchk, Dtype *dBias_colchk_r, Dtype *dBias_rowchk_r,
+    int64_t num_batches, int64_t num_head,          
+    bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, 
+    char QKV, bool INJECTION, bool Together, fs::path homePath
+);
 
 template <typename Dtype>
 void myGemmBias(
@@ -120,20 +168,19 @@ template <typename Dtype, int64_t M, int64_t N, int64_t K>
 void abftGemmBias(
     bool transpose_mat1, bool transpose_mat2,
     int64_t m, int64_t n, int64_t k,
-    at::opmath_type<Dtype> alpha_val, const Dtype* mat1_ptr, int64_t mat1_ld,
-    const Dtype* mat2_ptr, int64_t mat2_ld, const Dtype* bias,
+    at::opmath_type<Dtype> alpha_val, Dtype* mat1_ptr, int64_t mat1_ld,
+    Dtype* mat2_ptr, int64_t mat2_ld, Dtype* bias,
     Dtype* result_ptr, int64_t result_ld,
     GEMMAndBiasActivationEpilogue activation,
-    Dtype *dA_colchk, int64_t ldda_colchk, Dtype *dA_rowchk, int64_t ldda_rowchk,              \
-    Dtype *dA_colchk_r, int64_t ldda_colchk_r, Dtype *dA_rowchk_r, int64_t ldda_rowchk_r,      \
-    Dtype *dB_colchk, int64_t lddb_colchk, Dtype *dB_rowchk, int64_t lddb_rowchk,            \
-    Dtype *dB_colchk_r, int64_t lddb_colchk_r, Dtype *dB_rowchk_r, int64_t lddb_rowchk_r,      \
-    Dtype *dC_colchk, int64_t lddc_colchk, Dtype *dC_rowchk, int64_t lddc_rowchk,           \
-    Dtype *dC_colchk_r, int64_t lddc_colchk_r, Dtype *dC_rowchk_r, int64_t lddc_rowchk_r,   \
-    Dtype *chk_v_a, Dtype *chk_v_b, int64_t ld_chk_v,                                      \
-    bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER
+    Dtype *chk_v_a, Dtype *chk_v_b, int64_t ld_chk_v,
+    Dtype *A_copy, Dtype *B_copy, Dtype *C_copy,
+    int64_t m_copy, int64_t n_copy,   
+    // Dtype *dBias_colchk, Dtype *dBias_rowchk, Dtype *dBias_colchk_r, Dtype *dBias_rowchk_r,
+    int64_t num_batches, int64_t num_head,          
+    bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, 
+    char QKV, bool INJECTION, fs::path homePath
 );
-*/
+
 template <typename Dtype>
 void gemm_and_bias(
     bool transpose_mat1,
@@ -213,313 +260,6 @@ template <>
 void bgemm<at::BFloat16>(CUDABLAS_BGEMM_ARGTYPES(at::BFloat16));
 
 
-#define CUDABLAS_ABFTGEMM_ARGTYPES(Dtype)                                                       \
-    char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<Dtype> alpha,  \
-    Dtype *dA, int64_t ldda, int64_t stridea,                                           \
-    Dtype *dB, int64_t lddb, int64_t strideb, at::opmath_type<Dtype> beta,             \
-    Dtype *dC, int64_t lddc, int64_t stridec,                                                 \
-    Dtype *dA_colchk, int64_t ldda_colchk, Dtype *dA_rowchk, int64_t ldda_rowchk,              \
-    Dtype *dA_colchk_r, int64_t ldda_colchk_r, Dtype *dA_rowchk_r, int64_t ldda_rowchk_r,      \
-    Dtype *dB_colchk, int64_t lddb_colchk, Dtype *dB_rowchk, int64_t lddb_rowchk,            \
-    Dtype *dB_colchk_r, int64_t lddb_colchk_r, Dtype *dB_rowchk_r, int64_t lddb_rowchk_r,      \
-    Dtype *dC_colchk, int64_t lddc_colchk, Dtype *dC_rowchk, int64_t lddc_rowchk,           \
-    Dtype *dC_colchk_r, int64_t lddc_colchk_r, Dtype *dC_rowchk_r, int64_t lddc_rowchk_r,   \
-    Dtype *chk_v_a, Dtype *chk_v_b, int64_t ld_chk_v,                                      \
-    int64_t num_batches,                                                                    \
-    bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER
-/*
-template <typename Dtype>
-inline void abftgemm(CUDABLAS_ABFTGEMM_ARGTYPES(Dtype)) {
-  AT_ERROR("at::cuda::blas::abftgemm: not implemented for ", typeid(Dtype).name());
-}
-template <int64_t M, int64_t N, int64_t K>
-void abftgemm<float>(CUDABLAS_ABFTGEMM_ARGTYPES(float));
-*/
-template <typename T, int64_t M, int64_t N, int64_t K>
-void abftbgemm(CUDABLAS_ABFTGEMM_ARGTYPES(T));
-
-template <typename T, int64_t M, int64_t N, int64_t K>
-void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<T> alpha,  
-              T *dA, int64_t ldda, int64_t stridea,                                           
-              T *dB, int64_t lddb, int64_t strideb, at::opmath_type<T> beta,             
-              T *dC, int64_t lddc, int64_t stridec,                                                 
-              T *dA_colchk, int64_t ldda_colchk, T *dA_rowchk, int64_t ldda_rowchk,              
-              T *dA_colchk_r, int64_t ldda_colchk_r, T *dA_rowchk_r, int64_t ldda_rowchk_r,      
-              T *dB_colchk, int64_t lddb_colchk, T *dB_rowchk, int64_t lddb_rowchk,            
-              T *dB_colchk_r, int64_t lddb_colchk_r, T *dB_rowchk_r, int64_t lddb_rowchk_r,      
-              T *dC_colchk, int64_t lddc_colchk, T *dC_rowchk, int64_t lddc_rowchk,           
-              T *dC_colchk_r, int64_t lddc_colchk_r, T *dC_rowchk_r, int64_t lddc_rowchk_r,   
-              T *chk_v_a, T *chk_v_b, int64_t ld_chk_v,                                      
-              int64_t num_batches,
-              bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER ){
-  std::cout << "Using abftbgemm-T function." << std::endl;
-  // See Note [Writing Nondeterministic Operations]
-  // std::cout << "globalContext. \n";
-  globalContext().alertCuBLASConfigNotDeterministic();
-  // std::cout << "handle. \n";
-  cublasHandle_t handle = at::cuda::getCurrentCUDABlasHandle();
-
-  // std::cout << "transA & transB. \n";
-  cublasOperation_t transA = CUBLAS_OP_N;
-  cublasOperation_t transB = CUBLAS_OP_N;
-  switch (transa) {
-    case 'n':
-    case 'N':
-      transA = CUBLAS_OP_N;
-    case 't':
-    case 'T':
-      transA = CUBLAS_OP_T;
-    case 'c':
-    case 'C':
-      transA = CUBLAS_OP_C;
-  }
-  switch (transb) {
-    case 'n':
-    case 'N':
-      transB = CUBLAS_OP_N;
-    case 't':
-    case 'T':
-      transB = CUBLAS_OP_T;
-    case 'c':
-    case 'C':
-      transB = CUBLAS_OP_C;
-  }
-  // cublasOperation_t transA = _cublasOpFromChar(transa);
-  // cublasOperation_t transB = _cublasOpFromChar(transb);
-
-  // std::cout << "alpha & beta. \n";
-  float falpha = at::opmath_type<T>(1);
-  float fbeta = at::opmath_type<T>(0);
-  // std::cout << "alpha: " << falpha << "; beta: " << fbeta << std::endl;
-  std::cout << "transa: " << transa << "; transb: " << transb << std::endl;
-  // get the col_chk and row_chk of A and B
-  // std::cout << "  Get dA_chk: " << std::endl;
-
-  // CUDA Stream
-  cudaStream_t stream_main, stream_colchk, stream_rowchk;
-  cudaStreamCreate(&stream_main);
-  cudaStreamCreate(&stream_colchk);
-  cudaStreamCreate(&stream_rowchk);
-  cublasSetStream(handle, stream_main);
-
-  cudaEvent_t main_compute_done;
-  cudaEventCreate(&main_compute_done);
-
-  cudaEvent_t start, stop;
-  cudaEventCreate(&start);
-  cudaEventCreate(&stop);
-  float t, t1, t_Achk, t_Bchk;
-
-  if (DEBUG) cudaEventRecord(start, stream_colchk);
-  if(transA == CUBLAS_OP_N){
-    // encode_col_lancher<T, M, K, 4>(num_batches,
-    //               dA, ldda, stridea, 
-    //               dA_colchk, ldda_colchk, (2*k), stream_colchk);
-    encode_col_v5<T, M, K, 4><<<num_batches, dim3(M*4, 1), (M+1)*K*sizeof(T), stream_colchk>>>(num_batches,
-                  dA, ldda, stridea, 
-                  dA_colchk, ldda_colchk, (2*k));
-  }
-  else{
-    // cublasSgemmStridedBatched(
-    //   handle, CUBLAS_OP_N, CUBLAS_OP_T, k, 2, m,
-    //   &falpha, dA, ldda, stridea,
-    //   chk_v_a, ld_chk_v, 0, &fbeta,
-    //   dA_rowchk, ldda_rowchk, (2*k),
-    //   num_batches);
-    // std::cout << "  Output dA_rowchk: " << std::endl;
-    // outputMatrixChk(dA_rowchk, ldda_rowchk, (2*k), num_batches, k, 2);
-  }
-  if (DEBUG) {
-    cudaEventRecord(stop, stream_colchk);
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&t_Achk, start, stop);
-    // printf("dA_chk_gemm: %f (%f)(%f)\n", t, (double)num_batches*m*2*k*2/t/1e6, (double)num_batches*(2*k+2*m+k*m)/t/1e6);
-  }
-  
-  //std::cout << "  Get dB_chk: " << std::endl;
-  if (DEBUG) cudaEventRecord(start, stream_rowchk);
-  if (transB == CUBLAS_OP_N){
-    // encode_row_lancher<T, K, N>(num_batches,
-    //               dB, lddb, strideb, 
-    //               dB_rowchk, lddb_rowchk, (2*k), stream_rowchk);
-    encode_row_v5<T, K, N><<<num_batches, dim3(K*2, 1, 1), 0, stream_rowchk>>>(num_batches,
-                  dB, lddb, strideb, 
-                  dB_rowchk, lddb_rowchk, (2*k));
-  }
-  else{
-    // cublasSgemmStridedBatched(
-    //   handle, CUBLAS_OP_N, CUBLAS_OP_N, 2, k, n,
-    //   &falpha, chk_v_b, ld_chk_v, 0,
-    //   dB, lddb, strideb, &fbeta,
-    //   dB_colchk, lddb_colchk, (2*k),
-    //   num_batches);
-    // std::cout << " Output dB_colchk: " << std::endl;
-    // outputMatrixChk(dB_colchk, lddb_colchk, (2*k), num_batches, 2, k);
-  }
-  if (DEBUG) {
-    cudaEventRecord(stop, stream_rowchk);
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&t_Bchk, start, stop);
-    t_Bchk /= 1.0;
-    // printf("dB_chk_gemm: %f (%f)(%f)(%f)\n", t1, t1/t, (double)num_batches*2*n*k*2/t1/1e6, (double)num_batches*(2*k+k*n+2*n)/t1/1e6);
-  }
-
-  falpha = alpha;
-  fbeta = beta;
-
-  // number of row and col of B stored in memory(no trans operation)
-  int64_t mem_row = 0;
-	int64_t mem_col = 0;
-
-  // --begin-- //
-  // calculate check-sum
-  std::cout << "-----Begin.------" << std::endl;
-  if (DEBUG) cudaEventRecord(start, stream_main);
-  if (DEBUG) std::cout<<"A*B=C." << std::endl;
-  if constexpr (std::is_same<T, float>::value) {
-    cublasSgemmStridedBatched(
-        handle, transA, transB, m, n, k,
-        &falpha, dA, ldda, stridea,
-        dB, lddb, strideb, &fbeta,
-        dC, lddc, stridec,
-        num_batches);
-  } else if constexpr(std::is_same<T, at::Half>::value) {
-    cublasGemmStridedBatchedEx(
-    handle, transA, transB, m, n, k,
-    &falpha, dA, CUDA_R_16F, ldda, stridea,
-    dB, CUDA_R_16F, lddb, strideb, &fbeta,
-    dC, CUDA_R_16F, lddc, stridec,
-    num_batches, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-  }
-  cudaStreamSynchronize(stream_main);
-  // std::cout << "Output dC: " << std::endl;
-  // outputMatrix(dC, lddc, stridec, num_batches, m, n);
-  
-  if (DEBUG) {
-    cudaEventRecord(stop, stream_main);
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&t, start, stop);
-    printf("  gemm: %f (%f)(%f)\n", t, (double)num_batches*m*n*k*2/t/1e6, (double)num_batches*(m*k+k*n+m*n)/t/1e6);
-    printf("dA_chk_gemm: %f (%f)(%f)(%f)\n", t_Achk, t_Achk/t, (double)num_batches*m*2*k*2/t_Achk/1e6, (double)num_batches*(2*k+2*m+k*m)/t_Achk/1e6);
-    printf("dB_chk_gemm: %f (%f)(%f)(%f)\n", t_Bchk, t_Bchk/t, (double)num_batches*2*n*k*2/t_Bchk/1e6, (double)num_batches*(2*k+k*n+2*n)/t_Bchk/1e6);
-  }
-
-  if (DEBUG) cudaEventRecord(start, stream_colchk);
-  if(COL_FT){
-    //std::cout << "  COL_FT" << std::endl;
-    if (transA == CUBLAS_OP_N) {
-       if (DEBUG) std::cout << "dA_colchk * dB = dC_colchk" << std::endl;;
-        // K*4 must be greater then 2 * N
-        // update_col_lancher<T, K, N, 4>(num_batches,
-        //             dA_colchk, ldda_colchk, k*2, 
-        //             dB, lddb, strideb, 
-        //             dC_colchk, lddc_colchk, n*2, stream_colchk);
-        update_col_v5<T, K, N, 4><<<num_batches, dim3(K*4, 1, 1), ((K+1)*N+2*K) * sizeof(T), stream_colchk>>>(num_batches,
-                    dA_colchk, ldda_colchk, k*2, 
-                    dB, lddb, strideb, 
-                    dC_colchk, lddc_colchk, n*2);
-    }
-    else{
-      if (DEBUG) std::cout << "dB * dA_rowchk = dC_colchk" << std::endl;
-    }
-    // std::cout << "Output dC_colchk: " << std::endl;
-    // outputMatrixChk(dC_colchk, ldda_colchk, n*2, num_batches, 2, n);
-  }
-  if (DEBUG) {
-      cudaEventRecord(stop, stream_colchk);
-      cudaEventSynchronize(stop);
-      cudaEventElapsedTime(&t1, start, stop);
-      printf("  gemm-col-ft: %f (%f)(%f)(%f)\n", t1, t1/t, (double)num_batches*2*n*k*2/t1/1e6, (double)num_batches*(2*k+k*n+2*n)/t1/1e6);
-  }
-
-  if (DEBUG) cudaEventRecord(start, stream_rowchk);
-  if (ROW_FT) {
-      //std::cout << "  ROW_FT" << std::endl;
-      if (transB == CUBLAS_OP_N) {
-        if (DEBUG) std::cout << "dA * dB_rowchk = dC_rowlchk" << std::endl;
-        //we can further work on this to support trans A.
-        // update_row_lancher<T, M, K>(num_batches,
-        //             dA, ldda, stridea, 
-        //             dB_rowchk, lddb_rowchk, k*2, 
-        //             dC_rowchk, lddc_rowchk, m*2, stream_rowchk);
-        update_row_v5<T, M, K><<<num_batches, dim3(M*2, 1, 1), (2*K) * sizeof(T), stream_rowchk>>>(num_batches,
-                    dA, ldda, stridea, 
-                    dB_rowchk, lddb_rowchk, k*2, 
-                    dC_rowchk, lddc_rowchk, m*2);
-      }
-      else{
-        if (DEBUG) std::cout << "dB_colchk * dA = dC_rowlchk" << std::endl;
-        
-      }
-      // std::cout << "Output dC_rowchk: " << std::endl;
-      // outputMatrixChk(dC_rowchk,lddc_rowchk, m*2, num_batches, m, 2);
-  }
-  if (DEBUG) {
-    cudaEventRecord(stop, stream_rowchk);
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&t1, start, stop);
-    printf("  gemm-row-ft: %f (%f)(%f)(%f)\n", t1, t1/t, (double)num_batches*m*2*k*2/t1/1e6, (double)num_batches*(m*k+k*2+m*2)/t1/1e6);
-  }
-
-  // --- check check-sum of C---//
-  if (DEBUG) std::cout << "------Check check-sum-------" << std::endl;
-  if (DEBUG) cudaEventRecord(start, stream_colchk);
-  if (COL_FT && CHECK_AFTER) {
-    mem_row = m;
-    mem_col = n;
-    if (DEBUG) printf("dgemm-after-check-C-col\n");
-    // encode_col_lancher<T, M, N, 4>(num_batches,
-    //                 dC, lddc, stridec, 
-    //                 dC_colchk_r, lddc_colchk_r, (2*n),stream_colchk);
-    encode_col_v5<T, M, N, 4><<<num_batches, dim3(M*4, 1), (M+1)*N*sizeof(T), stream_colchk>>>(num_batches,
-                   dC, lddc, stridec, 
-                    dC_colchk_r, lddc_colchk_r, (2*n));
-
-    T E = 1e-2;
-    // detect_correct_col_lancher(dC, lddc, E, stridec,
-    //                                         dC_colchk,      lddc_colchk,    (2*n),
-    //                                         dC_colchk_r,    lddc_colchk_r,  (2*n),
-    //                                         num_batches, n, stream_colchk);
-    detect_correct_col<T><<<dim3(num_batches), dim3(n), 0, stream_colchk>>>(dC, lddc, E, stridec,
-                                            dC_colchk,      lddc_colchk,    (2*n),
-                                            dC_colchk_r,    lddc_colchk_r,  (2*n));
-  }
-
-  if (DEBUG) {
-    cudaEventRecord(stop, stream_colchk);
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&t1, start, stop);
-    printf("gemm-col-chk: %f (%f)(%f)(%f)\n", t1, t1/t, (double)(num_batches)*2*n*m*2/t1/1e6, (double)num_batches*(m*n+2*m+2*n)/t1/1e6);
-  }
-
-  if (DEBUG) cudaEventRecord(start, stream_rowchk);
-  if (ROW_FT && CHECK_AFTER) {
-    mem_row = m;
-    mem_col = n;
-    if (DEBUG) printf("dgemm-after-check-C-row\n");
-    // encode_row_lancher<T, M, N>(num_batches,
-    //                 dC, lddc, stridec,
-    //                 dC_rowchk_r, lddc_rowchk_r, (2*m), stream_rowchk);
-    encode_row_v5<T, M, N><<<num_batches, dim3(M*2, 1, 1), 0, stream_rowchk>>>(num_batches,
-                    dC, lddc, stridec,
-                    dC_rowchk_r, lddc_rowchk_r, (2*m));
-    T E = 1e-2;
-    // detect_correct_row_lancher(dC, lddc, E, stridec,
-    //                                       dC_rowchk, lddc_rowchk,     (2*m),
-    //                                       dC_rowchk_r, lddc_rowchk_r, (2*m), 
-    //                                       num_batches, m, stream_rowchk);
-    detect_correct_row<T><<<dim3(num_batches), dim3(m), 0, stream_rowchk>>>(dC, lddc, E, stridec,
-                                          dC_rowchk, lddc_rowchk,     (2*m),
-                                          dC_rowchk_r, lddc_rowchk_r, (2*m));
-  }
-
-  if (DEBUG) {
-      cudaEventRecord(stop, stream_rowchk);
-      cudaEventSynchronize(stop);
-      cudaEventElapsedTime(&t1, start, stop);
-      printf("gemm-row-chk: %f (%f)(%f)(%f)\n", t1, t1/t, (double)(num_batches)*m*2*n*2/t1/1e6, (double)num_batches*(m*n+2*n+2*m)/t1/1e6);
-  }
-}
 
 #define CUDABLAS_MYBGEMM_ARGTYPES(Dtype)                                                       \
       char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<Dtype> alpha, \
@@ -527,191 +267,21 @@ void abftbgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::op
       const Dtype *dB, int64_t lddb, int64_t strideb, at::opmath_type<Dtype> beta,             \
       Dtype *dC, int64_t lddc, int64_t stridec,                                                \
       int64_t num_batches  
-/*                                                                                                                          
-template <typename Dtype>
-inline void mybgemm(CUDABLAS_MYBGEMM_ARGTYPES(Dtype)) {
-  AT_ERROR("at::cuda::blas::mybgemm: not implemented for ", typeid(Dtype).name());
-}
-template <>
-void mybgemm<float>(CUDABLAS_MYBGEMM_ARGTYPES(float));
-*/
-template <typename T>
+
+template<typename T>
 void mybgemm(CUDABLAS_MYBGEMM_ARGTYPES(T));
 
-template <typename T>
-void mybgemm(char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<T> alpha, \
-              const T *dA, int64_t ldda, int64_t stridea,                                          \
-              const T *dB, int64_t lddb, int64_t strideb, at::opmath_type<T> beta,             \
-              T *dC, int64_t lddc, int64_t stridec,                                                \
-              int64_t num_batches) {
-  std::cout << "Using mybgemm-T function." << std::endl;
+#define CUDABLAS_ABFTGEMM_ARGTYPES(Dtype)                                                       \
+    char transa, char transb, int64_t m, int64_t n, int64_t k, at::opmath_type<Dtype> alpha,  \
+    Dtype *dA, int64_t ldda, int64_t stridea,                                           \
+    Dtype *dB, int64_t lddb, int64_t strideb, at::opmath_type<Dtype> beta,             \
+    Dtype *dC, int64_t lddc, int64_t stridec,                                                 \
+    int64_t num_batches,                                                                    \
+    bool COL_FT, bool ROW_FT, bool DEBUG, bool CHECK_BEFORE, bool CHECK_AFTER, bool ifPassChk, \
+    char QKV, int64_t num_head, bool INJECTION, fs::path homePath
 
-  T *dA_ = const_cast<T*>(dA);
-  T *dB_ = const_cast<T*>(dB);
-  // std::cout << "C: " << std::endl;
-  // outputMatrix(dC, lddc, stridec, num_batches, m, n);
-  if(beta == at::opmath_type<T>(0)){
-    cudaMemset(dC, 0, (num_batches * m * n * sizeof(T)));
-  }
-  
-  // std::cout << "_A:" << std::endl;
-  // outputMatrix(dA_, ldda, stridea, num_batches, k, n);
-  // std::cout << "stridea: " << stridea  << "; lda: " << ldda << std::endl;
-  // std::cout << "_B: " << std::endl;
-  // outputMatrix(dB_, lddb, strideb, num_batches, m, k);
-  // std::cout << "strideb: " << strideb << "; ldb: " << lddb << std::endl;
-  std::cout << "m: " << m << "; n: " << n << "; k: " << k << std::endl;
-  std::cout << "num_batches: " << num_batches << std::endl;
-
-  // std::cout << "leading dimension." << std::endl;
-  
-
-  int64_t ldda_colchk = 2;
-  int64_t ldda_colchk_r = 2;
-  int64_t ldda_rowchk = k;
-  int64_t ldda_rowchk_r = k;
-
-  int64_t lddb_rowchk = k;
-  int64_t lddb_rowchk_r = k;
-  int64_t lddb_colchk = 2;
-  int64_t lddb_colchk_r = 2;
-
-  int64_t lddc_colchk = 2;
-  int64_t lddc_colchk_r = 2;
-  int64_t lddc_rowchk = m;
-  int64_t lddc_rowchk_r = m;
-  int64_t ld_chk_v = 2;
-
-  //std::cout << "alloc chk vectors" << std::endl;
-
-  T *dA_colchk, *dA_rowchk, *dA_colchk_r, *dA_rowchk_r;
-  T *dB_colchk, *dB_rowchk, *dB_colchk_r, *dB_rowchk_r;
-  T *dC_colchk, *dC_rowchk, *dC_colchk_r, *dC_rowchk_r;
-  T *chk_v_a;
-  T *chk_v_b;
-
-  size_t size = (2*num_batches) * k * sizeof(T);
-  cudaMalloc((void**)&dA_colchk, size);
-  cudaMemset(dA_colchk, 0, size);
-  cudaMalloc((void**)&dA_colchk_r, size);
-  cudaMemset(dA_colchk_r, 0, size);
-
-  cudaMalloc((void**)&dA_rowchk, size);
-  cudaMemset(dA_rowchk, 0, size);
-  cudaMalloc((void**)&dA_rowchk_r, size);
-  cudaMemset(dA_rowchk_r, 0, size);
-  //std::cout << "  finish dA." << std::endl;
-  
-  cudaMalloc((void**)&dB_colchk, size);
-  cudaMemset(dB_colchk, 0, size);
-  cudaMalloc((void**)&dB_colchk_r, size);
-  cudaMemset(dB_colchk_r, 0, size);
-  
-  cudaMalloc((void**)&dB_rowchk, size);
-  cudaMemset(dB_rowchk, 0, size);
-  cudaMalloc((void**)&dB_rowchk_r, size);
-  cudaMemset(dB_rowchk_r, 0, size);
-  //std::cout << "  finish dB." << std::endl;
-
-  size = (2*num_batches) * n * sizeof(T);
-  cudaMalloc((void**)&dC_colchk, size);
-  cudaMemset(dC_colchk, 0, size);
-  cudaMalloc((void**)&dC_colchk_r, size);
-  cudaMemset(dC_colchk_r, 0, size);
-  
-  size = (2*num_batches) * m * sizeof(T);
-  cudaMalloc((void**)&dC_rowchk, size);
-  cudaMemset(dC_rowchk, 0, size);
-  cudaMalloc((void**)&dC_rowchk_r, size);
-  cudaMemset(dC_rowchk_r, 0, size);
-  //std::cout << "  finish dC." << std::endl;
-
-  //int64_t len = (m > n)? m : n;
-  int64_t len = m;
-  size = 2 * len * sizeof(T);
-  cudaMalloc((void**)&chk_v_a, size);
-  // std::cout << "  assign values to chk_v_a." << std::endl;
-  T *h_matrix;
-  h_matrix = (T *)malloc(size);
-  int idx = 0;
-  for(int i = 0; i < len; i++){
-    idx = i*ld_chk_v;
-    h_matrix[idx] = T(1);
-    h_matrix[idx+1] = T(i+1);
-  }
-  cudaMemcpy(chk_v_a, h_matrix, size, cudaMemcpyHostToDevice);
-  // outputMatrixChk(chk_v_a, ld_chk_v, 0, 1, 2, len);
-  free(h_matrix);
-
-  len = n;
-  size = 2 * len * sizeof(T);
-  cudaMalloc((void**)&chk_v_b, size);
-  // std::cout << "  assign values to chk_v_b." << std::endl;
-  h_matrix = (T *)malloc(size);
-  idx = 0;
-  for(int i = 0; i < len; i++){
-    idx = i*ld_chk_v;
-    h_matrix[idx] = T(1);
-    h_matrix[idx+1] = T(i+1);
-  }
-  cudaMemcpy(chk_v_b, h_matrix, size, cudaMemcpyHostToDevice);
-  // outputMatrixChk(chk_v_b, ld_chk_v, 0, 1, 2, len);
-  free(h_matrix);
-  //std::cout << "  finish chk_v." << std::endl;
-
-  bool COL_FT = true;
-  bool ROW_FT = true;
-  bool DEBUG = true;
-  bool CHECK_BEFORE = true;
-  bool CHECK_AFTER = true;
-
-  // std::cout << "Calling abftgemm-T function." << std::endl;
-
-  // for (int i = 0; i <10; i++) {
-  auto start = high_resolution_clock::now();
-  // const int64_t M = 72;
-  // const int64_t N = 72;
-  // const int64_t K = 64;
-  abftbgemm<T, 72, 72, 64>(transa, transb, m, n, k,
-      alpha, dA_, ldda, stridea,
-      dB_, lddb, strideb, beta,
-      dC, lddc, stridec,
-      dA_colchk, ldda_colchk,
-      dA_rowchk, ldda_rowchk,
-      dA_colchk_r, ldda_colchk_r,
-      dA_rowchk_r, ldda_rowchk_r,
-      dB_colchk, lddb_colchk,
-      dB_rowchk, lddb_rowchk,
-      dB_colchk_r, lddb_colchk_r,
-      dB_rowchk_r, lddb_rowchk_r,
-      dC_colchk, lddc_colchk,
-      dC_rowchk, lddc_rowchk,
-      dC_colchk_r, lddc_colchk_r,
-      dC_rowchk_r, lddc_rowchk_r,
-      chk_v_a, chk_v_b, ld_chk_v,
-      num_batches,
-      COL_FT,ROW_FT,DEBUG,CHECK_BEFORE,CHECK_AFTER);
-  cudaDeviceSynchronize();
-  auto stop = high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<microseconds>(stop - start);
-  std::cout << "abftbgemm: " << duration.count() / 1000.0 << std::endl;
-  // }
-
-  cudaFree(dA_colchk);
-  cudaFree(dA_rowchk);
-  cudaFree(dA_colchk_r);
-  cudaFree(dA_rowchk_r);
-  cudaFree(dB_colchk);
-  cudaFree(dB_rowchk);
-  cudaFree(dB_colchk_r);
-  cudaFree(dB_rowchk_r);
-  cudaFree(dC_colchk);
-  cudaFree(dC_rowchk);
-  cudaFree(dC_colchk_r);
-  cudaFree(dC_rowchk_r);
-  cudaFree(chk_v_a);
-  cudaFree(chk_v_b);
-}
+template <typename T, int64_t M, int64_t N, int64_t K>
+void abftbgemm(CUDABLAS_ABFTGEMM_ARGTYPES(T));
 
 #if defined(USE_ROCM) && ROCM_VERSION <= 50500
 // ROCm 5.6 hipblas matches the const Dtype *A API, but prior hipblas does not.
