@@ -1,6 +1,6 @@
 # ATTNChecker
 
-## 1. Installation
+## Installation
 
 ### Our Environment
 
@@ -26,14 +26,29 @@ git clone https://github.com/liangyh911/ATTNChecker.git
 cd ATTNChecker
 ```
 
-### Move AttnChecker Scripts to Pytorch
+### Install required Python Packages for ATTNChecker
+
+```shell
+pip install -r requirements.txt 
+```
+
+### Move the modeling scripts from HF-moding to transformers
+
+```shell
+cp ./HF-moding/modeling_bert.py      path_to_anacond/envs/attnchk/lib/python3.8/site-packages/transformers/models/bert/modeling_bert.py
+cp ./HF-moding/modeling_gpt2.py      path_to_anacond/envs/attnchk/lib/python3.8/site-packages/transformers/models/gpt2/modeling_gpt2.py
+cp ./HF-moding/modeling_gpt_neo.py   path_to_anacond/envs/attnchk/lib/python3.8/site-packages/transformers/models/gpt_neo/modeling_gpt_neo.py
+cp ./HF-moding/modeling_roberta.py   path_to_anacond/envs/attnchk/lib/python3.8/site-packages/transformers/models/roberta/modeling_roberta.py
+```
+
+<!-- ### Move AttnChecker Scripts to Pytorch
 
 ```shell
 cp  ./OptABFT_v4/CUDABlas.cu      ./pytorch/aten/src/ATen/cuda/CUDABlas.cu
 cp  ./OptABFT_v4/CUDABlas.h       ./pytorch/aten/src/ATen/cuda/CUDABlas.h
 cp  ./OptABFT_v4/opt_kernels.cu   ./pytorch/aten/src/ATen/cuda/opt_kernels.cu
 cp  ./OptABFT_v4/Blas.cpp         ./pytorch/aten/src/ATen/native/cuda/Blas.cpp
-```
+``` -->
 
 ### Build Pytorch from Source
 
@@ -59,30 +74,6 @@ And you also could test if cuda is available by using ```torch.cuda.is_available
 ```shell
 import torch
 torch.cuda.is_available()
-```
-
-### Install required Python Packages for ATTNChecker
-
-```shell
-cd ./ATTNChecker
-pip install -r requirements.txt 
-```
-
-<!-- ```shell
-pip install accelerate==0.26.1
-pip install datasets==2.18.0
-pip install evaluate==0.4.1
-pip install scikit-learn==1.3.2
-pip install transformers==4.37.2
-``` -->
-
-### Move the modeling scripts from HF-moding to transformers
-
-```shell
-cp ./ATTNChecker/HF-moding/modeling_bert.py      path_to_anacond/envs/attnchk/lib/python3.8/site-packages/transformers/models/bert/modeling_bert.py
-cp ./ATTNChecker/HF-moding/modeling_gpt2.py      path_to_anacond/envs/attnchk/lib/python3.8/site-packages/transformers/models/gpt2/modeling_gpt2.py
-cp ./ATTNChecker/HF-moding/modeling_gpt_neo.py   path_to_anacond/envs/attnchk/lib/python3.8/site-packages/transformers/models/gpt_neo/modeling_gpt_neo.py
-cp ./ATTNChecker/HF-moding/modeling_roberta.py   path_to_anacond/envs/attnchk/lib/python3.8/site-packages/transformers/models/roberta/modeling_roberta.py
 ```
 
 ## Usage
