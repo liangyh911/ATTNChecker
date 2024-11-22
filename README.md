@@ -104,7 +104,7 @@ You can also change thses settings in the scripts. Here is an example to run gpt
 
 ```shell
 # for gpt2
-python ./ATTNChecker/ABFT_running_time/gpt2.py
+python ./ABFT_running_time/gpt2.py
 ```
 
 To disable ATTNChecker, you need to replace '2' to '0' in  ```./control/AttnChecker_Mod.txt```. Then, running the script again.
@@ -117,5 +117,5 @@ You can use the scripts in ```./Checkpoint_time``` folder to test the save and l
 
 ```shell
 # for gpt2
-python ./ATTNChecker/Checkpoint_time/gpt2.py
+python ./Checkpoint_time/gpt2.py
 ```
