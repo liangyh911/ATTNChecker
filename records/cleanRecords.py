@@ -9,40 +9,40 @@ def main():
     # homePath = get_home_directory_with_expanduser()
     homePath = ""
     
-    bgemmTime =       "../records/time/abftbgemm.txt"
-    bgemmEffecience = "../records/effeciency/abftbgemm.txt"
+    bgemmTime =       "./records/time/abftbgemm.txt"
+    bgemmEffecience = "./records/effeciency/abftbgemm.txt"
 
-    gemmTime =       "../records/time/abftgemm.txt"
-    gemmEffecience = "../records/effeciency/abftgemm.txt"
+    gemmTime =       "./records/time/abftgemm.txt"
+    gemmEffecience = "./records/effeciency/abftgemm.txt"
 
-    biasTime =       "../records/time/abftBias.txt"
-    biasEffecience = "../records/effeciency/abftBias.txt"
+    biasTime =       "./records/time/abftBias.txt"
+    biasEffecience = "./records/effeciency/abftBias.txt"
 
-    attnTime = "../records/time/attn.txt"
+    attnTime = "./records/time/attn.txt"
 
-    QTime = "../records/time/Q.txt"
-    KTime = "../records/time/K.txt"
-    VTime = "../records/time/V.txt"
-    ASTime = "../records/time/AS.txt"
-    CLTime = "../records/time/CL.txt"
-    OUTTime = "../records/time/OUT.txt"
+    QTime = "./records/time/Q.txt"
+    KTime = "./records/time/K.txt"
+    VTime = "./records/time/V.txt"
+    ASTime = "./records/time/AS.txt"
+    CLTime = "./records/time/CL.txt"
+    OUTTime = "./records/time/OUT.txt"
 
-    bgemmCompTime =       "../records/time/abftbgemm_Computing.txt"
-    gemmCompTime =       "../records/time/abftgemm_Computing.txt"
-    biasCompTime =       "../records/time/abftBias_Computing.txt"
+    bgemmCompTime =       "./records/time/abftbgemm_Computing.txt"
+    gemmCompTime =       "./records/time/abftgemm_Computing.txt"
+    biasCompTime =       "./records/time/abftBias_Computing.txt"
 
-    prepareTime = "../records/time/preparation.txt"
+    prepareTime = "./records/time/preparation.txt"
 
-    training_time = "../records/training_time.txt"
-    loss = "../records/loss.txt"
+    training_time = "./records/training_time.txt"
+    loss = "./records/loss.txt"
 
-    save_time = "../records/save_time.txt"
-    load_time = "../records/load_time.txt"
+    save_time = "./records/save_time.txt"
+    load_time = "./records/load_time.txt"
 
-    BGemmC_time = "../records/time/BGemmCorrect.txt"
-    BiasC_time = "../records/time/BiasCorrect.txt"
+    BGemmC_time = "./records/time/BGemmCorrect.txt"
+    BiasC_time = "./records/time/BiasCorrect.txt"
 
-    Cpy_time = "../records/time/cpy.txt"
+    Cpy_time = "./records/time/cpy.txt"
 
     with open((homePath + bgemmTime), "w") as frTime:
         frTime.truncate(0)
