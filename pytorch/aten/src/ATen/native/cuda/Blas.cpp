@@ -2,6 +2,10 @@
 #include <cstdio>
 #include <string>
 #include <fstream>
+#include <cstdlib>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 #define TORCH_ASSERT_ONLY_METHOD_OPERATORS
 #include <ATen/core/Tensor.h>
@@ -36,6 +40,9 @@
 #include <ATen/ops/scalar_tensor_native.h>
 #include <ATen/ops/vdot_native.h>
 #endif
+
+#include <chrono>
+using namespace std::chrono;
 
 namespace at::native {
 
@@ -325,6 +332,15 @@ Tensor& addmm_out_cuda_impl(Tensor& result, const Tensor& self, const Tensor& ma
 
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(!args.result->is_conj());
 
+  const char* homeDir = nullptr;
+  homeDir = getenv("HOME");
+  if (homeDir != nullptr) {
+      
+  } 
+  else {
+      std::cerr << "Could not get home directory" << std::endl;
+  }
+
 #if (!defined(USE_ROCM) && !defined(_MSC_VER)) || (defined(USE_ROCM) && ROCM_VERSION >= 50700)
   if (useLtInterface) {
     AT_DISPATCH_FLOATING_TYPES_AND2(
@@ -333,38 +349,168 @@ Tensor& addmm_out_cuda_impl(Tensor& result, const Tensor& self, const Tensor& ma
         scalar_type,
         "addmm_cuda_lt",
         [&] {
-          at::cuda::blas::gemm_and_bias<scalar_t>(
-              args.transa == 't',
-              args.transb == 't',
-              args.m,
-              args.n,
-              args.k,
-              alpha.to<at::opmath_type<scalar_t>>(),
-              args.mata->data_ptr<scalar_t>(),
-              args.lda,
-              args.matb->data_ptr<scalar_t>(),
-              args.ldb,
-#if defined(USE_ROCM)
-              // This condition is needed for mm case on ROCm for hipblasLt path.
-              // Passing the bias ptr as null to avoid accuracy issues for mm case.
-              (&result != &self) ? self.const_data_ptr<scalar_t>() : nullptr,
-#else
-              self.const_data_ptr<scalar_t>(),
-#endif
-              args.result->data_ptr<scalar_t>(),
-              args.result_ld,
-#if (defined(CUDA_VERSION) && CUDA_VERSION >= 11080) || defined(USE_ROCM)
-              activation_to_gemm_and_blas_arg(activation)
-#else
-              // GELU is not supported (and does not compile!) prior
-              // to CUDA 11.4. Have observed accuracy issues with
-              // GELU epilogue in 11.4; disabling the GELU epilogue
-              // path for CUDA version < 11.8.
-              activation != Activation::GELU
-              ? activation_to_gemm_and_blas_arg(activation)
-              : cuda::blas::GEMMAndBiasActivationEpilogue::None
-#endif
-          );
+          fs::path homePath(homeDir);
+          fs::path destinationFile = "./control/IFLinearABFT.txt";
+          fs::path fullPath = homePath / destinationFile;
+          std::ifstream myfile(destinationFile);
+          if (!myfile.is_open()){
+            // std::cout << "gemm_bias" << std::endl;
+            at::cuda::blas::gemm_and_bias<scalar_t>(
+                args.transa == 't',
+                args.transb == 't',
+                args.m,
+                args.n,
+                args.k,
+                alpha.to<at::opmath_type<scalar_t>>(),
+                args.mata->data_ptr<scalar_t>(),
+                args.lda,
+                args.matb->data_ptr<scalar_t>(),
+                args.ldb,
+  #if defined(USE_ROCM)
+                // This condition is needed for mm case on ROCm for hipblasLt path.
+                // Passing the bias ptr as null to avoid accuracy issues for mm case.
+                (&result != &self) ? self.const_data_ptr<scalar_t>() : nullptr,
+  #else
+                self.const_data_ptr<scalar_t>(),
+  #endif
+                args.result->data_ptr<scalar_t>(),
+                args.result_ld,
+  #if (defined(CUDA_VERSION) && CUDA_VERSION >= 11080) || defined(USE_ROCM)
+                activation_to_gemm_and_blas_arg(activation)
+  #else
+                // GELU is not supported (and does not compile!) prior
+                // to CUDA 11.4. Have observed accuracy issues with
+                // GELU epilogue in 11.4; disabling the GELU epilogue
+                // path for CUDA version < 11.8.
+                activation != Activation::GELU
+                ? activation_to_gemm_and_blas_arg(activation)
+                : cuda::blas::GEMMAndBiasActivationEpilogue::None
+  #endif
+            );  
+          }
+          else{
+            char flag;
+            myfile.get(flag);
+            myfile.close();
+            if(flag == 't'){
+                // auto start = high_resolution_clock::now();
+                flag = 'f';
+                fs::path homePath(homeDir);
+                fs::path destinationFile = "./control/IFPassChk.txt";
+                fs::path fullPath = homePath / destinationFile;
+                std::ifstream isPassChkFile(destinationFile);
+                isPassChkFile.get(flag);
+                isPassChkFile.close();
+                // auto stop = high_resolution_clock::now();
+                // auto duration = std::chrono::duration_cast<microseconds>(stop - start);
+                // std::cout << "Blas.cpp Bias Pass: " << duration.count() / 1000.0 << std::endl;
+                if(flag == 't'){
+                  // std::cout << "my_gemm_biasPassChk" << std::endl;
+                  at::cuda::blas::myGemmBiasPassChk<scalar_t>(
+                    args.transa == 't',
+                    args.transb == 't',
+                    args.m,
+                    args.n,
+                    args.k,
+                    alpha.to<at::opmath_type<scalar_t>>(),
+                    args.mata->data_ptr<scalar_t>(),
+                    args.lda,
+                    args.matb->data_ptr<scalar_t>(),
+                    args.ldb,
+      #if defined(USE_ROCM)
+                    // This condition is needed for mm case on ROCm for hipblasLt path.
+                    // Passing the bias ptr as null to avoid accuracy issues for mm case.
+                    (&result != &self) ? self.const_data_ptr<scalar_t>() : nullptr,
+      #else
+                    self.const_data_ptr<scalar_t>(),
+      #endif
+                    args.result->data_ptr<scalar_t>(),
+                    args.result_ld,
+      #if (defined(CUDA_VERSION) && CUDA_VERSION >= 11080) || defined(USE_ROCM)
+                    activation_to_gemm_and_blas_arg(activation)
+      #else
+                    // GELU is not supported (and does not compile!) prior
+                    // to CUDA 11.4. Have observed accuracy issues with
+                    // GELU epilogue in 11.4; disabling the GELU epilogue
+                    // path for CUDA version < 11.8.
+                    activation != Activation::GELU
+                    ? activation_to_gemm_and_blas_arg(activation)
+                    : cuda::blas::GEMMAndBiasActivationEpilogue::None
+      #endif
+                  );
+                }
+                else{
+                  // std::cout << "my_gemm_bias" << std::endl;
+                  at::cuda::blas::myGemmBias<scalar_t>(
+                    args.transa == 't',
+                    args.transb == 't',
+                    args.m,
+                    args.n,
+                    args.k,
+                    alpha.to<at::opmath_type<scalar_t>>(),
+                    args.mata->data_ptr<scalar_t>(),
+                    args.lda,
+                    args.matb->data_ptr<scalar_t>(),
+                    args.ldb,
+      #if defined(USE_ROCM)
+                    // This condition is needed for mm case on ROCm for hipblasLt path.
+                    // Passing the bias ptr as null to avoid accuracy issues for mm case.
+                    (&result != &self) ? self.const_data_ptr<scalar_t>() : nullptr,
+      #else
+                    self.const_data_ptr<scalar_t>(),
+      #endif
+                    args.result->data_ptr<scalar_t>(),
+                    args.result_ld,
+      #if (defined(CUDA_VERSION) && CUDA_VERSION >= 11080) || defined(USE_ROCM)
+                    activation_to_gemm_and_blas_arg(activation)
+      #else
+                    // GELU is not supported (and does not compile!) prior
+                    // to CUDA 11.4. Have observed accuracy issues with
+                    // GELU epilogue in 11.4; disabling the GELU epilogue
+                    // path for CUDA version < 11.8.
+                    activation != Activation::GELU
+                    ? activation_to_gemm_and_blas_arg(activation)
+                    : cuda::blas::GEMMAndBiasActivationEpilogue::None
+      #endif
+                  );  
+                }  
+            }
+            else{
+                // std::cout << "gemm_bias" << std::endl;
+                at::cuda::blas::gemm_and_bias<scalar_t>(
+                  args.transa == 't',
+                  args.transb == 't',
+                  args.m,
+                  args.n,
+                  args.k,
+                  alpha.to<at::opmath_type<scalar_t>>(),
+                  args.mata->data_ptr<scalar_t>(),
+                  args.lda,
+                  args.matb->data_ptr<scalar_t>(),
+                  args.ldb,
+    #if defined(USE_ROCM)
+                  // This condition is needed for mm case on ROCm for hipblasLt path.
+                  // Passing the bias ptr as null to avoid accuracy issues for mm case.
+                  (&result != &self) ? self.const_data_ptr<scalar_t>() : nullptr,
+    #else
+                  self.const_data_ptr<scalar_t>(),
+    #endif
+                  args.result->data_ptr<scalar_t>(),
+                  args.result_ld,
+    #if (defined(CUDA_VERSION) && CUDA_VERSION >= 11080) || defined(USE_ROCM)
+                  activation_to_gemm_and_blas_arg(activation)
+    #else
+                  // GELU is not supported (and does not compile!) prior
+                  // to CUDA 11.4. Have observed accuracy issues with
+                  // GELU epilogue in 11.4; disabling the GELU epilogue
+                  // path for CUDA version < 11.8.
+                  activation != Activation::GELU
+                  ? activation_to_gemm_and_blas_arg(activation)
+                  : cuda::blas::GEMMAndBiasActivationEpilogue::None
+    #endif
+              );  
+            }
+          }
         });
   } else
 #endif
@@ -381,20 +527,97 @@ Tensor& addmm_out_cuda_impl(Tensor& result, const Tensor& self, const Tensor& ma
           const scalar_t* mat1_ptr = args.mata->const_data_ptr<scalar_t>();
           const scalar_t* mat2_ptr = args.matb->const_data_ptr<scalar_t>();
           scalar_t* result_ptr = args.result->mutable_data_ptr<scalar_t>();
-          at::cuda::blas::gemm<scalar_t>(
-              args.transa,
-              args.transb,
-              args.m,
-              args.n,
-              args.k,
-              alpha_val,
-              mat1_ptr,
-              args.lda,
-              mat2_ptr,
-              args.ldb,
-              beta_val,
-              result_ptr,
-              args.result_ld);
+
+          fs::path homePath(homeDir);
+          fs::path destinationFile = "./control/IFLinearABFT.txt";
+          fs::path fullPath = homePath / destinationFile;
+          std::ifstream myfile(destinationFile);
+          if (!myfile.is_open()){
+            // std::cout << "gemm" << std::endl;
+            at::cuda::blas::gemm<scalar_t>(
+                args.transa,
+                args.transb,
+                args.m,
+                args.n,
+                args.k,
+                alpha_val,
+                mat1_ptr,
+                args.lda,
+                mat2_ptr,
+                args.ldb,
+                beta_val,
+                result_ptr,
+                args.result_ld);
+            }
+          else{
+            char flag;
+            myfile.get(flag);
+            myfile.close();
+            if(flag == 't'){
+              // auto start = high_resolution_clock::now();
+              flag = 'f';
+              fs::path homePath(homeDir);
+              fs::path destinationFile = "./control/IFPassChk.txt";
+              fs::path fullPath = homePath / destinationFile;
+              std::ifstream isPassChkFile(destinationFile);
+              isPassChkFile.get(flag);
+              isPassChkFile.close();
+              // auto stop = high_resolution_clock::now();
+              // auto duration = std::chrono::duration_cast<microseconds>(stop - start);
+              // std::cout << "Blas.cpp Gemm Pass: " << duration.count() / 1000.0 << std::endl;
+              if(flag == 't'){
+                // std::cout << "Calling myGemmPassChk function" << std::endl;
+                at::cuda::blas::myGemmPassChk<scalar_t>(
+                  args.transa,
+                  args.transb,
+                  args.m,
+                  args.n,
+                  args.k,
+                  alpha_val,
+                  mat1_ptr,
+                  args.lda,
+                  mat2_ptr,
+                  args.ldb,
+                  beta_val,
+                  result_ptr,
+                  args.result_ld);
+              }
+              else{
+                // std::cout << "Calling myGemm function" << std::endl;
+                at::cuda::blas::myGemm<scalar_t>(
+                  args.transa,
+                  args.transb,
+                  args.m,
+                  args.n,
+                  args.k,
+                  alpha_val,
+                  mat1_ptr,
+                  args.lda,
+                  mat2_ptr,
+                  args.ldb,
+                  beta_val,
+                  result_ptr,
+                  args.result_ld);
+              }
+            }
+            else{
+              // std::cout << "Calling gemm function" << std::endl;
+              at::cuda::blas::gemm<scalar_t>(
+                args.transa,
+                args.transb,
+                args.m,
+                args.n,
+                args.k,
+                alpha_val,
+                mat1_ptr,
+                args.lda,
+                mat2_ptr,
+                args.ldb,
+                beta_val,
+                result_ptr,
+                args.result_ld);
+            }
+          }
         });
     switch (activation) {
       case Activation::RELU:
@@ -440,6 +663,11 @@ const Tensor& baddbmm_out_cuda_impl(const Tensor& result, const Tensor& self, co
   IntArrayRef result_strides = result.strides();
   IntArrayRef result_sizes = result.sizes();
 
+  // std::cout << "baddbmm size: [" << result_sizes[0] << ", "<< result_sizes[1] << ", " << result_sizes[2] << "]" << std::endl;
+  // std::vector<int64_t> vec = {result_sizes[0], (result_sizes[1]+1), (result_sizes[2]+1)};
+  // at::IntArrayRef array_ref(vec);
+  // std::cout << "[" << array_ref[0] << ", "<< array_ref[1] << ", " << array_ref[2] << "]" << std::endl;
+
   if ((result_strides[1] == 1) &&
       ((result_sizes[2] == 1) || (result_strides[2] >= std::max<int64_t>(1, result_sizes[1])))) {
     result_ = resolve_conj_if_indicated(result, true);
@@ -476,6 +704,16 @@ const Tensor& baddbmm_out_cuda_impl(const Tensor& result, const Tensor& self, co
     scalar_t* result_ptr = result_->mutable_data_ptr<scalar_t>();
     const auto transa = transpose_batch1 ? batch1_->is_conj() ? 'c' : 't' : 'n';
     const auto transb = transpose_batch2 ? batch2_->is_conj() ? 'c' : 't' : 'n';
+
+    const char* homeDir = nullptr;
+    homeDir = getenv("HOME");
+    if (homeDir == nullptr) {
+      std::cerr << "Could not get home directory" << std::endl;
+      return;
+    } 
+    
+    // result.resize_(array_ref);
+
     // If batch is 1 call gemm rather than bgemm
     if (num_batches == 1) {
       at::cuda::blas::gemm<scalar_t>(
@@ -487,9 +725,13 @@ const Tensor& baddbmm_out_cuda_impl(const Tensor& result, const Tensor& self, co
           beta_val,
           result_ptr, ldc);
     } else {
-      std::ifstream myfile("/home/exouser/IFABFT.txt");
+      fs::path homePath(homeDir);
+      fs::path destinationFile = "./control/IFABFT.txt";
+      fs::path fullPath = homePath / destinationFile;
+      std::ifstream myfile(destinationFile);
+      // std::ifstream myfile("/home/yliang/abftbgemm/control/IFABFT.txt");
       if (!myfile.is_open()){
-        std::cout << "Calling bgemm function" << std::endl;
+        // std::cout << "Calling bgemm function" << std::endl;
           at::cuda::blas::bgemm<scalar_t>(
           transa, transb,
           m, n, k,
@@ -506,7 +748,7 @@ const Tensor& baddbmm_out_cuda_impl(const Tensor& result, const Tensor& self, co
         myfile.get(flag);
         myfile.close();
         if(flag == 't'){
-          std::cout << "Calling mybgemm function" << std::endl;
+          // std::cout << "Calling mybgemm function" << std::endl;
           at::cuda::blas::mybgemm<scalar_t>(
             transa, transb,
             m, n, k,
@@ -519,7 +761,7 @@ const Tensor& baddbmm_out_cuda_impl(const Tensor& result, const Tensor& self, co
           );
         }
         else{
-          std::cout << "Calling bgemm function" << std::endl;
+          // std::cout << "Calling bgemm function" << std::endl;
           at::cuda::blas::bgemm<scalar_t>(
             transa, transb,
             m, n, k,
