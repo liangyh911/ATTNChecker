@@ -151,3 +151,9 @@ print("ATTNChecker Loss: ", attn_Loss)
 # print("no ATTNChecker Attn Time: ", AttnTime)
 # print("no ATTNChecker Training Time: ", TrainingTime)
 print("no ATTNChecker Loss: ", Loss)
+
+with open("./ABFT_running_time/bertCache.txt", "a") as fr:
+   fr.truncate(0)
+   fr.write(str(TrainingTime))
+#    fr.write("\n")
+#    fr.write(str(attn_TrainingTime))
