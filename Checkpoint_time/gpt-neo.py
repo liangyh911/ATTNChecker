@@ -52,7 +52,7 @@ homePath = get_home_directory_with_expanduser()
 path = "./Checkpoint_time/Checkpoint"
 
 # iter = 5453
-Iter = 1
+Iter = 20
 for i in range(Iter):
     print(i)
     model = AutoModelForSequenceClassification.from_pretrained(
@@ -97,6 +97,14 @@ for i in range(Iter):
     load_time += (time.perf_counter() - start)
 
 
-print("Save Time: ", (save_time / Iter)*1000)
-print("Load Time: ", (load_time / Iter)*1000)
-print("Saving and Loading time: ", (save_time / Iter + load_time / Iter)*1000)
+# print("Save Time: ", (save_time / Iter)*1000)
+# print("Load Time: ", (load_time / Iter)*1000)
+# print("Saving and Loading time: ", (save_time / Iter + load_time / Iter)*1000)
+
+fr =  open("./ABFT_running_time/gptneoCache.txt", "r")
+Lines = fr.readlines()
+training_time = float(Lines[0])
+# attn_training_time = float(Lines[1])
+checkpoint_time = training_time + (save_time / Iter + load_time / Iter)*1000
+
+print("Overhead of Checkpointing: ",(checkpoint_time-training_time)/training_time)
