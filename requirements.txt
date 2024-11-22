@@ -1,0 +1,6 @@
+# Python dependencies required for ATTNChecker
+accelerate==0.26.1
+datasets==2.18.0
+evaluate==0.4.1
+scikit-learn==1.3.2
+transformers==4.37.2
