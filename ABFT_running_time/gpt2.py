@@ -103,6 +103,9 @@ def run_training(Iter):
 
 
 Iter = 20
+with open("./control/AttnChecker_Mod.txt", "w") as fr:
+    fr.truncate(0)
+    fr.write("2")
 # get perpation time
 with open("./control/DEBUG.txt", "w") as fr:
     fr.truncate(0)
@@ -124,8 +127,36 @@ Attn = "./records/time/attn.txt"
 prepartion = "./records/time/preparation.txt"
 
 preparation_time = prepare_time_attn(prepartion)
-AttnTime = get_attn_time(Attn)*1000 - (preparation_time)
+attn_AttnTime = get_attn_time(Attn)*1000 - (preparation_time)
+attn_TrainingTime = (T / Iter)*1000 - num_attn_heads*preparation_time
+attn_Loss = lossLis / Iter
 
-print("Attention Mechanism Running Time: ", AttnTime)
-print("Training Time: ", (T / Iter)*1000 - num_attn_heads*preparation_time)
-print("Loss: ", lossLis / Iter)
+
+# disable ATTNChecker
+with open("./control/AttnChecker_Mod.txt", "w") as fr:
+    fr.truncate(0)
+    fr.write("0")
+with open("./records/time/attn.txt", "w") as fr:
+    fr.truncate(0)
+
+# get training time
+with open("./control/DEBUG.txt", "w") as fr:
+    fr.truncate(0)
+    fr.write('f')
+T, lossLis = run_training(Iter)
+
+AttnTime = get_attn_time(Attn)*1000
+TrainingTime = (T / Iter)*1000
+Loss = lossLis / Iter
+
+print("Attention Mechanism Overhead: ", (attn_AttnTime-AttnTime)/AttnTime)
+print("Training Overhead: ", (attn_TrainingTime-TrainingTime)/TrainingTime)
+
+# print("ATTNChecker Attn Time: ", attn_AttnTime)
+# print("ATTNChecker Training Time: ", attn_TrainingTime)
+print("ATTNChecker Loss: ", attn_Loss)
+
+
+# print("no ATTNChecker Attn Time: ", AttnTime)
+# print("no ATTNChecker Training Time: ", TrainingTime)
+print("no ATTNChecker Loss: ", Loss)
