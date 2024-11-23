@@ -53,6 +53,12 @@ path = "./Checkpoint_time/Checkpoint"
 
 # iter = 5453
 Iter = 20
+
+# disable ATTNChecker
+with open("./control/AttnChecker_Mod.txt", "w") as fr:
+    fr.truncate(0)
+    fr.write("0")
+
 for i in range(Iter):
     print(i)
     model = AutoModelForSequenceClassification.from_pretrained(

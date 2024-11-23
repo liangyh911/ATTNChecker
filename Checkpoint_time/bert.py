@@ -46,6 +46,12 @@ homePath = get_home_directory_with_expanduser()
 path = "./Checkpoint_time/Checkpoint"
 
 Iter = 20
+
+# disable ATTNChecker
+with open("./control/AttnChecker_Mod.txt", "w") as fr:
+    fr.truncate(0)
+    fr.write("0")
+
 for i in range(Iter):
     print(i)
     training_args = TrainingArguments(
