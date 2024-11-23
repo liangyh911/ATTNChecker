@@ -4,7 +4,7 @@
 
 ### Docker Image
 
-You can also pull a pre-built docker image from Docker Hub
+You can pull and run a pre-built docker image from Docker Hub
 
 ```shell
 docker pull lyh911/attnchk-pytorch:1.0
