@@ -11,7 +11,7 @@ docker pull lyh911/attnchk-pytorch:1.0
 docker run --ipc=host --shm-size=512m --gpus all -it --rm lyh911/attnchk-pytorch:1.0
 ```
 
-After run the docker image, you can follow the instructions in the [Usage](#usage) Section do the experiments.
+After run the docker image, you can follow the instructions in the [Usage](#usage) Section to do the tests.
 
 ### From Source
 
