@@ -2,6 +2,8 @@
 
 ## Installation
 
+There are two options to install ATTNChecker, Docker Image and From Source. You can choose any one to install ATTNChecker.
+
 ### Docker Image
 
 You can pull and run a pre-built docker image from Docker Hub
@@ -166,4 +168,3 @@ Here is an example output of bert model. For each test, the output results may v
 ```shell
 Overhead of Checkpointing:  8.522816600251735
 ```
-
