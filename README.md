@@ -2,7 +2,7 @@
 
 ## Installation
 
-There are two options to install ATTNChecker, Docker Image and From Source. You can choose any one of them to install ATTNChecker.
+There are two options to install ATTNChecker, [Docker Image](#docker-image) and [From Source](#from-source). You can choose any one of them to install ATTNChecker.
 
 ### Docker Image
 
