@@ -135,7 +135,7 @@ python ./ABFT_running_time/roberta.py
 
 Here is an example output of bert model. For each test, the output results may vary.
 
-The overhead is calculated by 
+The overhead is calculated by
 
 ```math
  Overhead = {(attnchkTime-baselineTime) \over baselineTime}
@@ -177,7 +177,7 @@ Overhead of Checkpointing:  8.522816600251735
 
 ### Training Loss of ATTNChecker and Baseline during 3 Epochs
 
-You can use the scripts in ```./ABFT_epoch_loss``` to get the training loss during 3 epoch-training.
+You can use the scripts in ```./ABFT_epoch_loss``` folder to get the training loss during 3 epoch-training.
 
 ```shell
 # bert
