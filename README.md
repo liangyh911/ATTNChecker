@@ -141,6 +141,8 @@ The overhead is calculated by
  Overhead = {(attnchkTime-baselineTime) \over baselineTime}
 ```
 
+The loss here is the 1-step training loss. You can get 3-epoch loss using the scripts in [Training Loss of ATTNChecker and Baseline during 3 Epochs](#training-loss-of-attnchecker-and-baseline-during-3-epochs).
+
 ```shell
 Attention Mechanism Overhead:  0.14775651309451615
 Training Overhead:  0.0552227860653921
@@ -150,7 +152,7 @@ no ATTNChecker Loss:  0.5106
 
 ### Checkpoint Save and Load Overhead
 
-Before measuring the save and load overhead of checkpoint.
+Before measuring the save and load overhead of checkpoint, please make sure you have tested [ATTNCheck Running Overhead](#attnchecker-running-overhead).
 
 You can use the scripts in ```./Checkpoint_time``` folder to test the save and load time of Checkpointing of a model. Here is an example.
 
@@ -169,7 +171,7 @@ python ./records/cleanRecords.py
 python ./Checkpoint_time/roberta.py
 ```
 
-Here is an example output of bert model. For each test, the output results may vary. The overhead is calculated in the same way as [ATTNChecker](#attnchecker-running-overhead).
+Here is an example output of bert model. For each test, the output results may vary. The overhead is calculated in the same way as ATTNCheck running overhead.
 
 ```shell
 Overhead of Checkpointing:  8.522816600251735
@@ -177,7 +179,7 @@ Overhead of Checkpointing:  8.522816600251735
 
 ### Training Loss of ATTNChecker and Baseline during 3 Epochs
 
-You can use the scripts in ```./ABFT_epoch_loss``` folder to get the training loss during 3 epoch-training.
+You can use the scripts in ```./ABFT_epoch_loss``` folder to get the training loss during 3-epoch training.
 
 ```shell
 # bert
