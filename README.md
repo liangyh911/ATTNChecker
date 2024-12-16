@@ -135,6 +135,8 @@ python ./ABFT_running_time/roberta.py
 
 Here is an example output of bert model. For each test, the output results may vary.
 
+The overhead is calculated by $$ Overhead = {(attnchkTime-baselineTime) \over baselineTime}$$
+
 ```shell
 Attention Mechanism Overhead:  0.14775651309451615
 Training Overhead:  0.0552227860653921
@@ -144,7 +146,7 @@ no ATTNChecker Loss:  0.5106
 
 ### Checkpoint Save and Load Overhead
 
-Before measuring the save and load overhead of checkpoint, please make sure you have disable ATTNChecker.
+Before measuring the save and load overhead of checkpoint.
 
 You can use the scripts in ```./Checkpoint_time``` folder to test the save and load time of Checkpointing of a model. Here is an example.
 
@@ -163,8 +165,36 @@ python ./records/cleanRecords.py
 python ./Checkpoint_time/roberta.py
 ```
 
-Here is an example output of bert model. For each test, the output results may vary.
+Here is an example output of bert model. For each test, the output results may vary. The overhead is calculated in the same way as [ATTNChecker](#attnchecker-running-overhead).
 
 ```shell
 Overhead of Checkpointing:  8.522816600251735
+```
+
+### Training Loss of ATTNChecker and Baseline during 3 Epochs
+
+You can use the scripts in ```./ABFT_epoch_loss``` to get the training loss during 3 epoch-training.
+
+```shell
+# bert
+python ./records/cleanRecords.py
+python ./ABFT_epoch_loss/bert.py
+# gpt2
+python ./records/cleanRecords.py
+python ./ABFT_epoch_loss/gpt2.py
+# gpt neo
+python ./records/cleanRecords.py
+python ./ABFT_epoch_loss/gpt-neo.py
+# roberta
+python ./records/cleanRecords.py
+python ./ABFT_epoch_loss/roberta.py
+```
+
+Here is an example output of bert model. For each test, the output results may vary. The baseline is the training without ATTNChecker.
+
+```shell
+Loss of ATTNChecker: 
+1st epoch:  0.5349 , 2nd epoch:  0.3071 , 3rd epoch:  0.1285
+Loss of Baseline: 
+1st epoch:  0.5635 , 2nd epoch:  0.3362 , 3rd epoch:  0.1312
 ```
