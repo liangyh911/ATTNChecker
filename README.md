@@ -9,8 +9,8 @@ There are two options to install ATTNChecker, [Docker Image](#docker-image) and 
 You can pull and run a pre-built docker image from Docker Hub
 
 ```shell
-docker pull lyh911/attnchk-pytorch:1.0
-docker run --ipc=host --shm-size=512m --gpus all -it --rm lyh911/attnchk-pytorch:1.0
+docker pull lyh911/attnchk-pytorch:2.0
+docker run --ipc=host --shm-size=512m --gpus all -it --rm lyh911/attnchk-pytorch:2.0
 ```
 
 After run the docker image, you can follow the instructions in the [Usage](#usage) Section to do the tests.
