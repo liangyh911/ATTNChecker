@@ -135,7 +135,11 @@ python ./ABFT_running_time/roberta.py
 
 Here is an example output of bert model. For each test, the output results may vary.
 
-The overhead is calculated by $$ Overhead = {(attnchkTime-baselineTime) \over baselineTime}$$
+The overhead is calculated by 
+
+```math
+ Overhead = {(attnchkTime-baselineTime) \over baselineTime}
+```
 
 ```shell
 Attention Mechanism Overhead:  0.14775651309451615
