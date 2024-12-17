@@ -152,7 +152,7 @@ no ATTNChecker Loss:  0.5106
 
 ### Checkpoint Save and Load Overhead
 
-Before measuring the save and load overhead of checkpoint, please make sure you have tested [ATTNCheck Running Overhead](#attnchecker-running-overhead).
+Before measuring the save and load overhead of checkpoint, please make sure you have tested [ATTNChecker Running Overhead](#attnchecker-running-overhead).
 
 You can use the scripts in ```./Checkpoint_time``` folder to test the save and load time of Checkpointing of a model. Here is an example.
 
@@ -171,7 +171,7 @@ python ./records/cleanRecords.py
 python ./Checkpoint_time/roberta.py
 ```
 
-Here is an example output of bert model. For each test, the output results may vary. The overhead is calculated in the same way as ATTNCheck running overhead.
+Here is an example output of bert model. For each test, the output results may vary. The overhead is calculated in the same way as ATTNChecker running overhead.
 
 ```shell
 Overhead of Checkpointing:  8.522816600251735
